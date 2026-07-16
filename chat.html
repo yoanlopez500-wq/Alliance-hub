@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Chat - Alliance Hub V2</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="assets/css/theme.css">
+<script src="assets/js/cache-buster.js"></script>
+<script src="assets/js/loader.js"></script>
+<script>AHLoader.init({ role: 'chat', pageScript: 'assets/js/pages/chat.js' });</script>
+<meta name="theme-color" content="#0f172a">
+<style>
+html, body { height: 100dvh; overflow: hidden; }
+</style>
+</head>
+<body class="bg-slate-100 flex flex-col overflow-hidden">
+<div id="admin-nav"></div>
+<div id="access-denied" class="hidden fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
+<div class="text-center text-white max-w-sm">
+<div class="text-5xl mb-4">&#128274;</div>
+<h2 class="text-2xl font-bold mb-2">Acceso Restringido</h2>
+<p class="text-slate-400 mb-6">Solo para administradores y lideres de alianza.</p>
+<a href="index.html" class="inline-block bg-amber-500 text-slate-900 px-6 py-3 rounded-lg font-bold hover:bg-amber-400">Volver al inicio</a>
+</div>
+</div>
+<div id="loading-screen" class="flex-1 flex items-center justify-center">
+<div class="text-center">
+<div class="animate-spin text-4xl mb-4 inline-block">&#9203;</div>
+<p class="text-slate-500">Verificando acceso...</p>
+</div>
+</div>
+<div id="chat-interface" class="flex-1 flex overflow-hidden hidden relative">
+<div id="sidebar-overlay" onclick="closeSidebar()" class="fixed inset-0 bg-black/30 z-30 hidden md:hidden"></div>
+<div id="chat-sidebar" class="fixed md:relative z-40 w-72 md:w-56 bg-slate-800 text-white flex flex-col border-r border-slate-700 h-full shrink-0">
+<div class="p-3 border-b border-slate-700 flex items-center justify-between">
+<div><h2 class="text-base font-bold text-amber-400">&#128172; Chat</h2><p class="text-[10px] text-slate-400" id="my-role-display">-</p></div>
+<button onclick="closeSidebar()" class="md:hidden text-slate-400 hover:text-white p-1">&#10005;</button>
+</div>
+<div class="flex-1 overflow-y-auto p-2 space-y-0.5">
+<p class="text-[10px] text-slate-500 px-2 py-1 uppercase tracking-wider font-bold">Canales</p>
+<div id="global-channels" class="space-y-0.5"></div>
+<div class="border-t border-slate-700 my-2"></div>
+<div class="flex items-center justify-between px-2 py-1">
+<p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Directos</p>
+<button onclick="openDMSearch()" class="text-amber-400 hover:text-amber-300 text-xs px-1">&#10133;</button>
+</div>
+<div id="dm-list" class="space-y-0.5"></div>
+</div>
+<div class="p-2 border-t border-slate-700 text-center text-[10px] text-slate-500">&#128190; Ultimos 30 mensajes por canal</div>
+</div>
+<div class="flex-1 flex flex-col bg-white min-w-0 relative">
+<div class="bg-white border-b border-slate-200 px-3 md:px-4 py-2.5 flex items-center justify-between shrink-0">
+<div class="flex items-center gap-3 min-w-0">
+<button onclick="openSidebar()" class="md:hidden text-slate-600 p-1 shrink-0">&#9776;</button>
+<div class="min-w-0">
+<h3 class="text-sm font-bold text-slate-800 truncate" id="channel-title">-</h3>
+<p class="text-[11px] text-slate-500 flex items-center gap-1" id="channel-status">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-300 dot-online" id="status-dot"></span>
+<span id="status-text">...</span>
+</p>
+</div>
+</div>
+</div>
+<div id="chat-scroll" class="flex-1 overflow-y-auto px-3 md:px-4 py-3 bg-slate-50 relative">
+<div class="text-center py-12 text-slate-400"><div class="text-4xl mb-3">&#128172;</div><p class="text-sm">Selecciona un canal</p></div>
+</div>
+<button id="scroll-btn" onclick="scrollToBottom(true)" class="scroll-btn hidden-btn absolute bottom-24 right-4 w-9 h-9 bg-white rounded-full shadow-lg border border-slate-200 flex items-center justify-center text-slate-600 z-10 text-sm">&#11015;</button>
+<div class="border-t border-slate-200 px-3 md:px-4 pt-2.5 pb-2.5 safe-bottom bg-white shrink-0" style="padding-bottom: max(env(safe-area-inset-bottom, 16px), 20px);">
+<div class="flex gap-2 items-center">
+<input type="text" id="chat-input" class="flex-1 border border-slate-300 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-slate-50" placeholder="Mensaje..." onkeypress="if(event.key==='Enter') sendMessage()">
+<button onclick="sendMessage()" class="bg-amber-500 text-white w-10 h-10 rounded-full font-bold hover:bg-amber-400 transition flex items-center justify-center text-lg shrink-0 shadow-md">&#10148;</button>
+</div>
+<div id="typing-indicator" class="text-[11px] text-slate-400 mt-1 h-4 pl-1"></div>
+</div>
+</div>
+</div>
+<div id="dm-search-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+<div class="bg-white rounded-2xl w-full max-w-md p-5 shadow-2xl">
+<h3 class="font-bold text-slate-800 mb-3">&#128172; Nuevo Directo</h3>
+<input type="text" id="dm-search-input" placeholder="Buscar..." class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-amber-500 outline-none mb-3 text-sm" onkeyup="searchDMUsers()">
+<div id="dm-search-results" class="space-y-1 max-h-60 overflow-y-auto"></div>
+<button onclick="closeDMSearch()" class="mt-3 w-full py-2 bg-slate-100 text-slate-600 rounded-lg font-bold text-sm hover:bg-slate-200">Cancelar</button>
+</div>
+</div>
+<div id="report-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+<div class="bg-white rounded-2xl w-full max-w-md p-5 shadow-2xl">
+<h3 class="font-bold text-red-700 mb-2">&#128681; Reportar</h3>
+<div class="bg-amber-50 rounded-lg p-3 mb-3 text-sm">
+<p class="text-slate-600">"<span id="report-msg-text" class="font-medium"></span>"</p>
+<p class="text-[11px] text-slate-400 mt-1">de: <span id="report-msg-sender"></span></p>
+</div>
+<select id="report-reason" class="w-full px-3 py-2 rounded-lg border border-slate-300 mb-3 text-sm">
+<option value="spam">Spam</option>
+<option value="harassment">Acoso</option>
+<option value="inappropriate">Inapropiado</option>
+<option value="other">Otro</option>
+</select>
+<div class="flex gap-3">
+<button onclick="submitReport()" class="flex-1 bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-400 text-sm">Reportar</button>
+<button onclick="closeReportModal()" class="flex-1 bg-slate-100 text-slate-600 font-bold py-2 rounded-lg hover:bg-slate-200 text-sm">Cerrar</button>
+</div>
+</div>
+</div>
+</body>
+</html>

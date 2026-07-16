@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Equipo - Alliance Hub</title>
+<link rel="stylesheet" href="../assets/css/theme.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/cache-buster.js"></script>
+<script src="../assets/js/loader.js"></script>
+<script>
+AHLoader.init({
+    role: 'admin',
+    extraScripts: ['../assets/js/admin-base.js'],
+    pageScript: '../assets/js/pages/admin-officers.js'
+});
+</script>
+<meta name="theme-color" content="#0f172a">
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-200" data-role="alliance_leader">
+<div id="admin-nav"></div>
+
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold text-white mb-2">&#11088; Mi Equipo</h1>
+    <p class="text-slate-400 mb-6">Gestiona los oficiales y co-líderes de tu alianza.</p>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-center">
+            <div class="text-3xl font-bold text-white" id="stat-total">-</div>
+            <div class="text-xs text-slate-500 uppercase">Miembros</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-center">
+            <div class="text-3xl font-bold text-emerald-400" id="stat-officers">-</div>
+            <div class="text-xs text-slate-500 uppercase">Oficiales</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-center">
+            <div class="text-3xl font-bold text-green-400" id="stat-coleaders">-</div>
+            <div class="text-xs text-slate-500 uppercase">Co-Líderes</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-center">
+            <div class="text-3xl font-bold text-orange-400" id="stat-duels">-</div>
+            <div class="text-xs text-slate-500 uppercase">Duelos</div>
+        </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6 mb-8">
+        <!-- Nombrar oficial -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+            <h2 class="font-bold text-white mb-4">&#10133; Nombrar Oficial</h2>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">ID del Jugador</label>
+                    <input type="number" id="off-player-id" class="w-full px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white text-sm outline-none" placeholder="ID de jugador">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Rol</label>
+                    <select id="off-role" class="w-full px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white text-sm outline-none">
+                        <option value="officer">&#11088; Oficial</option>
+                        <option value="co_leader">&#128081; Co-Líder</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Título personalizado</label>
+                    <input type="text" id="off-title" class="w-full px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white text-sm outline-none" placeholder="Ej: Comandante de Duelos">
+                </div>
+                <button onclick="appointOfficer()" class="w-full px-4 py-2.5 rounded-lg font-bold text-sm bg-orange-500 hover:bg-orange-400 text-white transition">Nombrar</button>
+            </div>
+        </div>
+
+        <!-- Transferir liderazgo -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+            <h2 class="font-bold text-white mb-4">&#128260; Transferir Liderazgo</h2>
+            <p class="text-xs text-slate-500 mb-4">Transfiere el liderazgo a un miembro de tu alianza. Esta acción no se puede deshacer.</p>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">ID del Nuevo Líder</label>
+                    <input type="number" id="transfer-player-id" class="w-full px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white text-sm outline-none" placeholder="ID de jugador">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Razón</label>
+                    <input type="text" id="transfer-reason" class="w-full px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white text-sm outline-none" placeholder="Ej: Retiro personal">
+                </div>
+                <button onclick="transferLeadership()" class="w-full px-4 py-2.5 rounded-lg font-bold text-sm bg-red-500 hover:bg-red-400 text-white transition">&#9888; Transferir Liderazgo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de oficiales -->
+    <h2 class="font-bold text-white mb-4">&#128203; Equipo Actual</h2>
+    <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-700/50">
+                <tr>
+                    <th class="text-left p-3 text-slate-400">Jugador</th>
+                    <th class="text-left p-3 text-slate-400">Rol</th>
+                    <th class="text-left p-3 text-slate-400">Título</th>
+                    <th class="text-left p-3 text-slate-400">Permisos</th>
+                    <th class="text-left p-3 text-slate-400">Nombrado</th>
+                    <th class="text-left p-3 text-slate-400">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="officers-tbody">
+                <tr><td colspan="6" class="text-center py-8 text-slate-500">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</body>
+</html>

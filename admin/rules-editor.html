@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Editor de Reglamento - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/css/theme.css">
+<script src="../assets/js/cache-buster.js"></script>
+<script src="../assets/js/loader.js"></script>
+<script>
+AHLoader.init({
+    role: 'admin',
+    extraScripts: ['../assets/js/admin-base.js'],
+    pageScript: '../assets/js/pages/admin-rules-editor.js'
+});
+</script>
+</head>
+<body class="min-h-screen" data-role="admin">
+<div id="admin-nav"></div>
+
+<div class="max-w-6xl mx-auto px-4 py-6">
+<!-- Header -->
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
+<div>
+<h1 class="text-2xl font-bold">&#128220; Editor de Reglamento</h1>
+<p class="text-sm" style="color:#9fa8da;">CRUD de secciones, reordenamiento y gestion de precedentes.</p>
+</div>
+<div id="role-badge" class="text-xs px-3 py-1 rounded-full font-bold" style="background:#1a237e;color:#9fa8da;">...</div>
+</div>
+
+<!-- Tabs -->
+<div class="flex gap-6 mb-6 border-b" style="border-color:#1a237e;">
+<button id="tab-sections-btn" onclick="switchTab('sections')" class="tab-active pb-3 text-sm font-bold transition">&#128220; Secciones</button>
+<button id="tab-precedents-btn" onclick="switchTab('precedents')" class="tab-inactive pb-3 text-sm font-bold transition">&#9878;&#65039; Precedentes</button>
+</div>
+
+<!-- ===== SECTIONS TAB ===== -->
+<div id="tab-sections">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-lg font-bold">Secciones del Reglamento</h2>
+<button onclick="openSectionModal()" class="px-4 py-2 rounded-lg text-sm font-bold transition active:scale-[0.98]" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">&#10133; Nueva Seccion</button>
+</div>
+<div id="sections-list" class="space-y-2">Cargando...</div>
+</div>
+
+<!-- ===== PRECEDENTS TAB ===== -->
+<div id="tab-precedents" class="hidden">
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
+<h2 class="text-lg font-bold">Precedentes y Jurisprudencia</h2>
+<div class="flex gap-2">
+<input type="text" id="prec-search" placeholder="Buscar precedentes..." class="px-3 py-2 rounded-lg border text-sm" style="background:#11183a;border-color:#1a237e;color:#e8eaf6;min-width:220px;" oninput="filterPrecedents(this.value)">
+<button onclick="openPrecedentModal()" class="px-4 py-2 rounded-lg text-sm font-bold transition active:scale-[0.98] whitespace-nowrap" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">&#10133; Nuevo Precedente</button>
+</div>
+</div>
+<p id="prec-permission-hint" class="text-xs mb-3 hidden" style="color:#9fa8da;">&#128161; Como admin junior, solo puedes crear precedentes. El superadmin puede editar y eliminar.</p>
+<div id="precedents-list">Cargando...</div>
+</div>
+</div>
+
+<!-- ===== SECTION MODAL ===== -->
+<div id="section-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.7);">
+<div class="modal-content rounded-xl p-6 w-full max-w-lg mx-4" style="background:#fff;color:#0f172a;">
+<h3 id="section-modal-title" class="text-lg font-bold mb-4" style="color:#0f172a;">Nueva Seccion</h3>
+<input type="hidden" id="section-id">
+<div class="mb-3"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Titulo *</label><input type="text" id="section-title" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="Ej: Regla 1 - Conducta"></div>
+<div class="mb-3"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Contenido *</label><textarea id="section-content" rows="6" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="Describe la regla..."></textarea></div>
+<div class="mb-3"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Visibilidad</label><select id="section-visibility" class="w-full px-3 py-2 rounded-lg border text-sm"><option value="public">Publica (todos)</option><option value="training">Capacitacion</option><option value="officials_only">Solo Oficiales</option></select></div>
+<div class="mb-3"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Numero de Seccion *</label><input type="text" id="section-number" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="Ej: 1, 1.1, 2.3.4" pattern="^\d+(\.\d+)*$" required><p class="text-xs mt-1" style="color:#64748b;">Formato: 1, 1.1, 1.2, 2.3.4</p></div>
+<div class="mb-4"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Seccion Padre (opcional)</label><select id="section-parent" class="w-full px-3 py-2 rounded-lg border text-sm"><option value="">-- Sin padre (seccion principal) --</option></select><p class="text-xs mt-1" style="color:#64748b;">Selecciona una seccion principal si esta es una subseccion</p></div>
+<div class="flex gap-2 justify-end"><button onclick="closeSectionModal()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:#e2e8f0;color:#0f172a;">Cancelar</button><button onclick="saveSection()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">Guardar</button></div>
+</div></div>
+
+<!-- ===== PRECEDENT MODAL ===== -->
+<div id="precedent-modal" class="hidden fixed inset-0 z-50 flex items-start justify-center pt-8 pb-8 overflow-y-auto" style="background:rgba(0,0,0,0.7);">
+<div class="modal-content rounded-xl p-6 w-full max-w-xl mx-4 my-auto" style="background:#fff;color:#0f172a;">
+<h3 id="precedent-modal-title" class="text-lg font-bold mb-4" style="color:#0f172a;">Nuevo Precedente</h3>
+<input type="hidden" id="precedent-id">
+<input type="hidden" id="precedent-created-by">
+
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+<div class="sm:col-span-2 mb-1"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Titulo *</label><input type="text" id="prec-title" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="Ej: Uso de exploits en partida clasificatoria"></div>
+<div class="sm:col-span-2 mb-1"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Descripcion *</label><textarea id="prec-desc" rows="3" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="Describe el caso y su resolucion..."></textarea></div>
+<div class="mb-1"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Seccion relacionada *</label><select id="prec-section" class="w-full px-3 py-2 rounded-lg border text-sm"><option value="">Seleccionar...</option></select></div>
+<div class="mb-1"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Severidad *</label><select id="prec-severity" class="w-full px-3 py-2 rounded-lg border text-sm"><option value="low">&#128994; Leve</option><option value="medium">&#128992; Medio</option><option value="high">&#128308; Alto</option></select></div>
+<div class="mb-1"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">ID del Jugador</label>
+<div class="flex gap-2"><input type="number" id="prec-player-id" class="flex-1 px-3 py-2 rounded-lg border text-sm" placeholder="Ej: 12345" onchange="resolvePlayerName()"><button onclick="resolvePlayerName()" class="px-3 py-2 rounded-lg text-xs font-bold" style="background:#1a237e;color:#fff;">Buscar</button></div>
+<div id="player-name-display" class="text-xs mt-1 font-medium" style="color:#4caf50;min-height:1.25rem;"></div>
+</div>
+<div class="mb-1"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Partida relacionada</label><select id="prec-match" class="w-full px-3 py-2 rounded-lg border text-sm"><option value="">Ninguna</option></select></div>
+<div class="mb-1"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Tipo de Strike</label><input type="text" id="prec-strike-type" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="Ej: Strike 1 - Amonestacion"></div>
+<div class="sm:col-span-2 mb-1"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Resolucion</label><textarea id="prec-resolution" rows="2" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="Decision final aplicada..."></textarea></div>
+</div>
+
+<div class="flex gap-2 justify-end mt-4"><button onclick="closePrecedentModal()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:#e2e8f0;color:#0f172a;">Cancelar</button><button onclick="savePrecedent()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">Guardar</button></div>
+</div></div>
+
+<!-- ===== DELETE CONFIRMATION MODAL ===== -->
+<div id="delete-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.7);">
+<div class="modal-content rounded-xl p-6 w-full max-w-sm mx-4" style="background:#fff;color:#0f172a;">
+<h3 class="text-lg font-bold mb-2" style="color:#c62828;">&#9888;&#65039; Confirmar Eliminacion</h3>
+<p class="text-sm mb-4" style="color:#475569;">Esta accion no se puede deshacer. El precedente sera eliminado permanentemente.</p>
+<input type="hidden" id="delete-precedent-id">
+<div class="flex gap-2 justify-end"><button onclick="closeDeleteModal()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:#e2e8f0;color:#0f172a;">Cancelar</button><button onclick="confirmDeletePrecedent()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:#c62828;color:#fff;">Eliminar</button></div>
+</div></div>
+
+</body>
+</html>

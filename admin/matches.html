@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Partidas - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/css/theme.css">
+<script src="../assets/js/cache-buster.js"></script>
+<script src="../assets/js/loader.js"></script>
+<script>
+AHLoader.init({
+    role: 'admin',
+    pageScript: '../assets/js/pages/admin-matches.js',
+    extraScripts: ['../assets/js/admin-base.js']
+});
+</script>
+</head>
+<body class="min-h-screen" data-role="admin">
+<div id="admin-nav"></div>
+<div class="max-w-6xl mx-auto px-4 py-8">
+<div class="flex items-center justify-between mb-6"><div><h1 class="text-2xl font-bold">&#127918; Partidas</h1><p class="text-sm text-ah-muted">Gestion de partidas organizadas.</p></div><button onclick="openMatchModal()" class="px-4 py-2 rounded-lg text-sm font-bold gradient-btn">&#10133; Nueva Partida</button></div>
+<div class="flex gap-2 mb-4"><select id="filter-status" onchange="adminMatches.load()" class="px-3 py-2 rounded-lg border text-sm bg-ah-card text-ah-text border-indigo-900"><option value="">Todos los estados</option><option value="draft">Borradores</option><option value="open">Abiertas</option><option value="in_progress">En curso</option><option value="finished">Finalizadas</option><option value="archived">Archivadas</option></select><input type="text" id="search-match" placeholder="Buscar partida..." class="flex-1 px-3 py-2 rounded-lg border text-sm bg-ah-card text-ah-text border-indigo-900" oninput="filterMatches(this.value)"></div>
+<div id="matches-list">Cargando...</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e27">
+<link rel="manifest" href="manifest.json">
+<title>Login Admin - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="assets/css/theme.css">
+<script src="assets/js/cache-buster.js"></script>
+<script src="assets/js/loader.js"></script>
+<script>AHLoader.init({ role: 'admin', pageScript: 'assets/js/pages/login.js' });</script>
+</head>
+<body class="bg-ah-bg min-h-screen flex items-center justify-center px-4 text-ah-text" data-role="admin">
+
+<div class="bg-ah-card rounded-2xl shadow-2xl p-8 w-full max-w-md border border-ah-border">
+<div class="text-center mb-8">
+<div class="text-4xl mb-3">&#9876;&#65039;</div>
+<h1 class="text-2xl font-bold text-ah-text">Alliance Hub</h1>
+<p class="text-ah-muted text-sm mt-1">Panel de Administracion</p>
+</div>
+
+<div class="flex mb-6 border-b border-ah-border overflow-x-auto scrollbar-hide">
+<button onclick="showTab('login')" id="tab-login" class="flex-1 pb-3 text-sm font-bold text-ah-accent border-b-2 border-ah-accent whitespace-nowrap min-w-[80px]">Login</button>
+<button onclick="showTab('signup')" id="tab-signup" class="flex-1 pb-3 text-sm font-bold text-ah-muted hover:text-ah-text whitespace-nowrap min-w-[80px]">Acceso con Codigo</button>
+<button onclick="showTab('reset')" id="tab-reset" class="flex-1 pb-3 text-sm font-bold text-ah-muted hover:text-ah-text whitespace-nowrap min-w-[80px]">Recuperar</button>
+</div>
+
+<div id="form-login">
+<form id="login-form" class="space-y-4">
+<div><label class="block text-sm font-medium text-ah-muted mb-1">Email</label>
+<input type="email" id="login-email" required class="w-full px-4 py-3 rounded-lg border border-ah-border bg-ah-bg text-ah-text focus:border-ah-accent focus:ring-2 focus:ring-ah-accent/20 outline-none transition min-h-[48px]" placeholder="admin@ejemplo.com"></div>
+<div><label class="block text-sm font-medium text-ah-muted mb-1">Contrasena</label>
+<input type="password" id="login-password" required class="w-full px-4 py-3 rounded-lg border border-ah-border bg-ah-bg text-ah-text focus:border-ah-accent focus:ring-2 focus:ring-ah-accent/20 outline-none transition min-h-[48px]" placeholder="Tu contrasena"></div>
+<button type="submit" class="w-full bg-ah-accent text-white font-bold py-3 rounded-lg hover:bg-ah-accent/80 transition min-h-[48px]">Entrar al Panel</button>
+</form></div>
+
+<div id="form-signup" class="hidden">
+<form id="signup-form" class="space-y-4">
+<div><label class="block text-sm font-medium text-ah-muted mb-1">Email</label>
+<input type="email" id="signup-email" required class="w-full px-4 py-3 rounded-lg border border-ah-border bg-ah-bg text-ah-text focus:border-ah-accent focus:ring-2 focus:ring-ah-accent/20 outline-none transition min-h-[48px]" placeholder="nuevo@ejemplo.com"></div>
+<div><label class="block text-sm font-medium text-ah-muted mb-1">Contrasena</label>
+<input type="password" id="signup-password" required minlength="6" class="w-full px-4 py-3 rounded-lg border border-ah-border bg-ah-bg text-ah-text focus:border-ah-accent focus:ring-2 focus:ring-ah-accent/20 outline-none transition min-h-[48px]" placeholder="Minimo 6 caracteres"></div>
+<div><label class="block text-sm font-medium text-ah-muted mb-1">ID de Supremacy 1914 *</label>
+<input type="number" id="signup-supremacy-id" required class="w-full px-4 py-3 rounded-lg border border-ah-border bg-ah-bg text-ah-text focus:border-ah-accent focus:ring-2 focus:ring-ah-accent/20 outline-none transition min-h-[48px]" placeholder="Ej: 99702975"></div>
+<div><label class="block text-sm font-medium text-ah-muted mb-1">Username en Supremacy *</label>
+<input type="text" id="signup-display-name" required class="w-full px-4 py-3 rounded-lg border border-ah-border bg-ah-bg text-ah-text focus:border-ah-accent focus:ring-2 focus:ring-ah-accent/20 outline-none transition min-h-[48px]" placeholder="Ej: Tlaloc27"></div>
+<div><label class="block text-sm font-medium text-ah-muted mb-1">Codigo de invitacion *</label>
+<input type="text" id="signup-code" required class="w-full px-4 py-3 rounded-lg border border-ah-border bg-ah-bg text-ah-text focus:border-ah-accent focus:ring-2 focus:ring-ah-accent/20 outline-none transition uppercase min-h-[48px]" placeholder="Ej: AHXXXXXX"></div>
+<p class="text-xs text-amber-400 mt-1">Necesitas un codigo de invitacion del superadmin para acceder. Solicitalo antes de registrarte.</p>
+<button type="submit" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-500 transition min-h-[48px]">Registrarme como Admin</button>
+</form></div>
+
+<div id="form-reset" class="hidden">
+<form id="reset-form" class="space-y-4">
+<div><label class="block text-sm font-medium text-ah-muted mb-1">Email de tu cuenta</label>
+<input type="email" id="reset-email" required class="w-full px-4 py-3 rounded-lg border border-ah-border bg-ah-bg text-ah-text focus:border-ah-accent focus:ring-2 focus:ring-ah-accent/20 outline-none transition min-h-[48px]" placeholder="tu-email@ejemplo.com"></div>
+<p class="text-xs text-ah-muted">Te enviaremos un enlace para restablecer tu contrasena.</p>
+<button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-500 transition min-h-[48px]">Enviar Enlace de Recuperacion</button>
+</form></div>
+
+<div id="error-msg" class="mt-4 text-red-400 text-sm text-center hidden"></div>
+<div id="success-msg" class="mt-4 text-green-400 text-sm text-center hidden"></div>
+
+<div class="mt-6 text-center space-y-2">
+<a href="login-player.html" class="text-sm text-green-400 hover:text-green-300 font-medium block min-h-[44px] flex items-center justify-center">Soy Jugador &rarr; Entrar sin contrasena</a>
+<a href="index.html" class="text-sm text-ah-muted hover:text-ah-text block min-h-[44px] flex items-center justify-center">&larr; Volver al inicio</a>
+</div></div>
+
+</body>
+</html>

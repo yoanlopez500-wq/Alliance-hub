@@ -1,0 +1,308 @@
+/**
+ * Alliance Hub - Theme CSS Unificado
+ * Centraliza todas las variables, animaciones, utilidades y estilos custom
+ * que antes estaban dispersos en <style> blocks y theme.js
+ *
+ * Reemplaza:
+ *   - Bloques <style> duplicados en cada HTML
+ *   - Inyeccion CSS de theme.js
+ *   - Animaciones duplicadas (fadeIn, msgIn, pulse, etc.)
+ *   - Estilos de scrollbar, modal, formularios
+ */
+
+/* ===================== CSS VARIABLES ===================== */
+:root {
+    --ah-bg: #0a0e27;
+    --ah-card: #11183a;
+    --ah-text: #e8eaf6;
+    --ah-muted: #9fa8da;
+    --ah-border: #1a237e;
+    --ah-accent: #ff8f00;
+    --ah-accent-hover: #ff6f00;
+    --ah-danger: #ef5350;
+    --ah-success: #4caf50;
+    --ah-info: #2196f3;
+    --ah-warning: #ff8f00;
+}
+
+/* ===================== THEME CLASSES (compatibilidad) ===================== */
+.bg-ah-bg { background-color: var(--ah-bg) !important; }
+.bg-ah-card { background-color: var(--ah-card) !important; }
+.text-ah-text { color: var(--ah-text) !important; }
+.text-ah-muted { color: var(--ah-muted) !important; }
+.text-ah-accent { color: var(--ah-accent) !important; }
+.border-ah-border { border-color: var(--ah-border) !important; }
+.border-ah-accent { border-color: var(--ah-accent) !important; }
+
+/* ===================== BODY BASE (reemplaza <style> duplicado) ===================== */
+body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--ah-bg);
+    color: var(--ah-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===================== ANIMACIONES ===================== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInOnly {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+@keyframes msgIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+@keyframes dots {
+    0%, 20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%, 100% { content: '...'; }
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Clases de animacion reutilizables */
+.fade-in { animation: fadeIn 0.6s ease-out; }
+.fade-in-only { animation: fadeInOnly 0.3s ease-out; }
+.msg-in { animation: msgIn 0.18s ease; }
+.animate-pulse-slow { animation: pulse 2s infinite; }
+.animate-spin { animation: spin 1s linear infinite; }
+.slide-up { animation: slideUp 0.4s ease-out; }
+
+/* ===================== SCROLLBAR UTILITIES ===================== */
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+.scrollbar-thin::-webkit-scrollbar { width: 3px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+/* ===================== MODAL ===================== */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+.modal.active { display: flex; }
+
+/* ===================== FORM INPUTS (tema oscuro) ===================== */
+input.ah-input,
+select.ah-input,
+textarea.ah-input {
+    background-color: var(--ah-card);
+    border: 1px solid var(--ah-border);
+    color: var(--ah-text);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+input.ah-input:focus,
+select.ah-input:focus,
+textarea.ah-input:focus {
+    border-color: var(--ah-accent);
+    box-shadow: 0 0 0 2px rgba(255, 143, 0, 0.2);
+}
+
+/* Fix para inputs en rankings.html que sobreescribian con !important */
+input.ah-input-dark,
+select.ah-input-dark,
+textarea.ah-input-dark {
+    background-color: var(--ah-card) !important;
+    border-color: var(--ah-border) !important;
+    color: var(--ah-text) !important;
+}
+input.ah-input-dark:focus,
+select.ah-input-dark:focus,
+textarea.ah-input-dark:focus {
+    border-color: var(--ah-accent) !important;
+    outline: none !important;
+}
+
+/* ===================== SEVERITY BADGES ===================== */
+.severity-high {
+    background: rgba(198, 40, 40, 0.15);
+    color: #ef5350;
+    border: 1px solid rgba(198, 40, 40, 0.3);
+    border-radius: 0.25rem;
+    padding: 0.125rem 0.5rem;
+}
+.severity-medium {
+    background: rgba(255, 143, 0, 0.15);
+    color: #ff8f00;
+    border: 1px solid rgba(255, 143, 0, 0.3);
+    border-radius: 0.25rem;
+    padding: 0.125rem 0.5rem;
+}
+.severity-low {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    border-radius: 0.25rem;
+    padding: 0.125rem 0.5rem;
+}
+
+/* ===================== PRECEDENT CARD ===================== */
+.precedent-card {
+    transition: all 0.2s ease;
+}
+.precedent-card:hover {
+    border-color: var(--ah-accent-hover) !important;
+}
+
+/* ===================== RULE SUBSECTIONS ===================== */
+.rule-subsection {
+    margin-left: 1.5rem;
+    border-left: 2px solid var(--ah-border);
+    padding-left: 1rem;
+    margin-top: 0.5rem;
+}
+.rule-subsection .rule-subsection {
+    margin-left: 1rem;
+    border-left-color: var(--ah-accent-hover);
+}
+
+/* ===================== KILL NULLIFIED ===================== */
+.kill-nullified {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+
+/* ===================== TOAST ===================== */
+@keyframes fadeInToast {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===================== CHAT (ex chat.html styles) ===================== */
+.chan-active {
+    background: #fef3c7 !important;
+    border: 1px solid #f59e0b !important;
+    font-weight: 700;
+}
+.date-sep {
+    position: sticky;
+    top: 4px;
+    z-index: 5;
+}
+.bubble-mine {
+    border-bottom-right-radius: 3px;
+    background: #f59e0b;
+    color: #1e293b;
+}
+.bubble-other {
+    border-bottom-left-radius: 3px;
+    background: #f1f5f9;
+    color: #334155;
+}
+.dot-online {
+    animation: pulse 2s infinite;
+}
+.scroll-btn {
+    transition: opacity 0.2s, transform 0.2s;
+}
+.scroll-btn.hidden-btn {
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
+}
+.msg-delivered { opacity: 0.7; }
+.msg-failed {
+    opacity: 0.6;
+    border: 1px solid #ef4444 !important;
+}
+.retry-btn {
+    font-size: 10px;
+    color: #ef4444;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.typing-dot::after {
+    content: '';
+    animation: dots 1.2s steps(4, end) infinite;
+}
+
+/* ===================== HERO GLOW ===================== */
+.hero-glow {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.15;
+    pointer-events: none;
+}
+
+/* ===================== STAT/FEATURE CARDS ===================== */
+.stat-card,
+.feature-card {
+    transition: transform 0.2s;
+}
+.stat-card:hover,
+.feature-card:hover {
+    transform: translateY(-4px);
+}
+.feature-card {
+    border: 1px solid var(--ah-border);
+}
+.feature-card:hover {
+    border-color: var(--ah-accent-hover);
+}
+
+/* ===================== GRADIENTS ===================== */
+.gradient-accent {
+    background: linear-gradient(135deg, #ff6f00, #ff8f00);
+}
+.gradient-btn {
+    background: linear-gradient(135deg, #ff6f00, #ff8f00);
+    color: #fff;
+}
+
+/* ===================== UTILITY: Safe area for mobile ===================== */
+.safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+}
+
+/* ===================== RESPONSIVE SIDEBAR (chat) ===================== */
+#chat-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+}
+#chat-sidebar.open {
+    transform: translateX(0);
+}
+@media (min-width: 768px) {
+    #chat-sidebar {
+        transform: none !important;
+        position: relative !important;
+    }
+    #sidebar-overlay {
+        display: none !important;
+    }
+}

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0e27">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="manifest" href="../manifest.json">
+    <title>Registro - Alliance Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../assets/js/theme.js?v=27"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../assets/js/config.js?v=27"></script>
+    <script src="../assets/js/base.js?v=27"></script>
+    <script src="../assets/js/components.js?v=27"></script>
+    <script src="../assets/js/auth.js?v=27"></script>
+    <script src="../assets/js/pwa-utils.js?v=27"></script>
+</head>
+<body class="min-h-screen bg-slate-950" data-role="public">
+    <div id="admin-nav"></div>
+
+    <div class="max-w-lg mx-auto px-4 py-8">
+        <div id="register-container" class="rounded-2xl p-8 bg-slate-900 border border-indigo-900">
+            <div class="text-center mb-6">
+                <div class="text-4xl mb-3">&#128221;</div>
+                <h1 class="text-2xl font-bold text-white">Registro a Partida</h1>
+                <p class="text-slate-400 text-sm" id="match-info">Cargando...</p>
+            </div>
+
+            <!-- Banner de esperando aprobacion -->
+            <div id="waiting-approval-banner" class="hidden rounded-xl p-6 mb-6 text-center border border-amber-500/20 bg-amber-500/10">
+                <div class="text-4xl mb-3">&#9203;</div>
+                <h2 class="font-bold text-amber-400">Esperando aprobacion del admin</h2>
+                <p class="text-sm mt-2 text-slate-400">Tu registro esta pendiente. Cuando el admin te apruebe, veras aqui el ID y contrasena.</p>
+            </div>
+
+            <!-- Datos de partida (solo visibles si aprobado) -->
+            <div id="match-credentials" class="hidden rounded-xl p-6 mb-6 border border-green-500/20 bg-green-500/10">
+                <h2 class="font-bold mb-3 text-green-500">&#128275; Datos de Acceso</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="rounded-lg p-3 bg-slate-950 border border-indigo-900">
+                        <p class="text-xs uppercase font-bold text-green-500">ID de Partida</p>
+                        <p id="cred-game-id" class="text-lg font-mono font-bold text-white">---</p>
+                    </div>
+                    <div class="rounded-lg p-3 bg-slate-950 border border-indigo-900">
+                        <p class="text-xs uppercase font-bold text-green-500">Contrasena</p>
+                        <p id="cred-password" class="text-lg font-mono font-bold text-white">---</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Datos del jugador (display only, NO form fields for username) -->
+            <div id="player-info-display" class="rounded-xl p-4 mb-6 bg-white/[0.03] border border-indigo-900">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg bg-indigo-900">&#128100;</div>
+                    <div>
+                        <p class="text-xs text-slate-400">Jugador</p>
+                        <p class="font-bold text-white" id="display-username">-</p>
+                        <p class="text-xs font-mono text-slate-500" id="display-player-id">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <form id="register-form" class="space-y-4">
+                <!-- Hidden field for player ID (required for form validation but not displayed) -->
+                <input type="hidden" id="reg-player-id" value="">
+                
+                <button type="submit" class="w-full font-bold py-3 rounded-lg transition active:scale-[0.98] min-h-[48px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">
+                    Confirmar Registro
+                </button>
+            </form>
+
+            <div id="error-msg" class="mt-4 text-sm text-center hidden text-red-400"></div>
+            <div id="success-msg" class="mt-4 text-sm text-center hidden text-green-400"></div>
+        </div>
+    </div>
+
+    <script>
+        var urlParams = new URLSearchParams(window.location.search);
+        var matchId = urlParams.get('match');
+        var playerData = getPlayerData();
+
+        if (!matchId) { window.location.href = '../index.html'; }
+        if (!playerData.playerId) { window.location.href = '../login-player.html'; }
+
+        var currentMatch = null;
+        var myRegistration = null;
+
+        async function init() {
+            // Set hidden player ID and display info
+            document.getElementById('reg-player-id').value = playerData.playerId;
+            document.getElementById('display-username').textContent = playerData.displayName || 'Jugador ' + playerData.playerId;
+            document.getElementById('display-player-id').textContent = 'ID: ' + playerData.playerId;
+
+            // Check if already registered
+            var { data: reg, error: regError } = await supabase
+                .from('match_registrations')
+                .select('*')
+                .eq('match_id', matchId)
+                .eq('player_id', parseInt(playerData.playerId))
+                .maybeSingle();
+
+            if (regError) { console.error('Error verificando registro:', regError); }
+
+            myRegistration = reg;
+
+            if (reg && (reg.status === 'confirmed' || reg.status === 'approved')) {
+                document.getElementById('register-form').classList.add('hidden');
+                document.getElementById('player-info-display').classList.add('hidden');
+                document.getElementById('success-msg').textContent = '\u2713 Ya estas registrado en esta partida.';
+                document.getElementById('success-msg').classList.remove('hidden');
+                saveLastRegisteredMatch(matchId);
+                showCredentialsIfApproved();
+                return;
+            }
+
+            if (reg && reg.status === 'pending') {
+                document.getElementById('register-form').classList.add('hidden');
+                document.getElementById('player-info-display').classList.add('hidden');
+                document.getElementById('waiting-approval-banner').classList.remove('hidden');
+                return;
+            }
+
+            if (reg && reg.status === 'rejected') {
+                document.getElementById('error-msg').textContent = '\u2716 Tu solicitud fue rechazada.';
+                document.getElementById('error-msg').classList.remove('hidden');
+                document.getElementById('register-form').classList.add('hidden');
+                document.getElementById('player-info-display').classList.add('hidden');
+                return;
+            }
+
+            // Load match info
+            var { data: match, error: matchError } = await supabase
+                .from('matches')
+                .select('*')
+                .eq('id', matchId)
+                .maybeSingle();
+
+            if (matchError) console.error('Error cargando match:', matchError);
+            if (!match) { document.getElementById('match-info').textContent = 'Partida no encontrada'; return; }
+            currentMatch = match;
+
+            var allianceName = '';
+            if (match.alliance_id) {
+                var { data: alliance } = await supabase.from('alliances').select('name').eq('id', match.alliance_id).maybeSingle();
+                if (alliance) allianceName = alliance.name;
+            }
+
+            document.getElementById('match-info').innerHTML = getStatusBadge(match.status) + ' ' + getTypeBadge(match.match_type) + ' \u2022 ' + match.name + (allianceName ? ' (' + allianceName + ')' : '');
+
+            if (match.status !== 'open') {
+                document.getElementById('register-form').classList.add('hidden');
+                document.getElementById('error-msg').textContent = '\u2716 Esta partida no esta abierta para registro.';
+                document.getElementById('error-msg').classList.remove('hidden');
+            }
+        }
+
+        async function showCredentialsIfApproved() {
+            var { data: match } = await supabase
+                .from('matches')
+                .select('game_id, password, requires_approval')
+                .eq('id', matchId)
+                .maybeSingle();
+
+            if (match) {
+                currentMatch = match;
+                if (!match.requires_approval || (myRegistration && myRegistration.status === 'approved')) {
+                    document.getElementById('match-credentials').classList.remove('hidden');
+                    document.getElementById('cred-game-id').textContent = match.game_id || '---';
+                    document.getElementById('cred-password').textContent = match.password || '---';
+                }
+                if (match.requires_approval && myRegistration && myRegistration.status === 'pending') {
+                    document.getElementById('waiting-approval-banner').classList.remove('hidden');
+                }
+            }
+        }
+
+        document.getElementById('register-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            var errorMsg = document.getElementById('error-msg');
+            var successMsg = document.getElementById('success-msg');
+
+            errorMsg.classList.add('hidden');
+            successMsg.classList.add('hidden');
+
+            // Only send match_id + player_id + status — username is in players table
+            var { error } = await supabase.from('match_registrations').upsert({
+                match_id: matchId,
+                player_id: parseInt(playerData.playerId),
+                status: currentMatch && currentMatch.requires_approval ? 'pending' : 'confirmed'
+            }, { onConflict: 'match_id,player_id' });
+
+            if (error) { errorMsg.textContent = '\u2716 Error: ' + error.message; errorMsg.classList.remove('hidden'); }
+            else {
+                saveLastRegisteredMatch(matchId);
+
+                if (currentMatch && currentMatch.requires_approval) {
+                    successMsg.textContent = '\u2713 Solicitud enviada. Espera aprobacion del admin.';
+                    successMsg.classList.remove('hidden');
+                    document.getElementById('register-form').classList.add('hidden');
+                    document.getElementById('waiting-approval-banner').classList.remove('hidden');
+                } else {
+                    successMsg.textContent = '\u2713 Registrado! Redirigiendo...';
+                    successMsg.classList.remove('hidden');
+                    setTimeout(function() { window.location.href = '../game.html?id=' + matchId; }, 1500);
+                }
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>

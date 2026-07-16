@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Jugadores - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/css/theme.css">
+<script src="../assets/js/cache-buster.js"></script>
+<script src="../assets/js/loader.js"></script>
+<script>
+AHLoader.init({
+    role: 'admin',
+    pageScript: '../assets/js/pages/admin-players.js',
+    extraScripts: ['../assets/js/admin-base.js']
+});
+</script>
+</head>
+<body class="min-h-screen" data-role="admin">
+<div id="admin-nav"></div>
+<div class="max-w-6xl mx-auto px-4 py-8">
+<h1 class="text-2xl font-bold mb-6">&#128100; Jugadores</h1>
+<div class="flex gap-2 mb-4">
+<input type="text" id="search-player" placeholder="Buscar jugador..." class="flex-1 px-3 py-2 rounded-lg border text-sm bg-ah-card text-ah-text border-indigo-900" oninput="filterPlayers(this.value)">
+<select id="filter-status" onchange="adminPlayers.load()" class="px-3 py-2 rounded-lg border text-sm bg-ah-card text-ah-text border-indigo-900"><option value="">Todos</option><option value="active">Activos</option><option value="banned">Baneados</option><option value="suspended">Suspendidos</option></select>
+</div>
+<div id="players-table-container" class="overflow-x-auto">
+<table class="w-full text-sm">
+<thead><tr class="bg-ah-card"><th class="text-left p-3">Jugador</th><th class="text-left p-3">Alianza</th><th class="text-right p-3">Kills</th><th class="text-right p-3">Muertes</th><th class="text-right p-3">KD</th><th class="text-left p-3">Estado</th><th class="text-left p-3">Acciones</th></tr></thead>
+<tbody id="players-tbody"></tbody>
+</table>
+</div>
+</div>
+</body>
+</html>

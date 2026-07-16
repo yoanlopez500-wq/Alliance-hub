@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Games - Alliance Hub</title>
+<link rel="stylesheet" href="../assets/css/theme.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/cache-buster.js"></script>
+<script src="../assets/js/loader.js"></script>
+<script>
+AHLoader.init({
+    role: 'admin',
+    extraScripts: ['../assets/js/admin-base.js'],
+    pageScript: '../assets/js/pages/admin-games.js'
+});
+</script>
+</head>
+<body class="min-h-screen" data-role="admin">
+<div id="admin-nav"></div>
+<div class="max-w-6xl mx-auto px-4 py-8">
+<div class="flex items-center justify-between mb-6"><div><h1 class="text-2xl font-bold">&#127918; Games</h1><p class="text-sm" style="color:#9fa8da;">Gestion de games y partidas.</p></div><button onclick="openGameModal()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">&#10133; Nuevo Game</button></div>
+<div class="flex gap-2 mb-4"><button onclick="filterGames('all')" class="filter-btn px-3 py-1.5 text-sm rounded-lg" style="background:#1a237e;color:#e8eaf6;" data-filter="all">Todos</button><button onclick="filterGames('open')" class="filter-btn px-3 py-1.5 text-sm rounded-lg" style="background:transparent;border:1px solid #1a237e;color:#e8eaf6;" data-filter="open">En curso</button><button onclick="filterGames('finished')" class="filter-btn px-3 py-1.5 text-sm rounded-lg" style="background:transparent;border:1px solid #1a237e;color:#e8eaf6;" data-filter="finished">Finalizados</button></div>
+<div id="games-list" class="space-y-3">Cargando...</div>
+</div>
+
+<div id="game-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+<div class="bg-slate-800 rounded-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+<h2 id="modal-title" class="text-xl font-bold text-white mb-4">Nuevo Game</h2>
+<input type="hidden" id="game-id">
+<div class="space-y-4">
+<div><label class="block text-sm text-slate-300 mb-1">Nombre</label><input type="text" id="game-name" class="w-full px-3 py-2 rounded-lg border"></div>
+<div><label class="block text-sm text-slate-300 mb-1">Descripcion</label><textarea id="game-desc" class="w-full px-3 py-2 rounded-lg border" rows="3"></textarea></div>
+<div class="grid grid-cols-2 gap-4">
+<div><label class="block text-sm text-slate-300 mb-1">Tipo</label><select id="game-type" class="w-full px-3 py-2 rounded-lg border"><option value="internal">Interna</option><option value="duel">Duelo</option><option value="tournament">Torneo</option></select></div>
+<div><label class="block text-sm text-slate-300 mb-1">Max Jugadores</label><input type="number" id="game-max" class="w-full px-3 py-2 rounded-lg border" value="10"></div>
+</div>
+<div><label class="block text-sm text-slate-300 mb-1">Alianza</label><select id="game-alliance" class="w-full px-3 py-2 rounded-lg border"><option value="">Ninguna</option></select></div>
+<div class="grid grid-cols-2 gap-4">
+<div><label class="block text-sm text-slate-300 mb-1">ID del Juego</label><input type="text" id="game-game-id" class="w-full px-3 py-2 rounded-lg border" placeholder="ej: torneo-1"></div>
+<div><label class="block text-sm text-slate-300 mb-1">Contrasena</label><input type="text" id="game-password" class="w-full px-3 py-2 rounded-lg border"></div>
+</div>
+</div>
+<div class="flex gap-3 mt-6"><button onclick="closeGameModal()" class="flex-1 px-4 py-2 rounded-lg bg-slate-600 text-white font-bold">Cancelar</button><button onclick="saveGame()" class="flex-1 px-4 py-2 rounded-lg font-bold" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">Guardar</button></div>
+</div></div>
+
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Alianza - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/config.js?v=27"></script>
+<script src="assets/js/base.js?v=27"></script>
+<script src="assets/js/db-schema.js?v=27"></script>
+<script src="assets/js/roles-data.js?v=27"></script>
+<script src="assets/js/auth-core.js?v=27"></script>
+<script src="assets/js/nav-engine.js?v=27"></script>
+<script src="assets/js/components.js?v=27"></script>
+<style>body{font-family:'Inter',system-ui,sans-serif;background:#0a0e27;color:#e8eaf6;}</style>
+</head>
+<body class="min-h-screen" data-role="public">
+<div id="admin-nav"></div>
+<div class="max-w-4xl mx-auto px-4 py-8">
+<div id="alliance-header" class="mb-6"><div class="text-center py-12" style="color:#9fa8da;">Cargando...</div></div>
+<div id="join-section" class="hidden rounded-xl p-6 mb-6" style="background:#11183a;border:1px solid #1a237e;"><h2 class="font-bold mb-3">&#127988; Unirse a una Alianza</h2><div id="alliances-list" class="space-y-2"><div class="text-center py-4" style="color:#9fa8da;">Cargando alianzas...</div></div></div>
+<div id="pending-section" class="hidden rounded-xl p-6 mb-6 text-center" style="background:rgba(255,143,0,0.05);border:1px solid rgba(255,143,0,0.1);"><div class="text-4xl mb-3">&#9203;</div><h2 class="font-bold" style="color:#ff8f00;">Solicitud Pendiente</h2><p id="pending-alliance-name" class="text-sm mt-2" style="color:#9fa8da;">Esperando aprobacion del lider...</p><button onclick="cancelRequest()" class="mt-4 px-4 py-2 rounded-lg text-sm font-medium" style="background:rgba(239,83,80,0.15);color:#ef5350;border:1px solid rgba(239,83,80,0.3)">Cancelar solicitud</button></div>
+<div id="rejected-section" class="hidden rounded-xl p-6 mb-6 text-center" style="background:rgba(198,40,40,0.05);border:1px solid rgba(198,40,40,0.1);"><div class="text-4xl mb-3">&#10060;</div><h2 class="font-bold" style="color:#ef5350;">Solicitud Rechazada</h2><button onclick="clearRejectedAndShowJoin()" class="mt-4 px-4 py-2 rounded-lg text-sm font-bold" style="background:#1a237e;color:#fff">Ver otras alianzas</button></div>
+<div id="approved-content" class="hidden">
+<div id="matches-section" class="mb-6"><div class="flex items-center justify-between mb-4"><h2 class="font-bold">&#127918; Partidas de tu Alianza</h2><a href="dashboard.html" class="text-sm font-medium" style="color:#ff8f00;">Ver todas &#8594;</a></div><div id="alliance-matches" class="space-y-3"><div class="text-center py-4" style="color:#9fa8da;">Cargando...</div></div></div>
+<div id="members-section" class="mb-6"><h2 class="font-bold mb-4">&#128101; Miembros</h2><div id="alliance-members" class="grid grid-cols-2 md:grid-cols-3 gap-3"><div class="text-center py-4 col-span-full" style="color:#9fa8da;">Cargando...</div></div></div>
+</div>
+</div>
+<script>
+var playerData = (typeof getPlayerData === 'function') ? getPlayerData() : {};
+if (!playerData || !playerData.playerId) { location.href = 'login-player.html'; }
+var myAllianceId = null;
+var myMembershipId = null;
+var allianceMap = {};
+
+async function init() {
+    try {
+        var { data: all, error: allErr } = await DB.from('alliances').select(DB.select('alliances', 'basic'));
+        if (allErr) throw allErr;
+        (all || []).forEach(function(a) { allianceMap[a.id] = a; });
+    } catch(e) { console.error('[AlliancePanel] Error cargando alliances:', e); }
+    try {
+        var ac = DB.tableCols('allianceMemberships');
+        var { data: membership, error: mErr } = await DB.from('allianceMemberships').select('*').eq(ac.playerId, parseInt(playerData.playerId)).maybeSingle();
+        if (mErr && mErr.code !== 'PGRST116') throw mErr;
+        if (!membership) {
+            document.getElementById('join-section').classList.remove('hidden');
+            document.getElementById('alliance-header').innerHTML = '<div class="rounded-2xl p-8 text-center" style="background:#11183a;border:1px solid #1a237e;"><div class="text-5xl mb-4">&#127988;</div><h1 class="text-3xl font-bold">Sin Alianza</h1><p class="mt-2" style="color:#9fa8da;">Unete a una alianza para competir en equipo</p></div>';
+            loadAlliancesToJoin(); return;
+        }
+        myMembershipId = membership[DB.tableCols('allianceMemberships').id];
+        myAllianceId = membership[DB.tableCols('allianceMemberships').allianceId];
+        var status = membership[DB.tableCols('allianceMemberships').status];
+        if (status === 'pending') { document.getElementById('pending-section').classList.remove('hidden'); return; }
+        if (status === 'rejected') { document.getElementById('rejected-section').classList.remove('hidden'); return; }
+        if (status === 'approved') {
+            document.getElementById('approved-content').classList.remove('hidden');
+            loadAllianceHeader(allianceMap[myAllianceId]);
+            loadAllianceMatches(); loadAllianceMembers();
+        }
+    } catch(e) { console.error('[Alliance] Error:', e); }
+}
+async function loadAllianceHeader(alliance) { if (!alliance) return; document.getElementById('alliance-header').innerHTML = '<div class="rounded-2xl p-8 text-center" style="background:#11183a;border:1px solid #1a237e;"><div class="text-5xl mb-4">&#127988;</div><h1 class="text-3xl font-bold">' + alliance.name + '</h1><p class="mt-2" style="color:#9fa8da;">[' + alliance.tag + '] ' + (alliance.description || '') + '</p></div>'; }
+async function loadAlliancesToJoin() { var container = document.getElementById('alliances-list'); var alliances = Object.values(allianceMap); if (alliances.length === 0) { container.innerHTML = '<div class="text-center py-4" style="color:#9fa8da;">No hay alianzas disponibles</div>'; return; } container.innerHTML = alliances.map(function(a) { return '<div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(255,255,255,0.03);border:1px solid #1a237e;"><div><span class="font-bold">' + a.name + '</span><span class="text-xs ml-2" style="color:#9fa8da;">[' + a.tag + ']</span></div><button onclick="requestJoin(\'' + a.id + '\')" class="px-3 py-1.5 rounded-lg text-sm font-bold" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">Solicitar</button></div>'; }).join(''); }
+async function requestJoin(allianceId) { try { var ac = DB.tableCols('allianceMemberships'); var { error } = await DB.from('allianceMemberships').insert({ [ac.playerId]: parseInt(playerData.playerId), [ac.allianceId]: allianceId, [ac.status]: 'pending' }); if (error) { showToast('Error: ' + error.message, 'error'); return; } showToast('Solicitud enviada', 'success'); setTimeout(function(){location.reload();},1500); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
+async function cancelRequest() { if (!myMembershipId) return; try { var { error } = await DB.from('allianceMemberships').delete().eq('id', myMembershipId); if (error) throw error; showToast('Solicitud cancelada', 'success'); setTimeout(function(){location.reload();},1000); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
+function clearRejectedAndShowJoin() { if (!myMembershipId) return; DB.from('allianceMemberships').delete().eq('id', myMembershipId).then(function(){location.reload();}); }
+async function loadAllianceMatches() { if (!myAllianceId) return; try { var mc = DB.tableCols('matches'); var { data: matches } = await DB.from('matches').select(DB.select('matches', 'basic')).eq(mc.allianceId, myAllianceId).eq(mc.isPrivate, false).order(mc.createdAt, { ascending: false }).limit(10); var container = document.getElementById('alliance-matches'); if (!matches || matches.length === 0) { container.innerHTML = '<div class="text-center py-8" style="color:#9fa8da;">Sin partidas aun</div>'; return; } container.innerHTML = matches.map(function(m){return '<div class="rounded-xl p-4" style="background:#11183a;border:1px solid #1a237e;"><div class="flex items-center justify-between"><div><div class="flex items-center gap-2 mb-1">' + getStatusBadge(m[mc.status]) + ' ' + getTypeBadge(m[mc.matchType]) + '</div><h3 class="font-bold">' + m[mc.name] + '</h3></div><a href="game.html?id=' + m[mc.id] + '" class="px-3 py-1.5 rounded-lg text-sm font-bold" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">Ver</a></div></div>';}).join(''); } catch(e) { console.error('Error partidas:', e); } }
+async function loadAllianceMembers() { if (!myAllianceId) return; try { var ac = DB.tableCols('allianceMemberships'); var { data: memberships } = await DB.from('allianceMemberships').select(ac.playerId).eq(ac.allianceId, myAllianceId).eq(ac.status, 'approved'); if (!memberships || memberships.length === 0) { document.getElementById('alliance-members').innerHTML = '<div class="text-center py-4 col-span-full" style="color:#9fa8da;">Sin miembros</div>'; return; } var playerIds = memberships.map(function(m){return m[ac.playerId];}); var pc = DB.tableCols('players'); var { data: players } = await DB.from('players').select([pc.id, pc.currentUsername, pc.lastSeen, pc.status].join(', ')).in(pc.id, playerIds); var container = document.getElementById('alliance-members'); if (!players || players.length === 0) { container.innerHTML = '<div class="text-center py-4 col-span-full" style="color:#9fa8da;">Sin miembros</div>'; return; } container.innerHTML = players.map(function(p){var isOnline = p[pc.lastSeen] && (new Date() - new Date(p[pc.lastSeen])) < 300000; return '<div class="rounded-xl p-4 text-center" style="background:#11183a;border:1px solid #1a237e;"><div class="text-2xl mb-2">&#128100;</div><p class="font-bold text-sm">' + p[pc.currentUsername] + '</p><div class="flex items-center justify-center gap-1 mt-2"><span class="w-2 h-2 rounded-full ' + (isOnline ? 'bg-green-500' : 'bg-gray-500') + '"></span><span class="text-xs" style="color:#9fa8da;">' + (isOnline ? 'Online' : 'Offline') + '</span></div></div>';}).join(''); } catch(e) { console.error('Error miembros:', e); } }
+init();
+</script>
+</body>
+</html>

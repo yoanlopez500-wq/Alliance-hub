@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Panel de Lider - Alliance Hub</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/config.js?v=27"></script>
+<script src="assets/js/base.js?v=27"></script>
+<script src="assets/js/db-schema.js?v=27"></script>
+<script src="assets/js/roles-data.js?v=27"></script>
+<script src="assets/js/auth-core.js?v=27"></script>
+<script src="assets/js/messaging.js?v=27"></script>
+<script src="assets/js/notifications.js?v=27"></script>
+<script src="assets/js/nav-engine.js?v=27"></script>
+<script src="assets/js/training.js?v=27"></script>
+<script src="assets/js/components.js?v=27"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="assets/js/theme.js?v=27"></script>
+<meta name="theme-color" content="#0a0e27">
+<style>
+body{font-family:'Inter',system-ui,sans-serif;background:#0a0e27;color:#e8eaf6;}
+.fade-in{animation:fadeIn .4s ease-out}@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body class="min-h-screen" data-role="alliance_leader">
+<div id="admin-nav"></div>
+<div class="max-w-6xl mx-auto px-4 py-6">
+<div id="alliance-header" class="mb-6 fade-in">
+<div class="flex flex-wrap items-center gap-4 mb-2">
+<div class="w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-bold" style="background:linear-gradient(135deg,#1a237e,#283593);">&#127988;</div>
+<div class="flex-1">
+<h1 class="text-2xl font-bold text-white" id="alliance-name">Cargando...</h1>
+<p class="text-sm" style="color:#9fa8da;" id="alliance-tag">--</p>
+</div>
+<div class="flex gap-2 flex-wrap">
+<a href="admin/duel-manager.html" class="px-4 py-2 rounded-lg text-sm font-bold transition active:scale-[0.98]" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:white;">&#9876;&#65039; Preparar Duelo</a>
+<a href="admin/matches.html" class="px-4 py-2 rounded-lg text-sm font-bold transition active:scale-[0.98]" style="background:rgba(255,255,255,.05);border:1px solid #1a237e;color:#e8eaf6;">&#10133; Nueva Partida</a>
+</div>
+</div>
+</div>
+<div class="flex gap-6 mb-6 border-b overflow-x-auto" style="border-color:#1a237e;">
+<button onclick="switchTab('members')" id="tab-members" class="pb-3 text-sm font-medium whitespace-nowrap transition" style="border-bottom:2px solid #ff6f00;color:#ff6f00;">&#128101; Miembros</button>
+<button onclick="switchTab('requests')" id="tab-requests" class="pb-3 text-sm font-medium whitespace-nowrap transition" style="border-bottom:2px solid transparent;color:#9fa8da;">&#128233; Solicitudes <span id="req-badge" class="hidden px-1.5 py-0.5 rounded text-xs font-bold ml-1" style="background:rgba(239,83,80,.3);color:#ef5350">0</span></button>
+<button onclick="switchTab('rankings')" id="tab-rankings" class="pb-3 text-sm font-medium whitespace-nowrap transition" style="border-bottom:2px solid transparent;color:#9fa8da;">&#127942; Rankings</button>
+<button onclick="switchTab('duels')" id="tab-duels" class="pb-3 text-sm font-medium whitespace-nowrap transition" style="border-bottom:2px solid transparent;color:#9fa8da;">&#9876;&#65039; Duelos</button>
+<button onclick="switchTab('global')" id="tab-global" class="pb-3 text-sm font-medium whitespace-nowrap transition" style="border-bottom:2px solid transparent;color:#9fa8da;">&#127758; Global</button>
+</div>
+<div id="panel-members" class="fade-in"><div class="grid gap-3" id="members-list"><div class="text-center py-8" style="color:#9fa8da;">Cargando miembros...</div></div></div>
+<div id="panel-requests" class="hidden fade-in"><div id="requests-list"><div class="text-center py-8" style="color:#9fa8da;">Cargando solicitudes...</div></div></div>
+<div id="panel-rankings" class="hidden"><div id="rankings-list"><div class="text-center py-8" style="color:#9fa8da;">Cargando rankings...</div></div></div>
+<div id="panel-duels" class="hidden"><div id="duels-list"><div class="text-center py-8" style="color:#9fa8da;">Cargando duelos...</div></div></div>
+<div id="panel-global" class="hidden"><div id="global-rankings-list"><div class="text-center py-8" style="color:#9fa8da;">Cargando rankings globales...</div></div></div>
+</div>
+<script>
+var myAllianceId=null;
+var myAllianceData=null;
+async function init(){try{var admin=await getAdminRole();if(!admin||admin.role!=='alliance_leader'){window.location.href='index.html';return;}if(!admin.alliance_id){document.body.innerHTML='<div class="min-h-screen flex items-center justify-center"><div class="text-center"><h2 class="text-xl font-bold mb-2">Sin Alianza Asignada</h2><p>Contacta a un superadmin.</p></div></div>';return;}myAllianceId=admin.alliance_id;await loadAllianceData();loadMembers();loadPendingRequests();}catch(e){console.error(e);}}
+async function loadAllianceData(){try{var{data,error}=await DB.from('alliances').select('*').eq('id',myAllianceId).single();if(data){myAllianceData=data;document.getElementById('alliance-name').textContent=data.name;document.getElementById('alliance-tag').textContent='['+(data.tag||'---')+'] '+(data.description||'');}}catch(e){}}
+async function loadPendingRequests(){try{var{data:requests,error}=await DB.from('alliance_memberships').select('*').eq('alliance_id',myAllianceId).eq('status','pending').eq('requested_by','player').order('requested_at',{ascending:false});if(error)throw error;var badge=document.getElementById('req-badge');var count=requests?requests.length:0;if(count>0){badge.textContent=count;badge.classList.remove('hidden');}else badge.classList.add('hidden');var container=document.getElementById('requests-list');if(!requests||requests.length===0){container.innerHTML='<div class="text-center py-8" style="color:#9fa8da;">No hay solicitudes pendientes.</div>';return;}var playerIds=requests.map(function(r){return r.player_id;}).filter(Boolean);var{data:players}=await DB.from('players').select('id,current_username').in('id',playerIds);var pm={};(players||[]).forEach(function(p){pm[p.id]=p;});container.innerHTML=requests.map(function(r){var p=pm[r.player_id]||{};return'<div class="rounded-xl p-4 mb-3" style="background:#11183a;border:1px solid #1a237e;"><div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold" style="background:linear-gradient(135deg,#1a237e,#283593);">'+(p.current_username?p.current_username.charAt(0).toUpperCase():'?')+'</div><div class="flex-1"><p class="font-bold text-white text-sm">'+(p.current_username||'Jugador '+r.player_id)+'</p><p class="text-xs" style="color:#9fa8da;">Solicitado: '+formatDate(r.requested_at)+'</p></div></div><div class="flex gap-2"><button onclick="approveRequest('+r.id+','+r.player_id+')" class="flex-1 py-2 rounded-lg text-sm font-bold" style="background:rgba(76,175,80,.15);color:#4caf50;border:1px solid rgba(76,175,80,.3);">&#10003; Aprobar</button><button onclick="rejectRequest('+r.id+')" class="flex-1 py-2 rounded-lg text-sm font-bold" style="background:rgba(239,83,80,.15);color:#ef5350;border:1px solid rgba(239,83,80,.3);">&#10007; Rechazar</button></div></div>';}).join('');}catch(e){document.getElementById('requests-list').innerHTML='<div class="text-center py-8 text-red-400">Error</div>';}}
+async function approveRequest(membershipId,playerId){try{await DB.from('alliance_memberships').update({status:'approved',approved_at:new Date().toISOString()}).eq('id',membershipId);await DB.from('players').update({current_alliance_id:myAllianceId}).eq('id',playerId);showToast('Solicitud aprobada!','success');loadPendingRequests();}catch(e){showToast('Error: '+e.message,'error');}}
+async function rejectRequest(membershipId){if(!confirm('Rechazar?'))return;try{await DB.from('alliance_memberships').update({status:'rejected'}).eq('id',membershipId);showToast('Rechazada','info');loadPendingRequests();}catch(e){showToast('Error: '+e.message,'error');}}
+async function loadMembers(){try{var{data:memberships,error}=await DB.from('alliance_memberships').select('player_id').eq('alliance_id',myAllianceId).eq('status','approved');if(error)throw error;var container=document.getElementById('members-list');if(!memberships||memberships.length===0){container.innerHTML='<div class="text-center py-8" style="color:#9fa8da;">No hay miembros.</div>';return;}var playerIds=memberships.map(function(m){return m.player_id;});var{data:players,error:pErr}=await DB.from('players').select('*').in('id',playerIds).order('current_username');if(pErr)throw pErr;container.innerHTML=(players||[]).map(function(p){var kd=p.total_deaths>0?(p.total_kills/p.total_deaths).toFixed(2):p.total_kills||0;return'<div class="rounded-xl p-4 flex items-center gap-4 transition hover:opacity-90" style="background:#11183a;border:1px solid #1a237e;"><div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold" style="background:linear-gradient(135deg,#1a237e,#283593);">'+(p.current_username?p.current_username.charAt(0).toUpperCase():'?')+'</div><div class="flex-1"><p class="font-bold text-white text-sm">'+p.current_username+'</p><p class="text-xs" style="color:#9fa8da;">'+p.games_played+' partidas</p></div><div class="text-right"><p class="text-sm font-bold" style="color:#ff8f00;">'+kd+' K/D</p><p class="text-xs" style="color:#9fa8da;">'+p.total_kills+'K / '+p.total_deaths+'D</p></div></div>';}).join('');}catch(e){document.getElementById('members-list').innerHTML='<div class="text-center py-8 text-red-400">Error</div>';}}
+async function loadRankings(){var container=document.getElementById('rankings-list');if(!myAllianceId)return;try{var{data:matches}=await DB.from('matches').select('id').eq('alliance_id',myAllianceId);var matchIds=(matches||[]).map(function(m){return m.id;});if(matchIds.length===0){container.innerHTML='<div class="text-center py-8" style="color:#9fa8da;">Sin partidas.</div>';return;}var{data:results}=await DB.from('match_results').select('*').in('match_id',matchIds).order('kills',{ascending:false});if(!results||results.length===0){container.innerHTML='<div class="text-center py-8" style="color:#9fa8da;">Sin resultados.</div>';return;}var playerIds=results.map(function(r){return r.player_id;}).filter(function(v,i,a){return a.indexOf(v)===i;});var{data:players}=await DB.from('players').select('id,current_username').in('id',playerIds);var pm={};(players||[]).forEach(function(p){pm[p.id]=p;});container.innerHTML='<div class="space-y-2">'+results.map(function(r,i){var p=pm[r.player_id]||{};var medal=i===0?'&#129351;':i===1?'&#129352;':i===2?'&#129353;':(i+1)+'.';return'<div class="flex items-center gap-3 p-3 rounded-lg" style="background:rgba(255,255,255,.03);"><span class="text-lg font-bold w-8" style="color:'+(i<3?'#ffd700':'#9fa8da')+';">'+medal+'</span><div class="flex-1"><p class="font-bold text-sm">'+(p.current_username||'Jugador '+r.player_id)+'</p></div><span class="text-sm font-bold" style="color:#ff8f00;">'+(r.kills||0)+' bajas</span></div>';}).join('')+'</div>';}catch(e){container.innerHTML='<div class="text-center py-4 text-red-400">Error</div>';}}
+async function loadDuels(){var container=document.getElementById('duels-list');if(!myAllianceId){container.innerHTML='<div class="text-center py-8" style="color:#9fa8da;">Sin alianza</div>';return;}try{var{data:duelsA}=await DB.from('matches').select('*').eq('alliance_a_id',myAllianceId).eq('match_type','duel').order('created_at',{ascending:false});var{data:duelsB}=await DB.from('matches').select('*').eq('alliance_b_id',myAllianceId).eq('match_type','duel').order('created_at',{ascending:false});var allDuels=[];(duelsA||[]).forEach(function(d){allDuels.push(d);});(duelsB||[]).forEach(function(d){if(!allDuels.find(function(x){return x.id===d.id;}))allDuels.push(d);});if(allDuels.length===0){container.innerHTML='<div class="text-center py-8" style="color:#9fa8da;">Sin duelos.</div>';return;}container.innerHTML=allDuels.map(function(d){return'<div class="rounded-xl p-4 mb-3" style="background:#11183a;border:1px solid #1a237e;"><div class="flex items-center justify-between mb-2"><span class="font-bold text-white">'+d.name+'</span>'+getStatusBadge(d.status)+'</div><p class="text-xs" style="color:#9fa8da;">'+formatDate(d.created_at)+' | Max: '+d.max_players+'</p></div>';}).join('');}catch(e){container.innerHTML='<div class="text-center py-8 text-red-400">Error</div>';}}
+async function loadGlobalRankings(){var container=document.getElementById('global-rankings-list');container.innerHTML='<div class="text-center py-4" style="color:#9fa8da;">Cargando...</div>';if(!myAllianceId)return;try{var{data:memberships}=await DB.from('alliance_memberships').select('player_id').eq('alliance_id',myAllianceId).eq('status','approved');if(!memberships||memberships.length===0){container.innerHTML='<div class="text-center py-8" style="color:#9fa8da;">Sin datos</div>';return;}var playerIds=memberships.map(function(m){return m.player_id;});var{data:players}=await DB.from('players').select('*').in('id',playerIds).order('total_kills',{ascending:false});if(!players||players.length===0){container.innerHTML='<div class="text-center py-8" style="color:#9fa8da;">Sin datos</div>';return;}container.innerHTML='<div class="space-y-2">'+players.map(function(p,i){var medal=i===0?'&#129351;':i===1?'&#129352;':i===2?'&#129353;':(i+1)+'.';var kd=p.total_deaths>0?(p.total_kills/p.total_deaths).toFixed(2):p.total_kills||0;return'<div class="flex items-center gap-3 p-3 rounded-lg" style="background:rgba(255,255,255,.03);"><span class="text-lg font-bold w-8" style="color:'+(i<3?'#ffd700':'#9fa8da')+';">'+medal+'</span><div class="flex-1"><p class="font-bold text-sm">'+p.current_username+'</p></div><div class="text-right"><p class="text-sm font-bold" style="color:#ff8f00;">'+kd+' K/D</p><p class="text-xs" style="color:#9fa8da;">'+p.total_kills+'K / '+p.total_deaths+'D</p></div></div>';}).join('')+'</div>';}catch(e){container.innerHTML='<div class="text-center py-8 text-red-400">Error</div>';}}
+function switchTab(tab){['members','requests','rankings','duels','global'].forEach(function(t){var panel=document.getElementById('panel-'+t);var btn=document.getElementById('tab-'+t);if(panel)panel.classList.add('hidden');if(btn){btn.style.borderBottom='2px solid transparent';btn.style.color='#9fa8da';}});document.getElementById('panel-'+tab).classList.remove('hidden');var activeBtn=document.getElementById('tab-'+tab);activeBtn.style.borderBottom='2px solid #ff6f00';activeBtn.style.color='#ff6f00';if(tab==='rankings')loadRankings();if(tab==='duels')loadDuels();if(tab==='global')loadGlobalRankings();if(tab==='requests')loadPendingRequests();}
+init();
+</script>
+</body>
+</html>

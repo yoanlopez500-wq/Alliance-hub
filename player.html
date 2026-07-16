@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Perfil de Jugador - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="assets/js/theme.js?v=27"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/config.js?v=27"></script>
+<script src="assets/js/base.js?v=27"></script>
+<script src="assets/js/components.js?v=27"></script>
+<script src="assets/js/auth.js?v=27"></script>
+<meta name="theme-color" content="#0a0e27">
+<style>body{font-family:'Inter',system-ui,sans-serif;background:#0a0e27;color:#e8eaf6;}</style>
+</head>
+<body class="min-h-screen" data-role="public">
+<div id="admin-nav"></div>
+<div class="max-w-4xl mx-auto px-4 py-8">
+<div id="player-profile">Cargando...</div>
+</div>
+<script>
+var allAlliances = [];
+
+async function loadAlliances() {
+    try {
+        var { data, error } = await supabase.from('alliances').select('id, name, tag');
+        if (error) throw error;
+        allAlliances = data || [];
+    } catch(e) { console.error('[Player] Error cargando alliances:', e); }
+}
+
+function getAllianceName(allianceId) {
+    if (!allianceId || !allAlliances.length) return null;
+    return allAlliances.find(function(x) { return x.id === allianceId; }) || null;
+}
+
+async function loadProfile() {
+    var params = new URLSearchParams(window.location.search);
+    var playerId = params.get('id');
+    if (!playerId) {
+        document.getElementById('player-profile').innerHTML = '';
+        if (window.AhComponents) AhComponents.inject('error-state', { message: 'ID de jugador no especificado' }, 'player-profile');
+        else document.getElementById('player-profile').innerHTML = '<div class="text-center py-8 text-red-400">ID de jugador no especificado</div>';
+        return;
+    }
+    try {
+        var { data: player, error } = await supabase.from('players').select('*').eq('id', playerId).single();
+        if (error) throw error;
+        if (!player) {
+            document.getElementById('player-profile').innerHTML = '';
+            if (window.AhComponents) AhComponents.inject('empty-state', { message: 'Jugador no encontrado' }, 'player-profile');
+            else document.getElementById('player-profile').innerHTML = '<div class="text-center py-8 text-red-400">Jugador no encontrado</div>';
+            return;
+        }
+
+        var strikesRes = await supabase.from('player_strikes').select('*').eq('player_id', playerId);
+        var strikeCount = strikesRes.data ? strikesRes.data.length : 0;
+        var totalKills = player.total_kills || 0;
+        var totalDeaths = player.total_deaths || 0;
+        var effKills = totalKills;
+        if (strikeCount === 1) effKills = Math.round(totalKills * 0.9);
+        else if (strikeCount === 2) effKills = Math.round(totalKills * 0.7);
+        else if (strikeCount >= 3) effKills = Math.round(totalKills * 0.5);
+        var kd = totalDeaths > 0 ? (effKills / totalDeaths).toFixed(2) : effKills > 0 ? effKills.toFixed(2) : '0.00';
+        var penaltyBadge = strikeCount > 0 ? '<span class="text-[10px] px-2 py-0.5 rounded font-bold ml-2" style="background:rgba(198,40,40,0.2);color:#ef5350">-' + (strikeCount === 1 ? '10%' : strikeCount === 2 ? '30%' : '50%') + ' penalizacion</span>' : '';
+        var strikeBadge = strikeCount > 0 ? '<span class="text-[10px] px-2 py-0.5 rounded font-bold ml-2" style="background:rgba(255,143,0,0.2);color:#ff8f00">' + strikeCount + ' strike' + (strikeCount > 1 ? 's' : '') + '</span>' : '';
+        var alliance = getAllianceName(player.alliance_id);
+
+        document.getElementById('player-profile').innerHTML = '<div class="rounded-xl p-6" style="background:#11183a;border:1px solid #1a237e;"><div class="flex items-center gap-4 mb-4"><div class="text-4xl">&#128100;</div><div><h1 class="text-2xl font-bold">' + player.current_username + strikeBadge + '</h1><p class="text-sm" style="color:#9fa8da;">' + (alliance ? alliance.name + ' [' + alliance.tag + ']' : 'Sin alianza') + '</p></div></div><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold" style="color:#ff8f00;">' + effKills + penaltyBadge + '</div><div class="text-xs" style="color:#9fa8da;">Bajas Efectivas</div></div><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold">' + totalDeaths + '</div><div class="text-xs" style="color:#9fa8da;">Muertes</div></div><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold">' + kd + '</div><div class="text-xs" style="color:#9fa8da;">K/D</div></div><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold">' + (player.games_played || 0) + '</div><div class="text-xs" style="color:#9fa8da;">Partidas</div></div></div></div>';
+    } catch(e) {
+        console.error('[Profile]', e);
+        document.getElementById('player-profile').innerHTML = '';
+        if (window.AhComponents) AhComponents.inject('error-state', { message: 'Error: ' + e.message }, 'player-profile');
+        else document.getElementById('player-profile').innerHTML = '<div class="text-center py-8 text-red-400">Error: ' + e.message + '</div>';
+    }
+}
+
+async function init() {
+    await loadAlliances();
+    await loadProfile();
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Motor de Sanciones - Alliance Hub</title>
+<link rel="stylesheet" href="../assets/css/theme.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/cache-buster.js"></script>
+<script src="../assets/js/loader.js"></script>
+<script>
+AHLoader.init({
+    role: 'admin',
+    extraScripts: ['../assets/js/admin-base.js'],
+    pageScript: '../assets/js/pages/admin-sanctions-engine.js'
+});
+</script>
+</head>
+<body class="min-h-screen" data-role="admin">
+<div id="admin-nav"></div>
+<div class="max-w-6xl mx-auto px-4 py-8">
+<div class="flex items-center justify-between mb-6">
+<div><h1 class="text-2xl font-bold">&#9878;&#65039; Motor de Sanciones</h1><p class="text-sm" style="color:#9fa8da;">CRUD de formulas, simulador y motor de ejecucion.</p></div>
+<button onclick="openModal()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">&#10133; Nueva Formula</button>
+</div>
+<div class="grid md:grid-cols-3 gap-4 mb-6">
+<div class="rounded-xl p-4" style="background:#11183a;border:1px solid #1a237e;"><p class="text-xs uppercase tracking-wider" style="color:#9fa8da;">Formulas Activas</p><p class="text-2xl font-bold" style="color:#ff8f00;" id="stat-active">-</p></div>
+<div class="rounded-xl p-4" style="background:#11183a;border:1px solid #1a237e;"><p class="text-xs uppercase tracking-wider" style="color:#9fa8da;">Sanciones Aplicadas</p><p class="text-2xl font-bold" style="color:#ef5350;" id="stat-applied">-</p></div>
+<div class="rounded-xl p-4" style="background:#11183a;border:1px solid #1a237e;"><p class="text-xs uppercase tracking-wider" style="color:#9fa8da;">Penalizacion Total</p><p class="text-2xl font-bold" style="color:#ce93d8;" id="stat-total">-</p></div>
+</div>
+<div id="formulas-list" class="space-y-3">Cargando...</div>
+<div class="mt-8 pt-6" style="border-top:1px solid #1a237e;">
+<h2 class="text-xl font-bold mb-4">&#9889; Simulador</h2>
+<div class="rounded-xl p-5" style="background:#11183a;border:1px solid #1a237e;">
+<div class="flex gap-4 flex-wrap">
+<div class="flex-1 min-w-[200px]"><label class="block text-sm mb-1" style="color:#9fa8da;">Kills del jugador</label><input type="number" id="sim-kills" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="100" oninput="runSimulator()"></div>
+<div class="flex-1 min-w-[200px]"><label class="block text-sm mb-1" style="color:#9fa8da;">Strikes</label><input type="number" id="sim-strikes" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="1" min="0" oninput="runSimulator()"></div>
+<div class="flex-1 min-w-[200px]"><label class="block text-sm mb-1" style="color:#9fa8da;">Kills anuladas</label><input type="number" id="sim-nullified" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="0" min="0" oninput="runSimulator()"></div>
+</div>
+<div id="sim-result" class="mt-4 p-3 rounded-lg hidden" style="background:#0a0e27;border:1px solid #1a237e;"></div>
+</div>
+</div>
+</div>
+<div id="formula-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.7);">
+<div class="rounded-xl p-6 w-full max-w-lg mx-4" style="background:#fff;color:#0f172a;">
+<h3 id="modal-title" class="text-lg font-bold mb-4" style="color:#0f172a;">Nueva Formula</h3>
+<input type="hidden" id="formula-id">
+<div class="mb-3"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Nombre *</label><input type="text" id="f-name" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="Ej: Strike Leve"></div>
+<div class="mb-3"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Descripcion</label><textarea id="f-desc" rows="3" class="w-full px-3 py-2 rounded-lg border text-sm"></textarea></div>
+<div class="mb-3"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Condicion (strikes) *</label><input type="number" id="f-strikes" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="1, 2, 3..."></div>
+<div class="mb-3"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Penalizacion % *</label><input type="number" id="f-penalty" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="10, 30, 50..."></div>
+<div class="mb-4"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Formula de calculo</label><select id="f-type" class="w-full px-3 py-2 rounded-lg border text-sm"><option value="percentage">Porcentaje de kills</option><option value="fixed">Valor fijo</option><option value="kd_ratio">Basado en K/D</option></select></div>
+<div class="flex gap-2 justify-end"><button onclick="closeModal()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:#e2e8f0;color:#0f172a;">Cancelar</button><button onclick="saveFormula()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">Guardar</button></div>
+</div></div>
+</body>
+</html>

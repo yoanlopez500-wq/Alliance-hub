@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Miembros de Alianza - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/css/theme.css">
+<script src="../assets/js/cache-buster.js"></script>
+<script src="../assets/js/loader.js"></script>
+<script>
+AHLoader.init({
+    role: 'admin',
+    extraScripts: ['../assets/js/admin-base.js'],
+    pageScript: '../assets/js/pages/admin-alliance-members.js'
+});
+</script>
+</head>
+<body class="min-h-screen" data-role="admin">
+<div id="admin-nav"></div>
+<div class="max-w-6xl mx-auto px-4 py-8">
+<h1 class="text-2xl font-bold mb-2">&#128101; Miembros de Alianza</h1>
+<p class="text-sm mb-6" style="color:#9fa8da;">Gestion de miembros y sus alianzas.</p>
+<div class="flex gap-2 mb-4">
+<select id="filter-alliance" onchange="loadMembers()" class="px-3 py-2 rounded-lg border text-sm"><option value="">Todas las alianzas</option></select>
+<input type="text" id="search-member" placeholder="Buscar miembro..." class="flex-1 px-3 py-2 rounded-lg border text-sm" oninput="filterMembers(this.value)">
+</div>
+<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr style="background:#11183a;"><th class="text-left p-3">Jugador</th><th class="text-left p-3">Alianza</th><th class="text-right p-3">Kills</th><th class="text-right p-3">Deaths</th><th class="text-left p-3">Estado</th><th class="text-left p-3">Acciones</th></tr></thead><tbody id="members-tbody"><tr><td colspan="6" class="text-center py-8" style="color:#9fa8da;">Cargando...</td></tr></tbody></table></div>
+</div>
+</body>
+</html>

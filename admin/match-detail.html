@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e27">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="manifest" href="../manifest.json">
+<title>Detalle de Partida - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/css/theme.css">
+<script src="../assets/js/cache-buster.js"></script>
+<script src="../assets/js/loader.js"></script>
+<script>
+AHLoader.init({
+    role: 'admin',
+    extraScripts: ['../assets/js/admin-base.js'],
+    pageScript: '../assets/js/pages/admin-match-detail.js'
+});
+</script>
+</head>
+<body class="min-h-screen" data-role="admin">
+<div id="admin-nav"></div>
+<div class="max-w-6xl mx-auto px-4 py-8">
+<div id="match-header"><div class="text-center py-8 text-slate-400">Cargando...</div></div>
+<div id="create-match-section" class="hidden mb-6">
+<div class="rounded-xl p-5 bg-slate-900 border border-indigo-900">
+<h1 class="text-2xl font-bold mb-4 text-slate-100">&#10133; Nueva Partida</h1>
+<form id="create-match-form" class="space-y-4">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Nombre *</label><input type="text" id="cm-name" required class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">ID del Juego</label><input type="text" id="cm-game-id" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="ID de Supremacy (opcional)"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Contrasena</label><input type="text" id="cm-password" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Contrasena (opcional)"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Alianza</label><select id="cm-alliance" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="">-- Sin alianza --</option></select></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Tipo</label><select id="cm-type" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="internal">Interna</option><option value="duel">Duelo</option><option value="public_31">Publica 31</option><option value="public_500">Evento 500</option><option value="public_quick">Rapida</option></select></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Max Jugadores</label><input type="number" id="cm-max" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="31"></div>
+</div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Descripcion</label><textarea id="cm-desc" rows="3" class="w-full px-3 py-2 rounded-lg border text-sm bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></textarea></div>
+<div class="flex gap-3 pt-2">
+<button type="submit" class="flex-1 font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#10133; Crear Partida</button>
+<a href="matches.html" class="px-4 py-2.5 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px] flex items-center justify-center">Cancelar</a>
+</div>
+</form>
+</div>
+</div>
+<div id="admin-actions-section" class="mt-6 hidden">
+<div class="rounded-xl p-4 mb-6 bg-slate-900 border border-indigo-900">
+<h2 class="font-bold mb-3 text-sm text-amber-400">&#9889; Acciones</h2>
+<div class="flex flex-wrap gap-2">
+<button onclick="updateStatus('open')" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-green-500/20 text-green-500 border border-green-500/30 min-h-[32px]">Abrir</button>
+<button onclick="updateStatus('in_progress')" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-blue-500/20 text-blue-500 border border-blue-500/30 min-h-[32px]">Iniciar</button>
+<button onclick="updateStatus('finished')" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-purple-500/20 text-purple-400 border border-purple-500/30 min-h-[32px]">Finalizar</button>
+<button onclick="updateStatus('archived')" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-white/5 text-slate-400 border border-white/10 min-h-[32px]">Archivar</button>
+<button onclick="openWinnersModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-amber-500/20 text-amber-400 border border-amber-500/30 min-h-[32px]">&#127942; Ganadores</button>
+<button onclick="openCSVModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-teal-500/20 text-teal-400 border border-teal-500/30 min-h-[32px]">&#128229; Importar CSV</button>
+<button onclick="openEditModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-blue-500/20 text-blue-500 border border-blue-500/30 min-h-[32px]">&#9881; Editar</button>
+<button onclick="deleteMatch()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-red-500/20 text-red-400 border border-red-500/30 min-h-[32px]">&#128465; Eliminar</button>
+</div></div></div>
+<div id="share-section" class="hidden mb-6">
+<div class="rounded-xl p-4 bg-slate-900 border border-indigo-900">
+<h2 class="font-bold mb-2 text-sm text-blue-400">&#128279; Enlace</h2>
+<div class="flex gap-2">
+<input type="text" id="share-link" readonly class="flex-1 px-3 py-2 rounded-lg border text-xs bg-slate-950 border-indigo-900 text-slate-100">
+<button onclick="copyShareLink()" class="px-3 py-2 rounded-lg font-bold text-xs hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[32px]">Copiar</button>
+</div></div></div>
+<div id="registrations-section" class="mb-6">
+<h2 class="text-xl font-bold mb-3">&#128100; Registrados (<span id="reg-count">0</span>)</h2>
+<div id="registrations-list" class="rounded-xl overflow-x-auto bg-slate-900 border border-indigo-900"><div class="text-center py-4 text-sm text-slate-400">Cargando...</div></div>
+</div>
+<div id="results-section" class="mb-6">
+<div class="flex items-center justify-between mb-3">
+<h2 class="text-xl font-bold">&#128202; Resultados</h2>
+<button onclick="openManualModal()" class="text-xs font-bold hover:opacity-80 transition text-amber-400 min-h-[32px]">&#10133; Anadir</button>
+</div>
+<div id="results-list" class="rounded-xl overflow-x-auto bg-slate-900 border border-indigo-900"><div class="text-center py-4 text-sm text-slate-400">Cargando...</div></div>
+</div>
+<div class="mt-6">
+<h2 class="text-xl font-bold mb-3">&#128229; Importar CSV</h2>
+<div class="rounded-xl p-6 bg-slate-900 border border-indigo-900">
+<div class="border-2 border-dashed rounded-xl p-6 text-center border-indigo-900" ondrop="handleDrop(event)" ondragover="event.preventDefault()">
+<p class="text-slate-400">Arrastra CSV o <input type="file" id="csv-file" accept=".csv" onchange="handleFile(this.files[0])" class="hidden"><button onclick="document.getElementById('csv-file').click()" class="px-3 py-1 rounded text-sm font-bold bg-indigo-900 text-slate-100 min-h-[32px]">Seleccionar</button></p>
+</div>
+<div id="csv-preview" class="hidden mt-4"></div>
+</div></div>
+</div>
+
+<!-- CSV Modal -->
+<div id="csv-modal" class="modal">
+<div class="rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto bg-slate-900 border border-indigo-900">
+<div class="p-5 border-b flex items-center justify-between rounded-t-2xl bg-gradient-to-br from-teal-600 to-teal-800 border-indigo-900">
+<h2 class="text-lg font-bold text-white">&#128229; Importar CSV</h2>
+<button onclick="closeCSVModal()" class="text-white hover:opacity-70 text-xl">&#10005;</button>
+</div>
+<div class="p-5 space-y-4">
+<div class="border-2 border-dashed rounded-xl p-6 text-center hover:border-amber-500 transition cursor-pointer border-indigo-900" onclick="document.getElementById('csv-file-input').click()">
+<div class="text-3xl mb-2">&#128193;</div>
+<p class="text-sm text-slate-400">Arrastra o haz click para seleccionar CSV</p>
+<input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="handleCSVUpload(this)">
+</div>
+<div id="csv-preview-section" class="hidden">
+<h3 class="font-bold text-sm mb-2 text-slate-100">Vista previa:</h3>
+<div id="csv-preview-content" class="max-h-60 overflow-y-auto rounded-lg p-3 text-xs bg-slate-950 border border-indigo-900"></div>
+<div class="flex gap-3 mt-4">
+<button onclick="confirmCSVImport()" class="flex-1 font-bold py-2 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-teal-600 to-teal-800 text-white">&#10003; Confirmar</button>
+<button onclick="document.getElementById('csv-preview-section').classList.add('hidden')" class="px-4 py-2 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
+</div></div>
+</div></div></div>
+
+<!-- Manual Result Modal -->
+<div id="manual-modal" class="modal">
+<div class="rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto bg-slate-900 border border-indigo-900">
+<div class="p-5 border-b flex items-center justify-between rounded-t-2xl bg-gradient-to-br from-orange-600 to-amber-500 border-indigo-900">
+<h2 class="text-lg font-bold text-white">&#9998; Resultado Manual</h2>
+<button onclick="closeManualModal()" class="text-white hover:opacity-70 text-xl">&#10005;</button>
+</div>
+<form id="manual-form" class="p-5 space-y-4">
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Jugador *</label>
+<select id="mr-player-select" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" onchange="document.getElementById('mr-player-id').value=this.value">
+<option value="">-- Seleccionar de registrados --</option>
+</select>
+<input type="hidden" id="mr-player-id">
+<p class="text-xs mt-1 text-slate-500">O escribe el ID manualmente en el campo de abajo</p>
+<input type="number" id="mr-player-id-override" class="w-full px-3 py-2 rounded-lg border text-sm mt-1 min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="ID manual (opcional)" onchange="document.getElementById('mr-player-id').value=this.value">
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Bajas</label><input type="number" id="mr-kills" required min="0" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Muertes</label><input type="number" id="mr-deaths" required min="0" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></div></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Nacion</label><input type="text" id="mr-nation" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Ej: USA"></div>
+<div class="flex gap-3 pt-2">
+<button type="submit" class="flex-1 font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#10003; Guardar</button>
+<button type="button" onclick="closeManualModal()" class="px-4 py-2.5 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
+</div></form></div></div>
+
+<!-- Edit Registration Modal -->
+<div id="edit-reg-modal" class="modal">
+<div class="rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto bg-slate-900 border border-indigo-900">
+<div class="p-5 border-b flex items-center justify-between rounded-t-2xl bg-gradient-to-br from-blue-700 to-blue-900 border-indigo-900">
+<h2 class="text-lg font-bold text-white">&#9998; Editar Registro</h2>
+<button onclick="closeEditRegModal()" class="text-white hover:opacity-70 text-xl">&#10005;</button>
+</div>
+<div class="p-5 space-y-4">
+<div><label class="block text-xs font-medium mb-1 text-slate-400">ID de Jugador</label><input type="text" id="er-player-id" readonly class="w-full px-3 py-2 rounded-lg border text-sm text-slate-500 bg-slate-900 border-indigo-900"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Nombre de Usuario</label><input type="text" id="er-username" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Nacion</label><input type="text" id="er-nation" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Ej: USA"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Estado</label><select id="er-status" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="pending">Pendiente</option><option value="confirmed">Confirmado</option><option value="rejected">Rechazado</option></select></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Notas</label><textarea id="er-notes" rows="2" class="w-full px-3 py-2 rounded-lg border text-sm bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></textarea></div>
+<div class="flex gap-3 pt-2">
+<button onclick="saveEditRegistration()" class="flex-1 font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#10003; Guardar</button>
+<button onclick="closeEditRegModal()" class="px-4 py-2.5 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
+</div></div></div></div>
+
+<!-- Winners Modal -->
+<div id="winners-modal" class="modal">
+<div class="rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto bg-slate-900 border border-indigo-900">
+<div class="p-5 border-b flex items-center justify-between rounded-t-2xl bg-gradient-to-br from-orange-600 to-amber-500 border-indigo-900">
+<h2 class="text-lg font-bold text-white">&#127942; Ganadores</h2>
+<button onclick="closeWinnersModal()" class="text-white hover:opacity-70 text-xl">&#10005;</button>
+</div>
+<form id="winners-form" class="p-5 space-y-3">
+<div id="winners-list" class="space-y-3"></div>
+<div class="flex gap-3 pt-2">
+<button type="submit" class="flex-1 font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#127942; Guardar</button>
+<button type="button" onclick="closeWinnersModal()" class="px-4 py-2.5 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
+</div></form></div></div>
+
+<!-- Edit Result Modal -->
+<div id="edit-result-modal" class="modal">
+<div class="rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto bg-slate-900 border border-indigo-900">
+<div class="p-5 border-b flex items-center justify-between rounded-t-2xl bg-gradient-to-br from-orange-600 to-amber-500 border-indigo-900">
+<h2 class="text-lg font-bold text-white">&#9998; Editar Resultado</h2>
+<button onclick="closeEditResultModal()" class="text-white hover:opacity-70 text-xl">&#10005;</button>
+</div>
+<div class="p-5 space-y-4">
+<div><label class="block text-xs font-medium mb-1 text-slate-400">ID de Jugador</label><input type="text" id="er-result-player-id" readonly class="w-full px-3 py-2 rounded-lg border text-sm text-slate-500 bg-slate-900 border-indigo-900"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Nombre de Usuario</label><input type="text" id="er-result-username" readonly class="w-full px-3 py-2 rounded-lg border text-sm text-slate-500 bg-slate-900 border-indigo-900"></div>
+<div class="grid grid-cols-2 gap-3">
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Bajas *</label><input type="number" id="er-result-kills" required min="0" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Muertes *</label><input type="number" id="er-result-deaths" required min="0" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></div></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Nacion</label><input type="text" id="er-result-nation" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Ej: USA"></div>
+<div class="flex gap-3 pt-2">
+<button onclick="saveEditResult()" class="flex-1 font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#10003; Guardar</button>
+<button onclick="closeEditResultModal()" class="px-4 py-2.5 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
+</div></div></div></div>
+
+<!-- Edit Match Modal -->
+<div id="edit-modal" class="modal">
+<div class="rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto bg-slate-900 border border-indigo-900">
+<div class="p-5 border-b flex items-center justify-between rounded-t-2xl bg-gradient-to-br from-blue-700 to-blue-900 border-indigo-900">
+<h2 class="text-lg font-bold text-white">&#9881; Editar Partida</h2>
+<button onclick="closeEditModal()" class="text-white hover:opacity-70 text-xl">&#10005;</button>
+</div>
+<form id="edit-form" class="p-5 space-y-4">
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Nombre *</label><input type="text" id="em-name" required class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">ID Juego</label><input type="text" id="em-game-id" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Contrasena</label><input type="text" id="em-password" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Alianza</label><select id="em-alliance" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="">-- Sin alianza --</option></select></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Tipo</label><select id="em-type" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="internal">Interna</option><option value="duel">Duelo</option><option value="public_31">Publica 31</option><option value="public_500">Evento 500</option><option value="public_quick">Rapida</option></select></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Max Jugadores</label><input type="number" id="em-max" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="31"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Descripcion</label><textarea id="em-desc" rows="3" class="w-full px-3 py-2 rounded-lg border text-sm bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></textarea></div>
+<div class="flex gap-3 pt-2">
+<button type="submit" class="flex-1 font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-blue-700 to-blue-900 text-white">Guardar</button>
+<button type="button" onclick="closeEditModal()" class="px-4 py-2.5 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
+</div></form></div></div>
+
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e27">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="manifest" href="../manifest.json">
+<title>Strikes - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/css/theme.css">
+<script src="../assets/js/cache-buster.js"></script>
+<script src="../assets/js/loader.js"></script>
+<script>
+AHLoader.init({
+    role: 'admin',
+    extraScripts: ['../assets/js/admin-base.js'],
+    pageScript: '../assets/js/pages/admin-strikes.js'
+});
+</script>
+</head>
+<body class="min-h-screen" data-role="admin">
+<div id="admin-nav"></div>
+<div class="max-w-6xl mx-auto px-4 py-8">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
+<div><h1 class="text-2xl font-bold">&#9889; Sistema de Strikes</h1><p class="text-sm text-slate-400">Aplica strikes conectados al reglamento, reportes y precedentes.</p></div>
+<button onclick="openModal()" class="px-4 py-2 rounded-lg text-sm font-bold min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#10133; Aplicar Strike</button>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+<div class="rounded-xl p-4 bg-slate-900 border border-indigo-900"><p class="text-xs uppercase tracking-wider text-slate-400">Leves</p><p class="text-2xl font-bold text-green-500" id="stat-leve">-</p></div>
+<div class="rounded-xl p-4 bg-slate-900 border border-indigo-900"><p class="text-xs uppercase tracking-wider text-slate-400">Medios</p><p class="text-2xl font-bold text-amber-400" id="stat-medio">-</p></div>
+<div class="rounded-xl p-4 bg-slate-900 border border-indigo-900"><p class="text-xs uppercase tracking-wider text-slate-400">Graves</p><p class="text-2xl font-bold text-red-400" id="stat-grave">-</p></div>
+<div class="rounded-xl p-4 bg-slate-900 border border-indigo-900"><p class="text-xs uppercase tracking-wider text-slate-400">Kill Nullifiers</p><p class="text-2xl font-bold text-purple-400" id="stat-nullifier">-</p></div>
+</div>
+<div class="flex flex-col sm:flex-row gap-2 mb-4">
+<input type="text" id="search-player" placeholder="Buscar jugador..." class="flex-1 px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" oninput="filterStrikes(this.value)">
+<select id="filter-type" onchange="loadStrikes()" class="px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="">Todos los tipos</option></select>
+</div>
+<div id="strikes-list" class="space-y-3">Cargando...</div>
+</div>
+
+<!-- Strike Modal -->
+<div id="strike-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+<div class="rounded-xl p-6 w-full max-w-lg mx-4 bg-slate-900 border border-indigo-900 text-slate-100 max-h-[90vh] overflow-y-auto">
+<h3 class="text-lg font-bold mb-4">&#9889; Aplicar Strike</h3>
+<div class="mb-3"><label class="block text-sm mb-1 text-slate-400">Jugador (ID de Supremacy) *</label><input type="number" id="s-player-id" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Ej: 24549130"></div>
+<div class="mb-3"><label class="block text-sm mb-1 text-slate-400">Partida</label><select id="s-match" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="">Seleccionar partida...</option></select></div>
+<div class="mb-3"><label class="block text-sm mb-1 text-slate-400">Tipo de Strike *</label><select id="s-type" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" onchange="showRuleHint()"><option value="">Seleccionar...</option></select></div>
+<div id="rule-hint" class="hidden mb-3 p-3 rounded-lg text-sm bg-amber-500/10 border border-amber-500/20 text-amber-400"></div>
+<div class="mb-3"><label class="block text-sm mb-1 text-slate-400">Seccion del reglamento violada</label><select id="s-rule" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="">Seleccionar seccion...</option></select></div>
+<div class="mb-3"><label class="block text-sm mb-1 text-slate-400">Razon *</label><textarea id="s-reason" rows="3" class="w-full px-3 py-2 rounded-lg border text-sm bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Describe la infraccion..."></textarea></div>
+<div class="mb-3"><label class="block text-sm mb-1 text-slate-400">Notas adicionales</label><textarea id="s-notes" rows="2" class="w-full px-3 py-2 rounded-lg border text-sm bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></textarea></div>
+
+<!-- Evidence Upload -->
+<div class="mb-4">
+    <label class="block text-sm mb-1 text-slate-400">Evidencia (imagenes o videos)</label>
+    <div id="evidence-dropzone-strike" onclick="document.getElementById('evidence-input-strike').click()">
+        <div class="text-2xl mb-1">&#128247;</div>
+        <p class="text-sm text-slate-400">Arrastra archivos aqui o <strong class="text-amber-400">haz clic</strong></p>
+        <p class="text-xs mt-1 text-slate-500">Max 3 archivos. Max 5MB cada uno.</p>
+        <input type="file" id="evidence-input-strike" class="hidden" accept="image/*,video/*" multiple onchange="handleStrikeEvidence(this.files)">
+    </div>
+    <div id="evidence-preview-strike" class="grid grid-cols-3 gap-2 mt-2"></div>
+    <p id="evidence-status-strike" class="text-xs mt-1 hidden text-slate-400"></p>
+</div>
+
+<div class="flex gap-2 justify-end"><button onclick="closeModal()" class="px-4 py-2 rounded-lg text-sm font-bold bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button><button onclick="saveStrike()" class="px-4 py-2 rounded-lg text-sm font-bold min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">Aplicar Strike</button></div>
+</div></div>
+
+<!-- Detail Modal (view strike + evidence) -->
+<div id="view-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+<div class="rounded-xl p-6 w-full max-w-lg mx-4 bg-slate-900 border border-indigo-900 text-slate-100 max-h-[85vh] overflow-y-auto">
+<h3 class="text-lg font-bold mb-4" id="v-title">Detalle del Strike</h3>
+<div id="v-content"></div>
+<div id="v-evidence" class="mt-4 hidden"></div>
+<div class="flex gap-2 justify-end mt-4"><button onclick="closeViewModal()" class="px-4 py-2 rounded-lg text-sm font-bold bg-indigo-900 text-slate-100 min-h-[44px]">Cerrar</button></div>
+</div></div>
+</body>
+</html>

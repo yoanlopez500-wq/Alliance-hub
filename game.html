@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e27">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="manifest" href="manifest.json">
+<title>Partida - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="assets/css/theme.css">
+<script src="assets/js/cache-buster.js"></script>
+<script src="assets/js/loader.js"></script>
+<script>AHLoader.init({ role: 'player', pageScript: 'assets/js/pages/game.js' });</script>
+</head>
+<body class="min-h-screen" data-role="public">
+
+<div id="admin-nav"></div>
+
+<div class="max-w-4xl mx-auto px-4 py-8">
+<div id="match-header" class="mb-6"><div class="text-center py-12 text-slate-400">Cargando...</div></div>
+
+<!-- Podio de Ganadores -->
+<div id="winners-display" class="hidden rounded-xl p-6 mb-6 border border-yellow-500/20 bg-yellow-500/5">
+<h2 class="font-bold mb-4 text-yellow-400">&#127942; Podio</h2>
+<div id="winners-podium" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div></div>
+
+<!-- Esperando aprobacion -->
+<div id="waiting-approval-banner" class="hidden rounded-xl p-6 mb-6 text-center border border-amber-500/15 bg-amber-500/5">
+<div class="text-4xl mb-3">&#9203;</div>
+<h2 class="font-bold text-lg text-amber-400">Esperando aprobacion del admin</h2>
+<p class="text-sm mt-2 text-slate-400">Tu registro esta pendiente. Cuando el admin te apruebe, veras aqui el ID y contrasena.</p></div>
+
+<!-- Credenciales del juego -->
+<div id="match-credentials" class="hidden rounded-xl p-6 mb-6 border border-green-500/15 bg-green-500/5">
+<h2 class="font-bold mb-3 text-green-500">&#128275; Datos de Acceso</h2>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="rounded-lg p-3 bg-slate-950 border border-indigo-900"><p class="text-xs uppercase font-bold text-green-500">ID de Partida</p><p id="cred-game-id" class="text-lg font-mono font-bold text-slate-100">---</p></div>
+<div class="rounded-lg p-3 bg-slate-950 border border-indigo-900"><p class="text-xs uppercase font-bold text-green-500">Contrasena</p><p id="cred-password" class="text-lg font-mono font-bold text-slate-100">---</p></div>
+</div></div>
+
+<!-- Reportar jugador -->
+<div id="report-section" class="hidden mb-6">
+<a href="#" id="report-link" class="block rounded-xl p-4 text-center transition border border-red-500/15 bg-red-500/5">
+<div class="flex items-center justify-center gap-2"><span class="text-xl">&#128680;</span><span class="font-bold text-red-400">Reportar jugador</span></div>
+<p class="text-xs mt-1 text-red-400">Viste a alguien haciendo trampa? Reportalo aqui con evidencia.</p></a></div>
+
+<!-- Reglamento -->
+<div id="rules-link-section" class="hidden mb-6">
+<a href="rules.html" class="flex items-center justify-between rounded-xl p-4 transition bg-slate-900 border border-indigo-900">
+<div class="flex items-center gap-3"><span class="text-2xl">&#128220;</span><div><p class="font-bold text-sm text-slate-100">Reglamento Oficial</p><p class="text-xs text-slate-400">Ver reglas, precedentes y jurisprudencia</p></div></div>
+<span class="font-bold text-sm text-amber-400">Ver &rarr;</span>
+</a>
+</div>
+
+<!-- Chat para duelos -->
+<div id="chat-section" class="hidden mb-6">
+<h2 class="font-bold mb-3 text-slate-100">&#128172; Chat entre Alianzas</h2>
+<div id="chat-messages" class="rounded-xl p-4 mb-3 h-64 overflow-y-auto bg-slate-900 border border-indigo-900"></div>
+<div class="flex gap-2">
+<input type="text" id="chat-input" placeholder="Escribe..." class="flex-1 px-4 py-2 rounded-lg text-sm bg-white/5 border border-indigo-900 text-slate-100 outline-none focus:border-amber-500">
+<button onclick="sendChatMessage()" class="px-4 py-2 rounded-lg font-bold text-sm transition bg-gradient-to-r from-orange-600 to-amber-500 text-white min-h-[44px]">Enviar</button>
+</div></div>
+
+<!-- Registrados -->
+<div id="registrations-section" class="hidden mb-6">
+<h2 class="font-bold mb-3 text-slate-100">&#128101; Registrados</h2>
+<div class="rounded-xl p-4 overflow-x-auto bg-slate-900 border border-indigo-900" id="registrations-list"></div></div>
+
+<!-- Resultados -->
+<div id="results-section" class="hidden mb-6">
+<h2 class="font-bold mb-3 text-slate-100">&#127942; Resultados</h2>
+<div class="rounded-xl overflow-x-auto bg-slate-900 border border-indigo-900">
+<table class="w-full text-sm min-w-full"><thead><tr class="bg-white/[0.03]"><th class="text-left p-3">#</th><th class="text-left p-3">Nacion</th><th class="text-left p-3">Jugador</th><th class="text-right p-3">Bajas</th><th class="text-right p-3">Muertes</th><th class="text-right p-3">KD</th></tr></thead>
+<tbody id="results-tbody"></tbody></table>
+</div></div>
+
+<!-- Sin resultados -->
+<div id="no-results" class="hidden text-center py-12 rounded-xl bg-slate-900 border border-indigo-900 text-slate-400">
+<div class="text-4xl mb-3">&#9203;</div><p>Resultados no disponibles aun</p></div>
+</div>
+
+</body>
+</html>

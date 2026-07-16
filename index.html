@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Alliance Hub - Torneos, Rankings y Ligas para Supremacy 1914</title>
+<meta name="description" content="Alliance Hub es la plataforma oficial de torneos, rankings y ligas para comunidades de Supremacy 1914. Registra tu alianza, compite en partidas organizadas y escala el ranking global.">
+<meta name="keywords" content="Supremacy 1914, torneos, rankings, ligas, alianzas, competencia, estrategia, wargame">
+<meta name="author" content="Alliance Hub">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Alliance Hub - Torneos y Rankings para Supremacy 1914">
+<meta property="og:description" content="Plataforma oficial de torneos, rankings y ligas. Registra tu alianza y compite.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0e27">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="assets/icons/icon-192x192.png">
+<link rel="canonical" href="https://yoanlopez500-wq.github.io/Alliance-hub/">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebSite","name":"Alliance Hub","description":"Plataforma de torneos, rankings y ligas para Supremacy 1914","url":"https://yoanlopez500-wq.github.io/Alliance-hub/"}
+</script>
+<!-- HOTFIX: Redirect removido. Antes redirigia a dashboard.html si habia tokens en
+     localStorage, bloqueando la landing page. Ahora todos llegan a la landing. -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="assets/css/theme.css">
+<script src="assets/js/cache-buster.js"></script>
+<script src="assets/js/loader.js"></script>
+<script>AHLoader.init({ role: 'public', pageScript: 'assets/js/pages/landing.js' });</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body data-role="public">
+<div id="admin-nav"></div>
+<section class="relative overflow-hidden py-20 px-4 bg-ah-bg">
+<div class="hero-glow" style="background:#ff6f00;top:-200px;right:-100px"></div>
+<div class="hero-glow" style="background:#1a237e;bottom:-200px;left:-100px"></div>
+<div class="max-w-4xl mx-auto text-center relative z-10">
+<div class="inline-block px-4 py-1 rounded-full text-xs font-bold mb-6 border" style="background:rgba(255,143,0,.1);color:#ff8f00;border-color:rgba(255,143,0,.2)">&#127881; La plataforma de competencia para Supremacy 1914</div>
+<h1 class="text-5xl md:text-6xl font-black mb-6 leading-tight">Domina el campo de <span class="text-orange-500">batalla.</span> Demuestralo.</h1>
+<p class="text-lg mb-8 max-w-2xl mx-auto text-ah-muted">Alliance Hub organiza <strong>torneos, rankings y ligas</strong> para comunidades de Supremacy 1914. Registra tu alianza, compite en partidas organizadas y escala el ranking global.</p>
+<div class="flex flex-wrap gap-4 justify-center">
+<a href="login-player.html" class="px-8 py-4 rounded-xl font-bold text-base transition active:scale-[0.98] gradient-btn">&#127918; Comenzar como Jugador</a>
+<a href="apply-leader.html" class="px-8 py-4 rounded-xl font-bold text-base transition active:scale-[0.98] border border-indigo-900 bg-white/5 text-ah-text">&#127941; Registrar mi Alianza</a>
+<a href="rankings.html" class="px-8 py-4 rounded-xl font-bold text-base transition active:scale-[0.98] border border-indigo-900 bg-white/5 text-ah-text">&#127942; Ver Rankings</a>
+</div>
+</div>
+</section>
+<section class="py-16 bg-ah-card border-t border-indigo-900">
+<div class="max-w-6xl mx-auto px-4">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+<div class="stat-card rounded-xl p-6 text-center bg-ah-bg border border-indigo-900"><div class="text-3xl font-bold mb-1 text-orange-400" id="stat-matches">-</div><div class="text-xs uppercase tracking-wider text-ah-muted">Partidas</div></div>
+<div class="stat-card rounded-xl p-6 text-center bg-ah-bg border border-indigo-900"><div class="text-3xl font-bold mb-1 text-green-500" id="stat-players">-</div><div class="text-xs uppercase tracking-wider text-ah-muted">Jugadores</div></div>
+<div class="stat-card rounded-xl p-6 text-center bg-ah-bg border border-indigo-900"><div class="text-3xl font-bold mb-1 text-blue-500" id="stat-alliances">-</div><div class="text-xs uppercase tracking-wider text-ah-muted">Alianzas</div></div>
+<div class="stat-card rounded-xl p-6 text-center bg-ah-bg border border-indigo-900"><div class="text-3xl font-bold mb-1 text-purple-400" id="stat-kills">-</div><div class="text-xs uppercase tracking-wider text-ah-muted">Bajas Totales</div></div>
+</div>
+<h2 class="text-3xl font-bold text-center mb-4">Que es Alliance Hub?</h2>
+<p class="text-center mb-10 max-w-2xl mx-auto text-ah-muted">Una plataforma independiente creada por y para la comunidad de Supremacy 1914.</p>
+<div class="grid md:grid-cols-3 gap-6">
+<div class="feature-card rounded-xl p-6 bg-ah-bg"><div class="text-4xl mb-4">&#127942;</div><h3 class="text-lg font-bold text-white mb-2">Rankings Globales</h3><p class="text-sm text-ah-muted">Sistema de rankings basado en estadisticas reales de partidas. K/D ratio, partidas jugadas, victorias y mas.</p></div>
+<div class="feature-card rounded-xl p-6 bg-ah-bg"><div class="text-4xl mb-4">&#127988;</div><h3 class="text-lg font-bold text-white mb-2">Gestiona tu Alianza</h3><p class="text-sm text-ah-muted">Lidera tu alianza con herramientas exclusivas: miembros, rankings internos, partidas privadas y duelos.</p></div>
+<div class="feature-card rounded-xl p-6 bg-ah-bg"><div class="text-4xl mb-4">&#9876;&#65039;</div><h3 class="text-lg font-bold text-white mb-2">Duelos de Alianzas</h3><p class="text-sm text-ah-muted">Prepara un equipo de 5 jugadores y desafia a otras alianzas. Matchmaking automatico.</p></div>
+<div class="feature-card rounded-xl p-6 bg-ah-bg"><div class="text-4xl mb-4">&#127919;</div><h3 class="text-lg font-bold text-white mb-2">Torneos Organizados</h3><p class="text-sm text-ah-muted">Partidas con reglas claras, sistema de strikes y auditoria post-partida.</p></div>
+<div class="feature-card rounded-xl p-6 bg-ah-bg"><div class="text-4xl mb-4">&#128229;</div><h3 class="text-lg font-bold text-white mb-2">Importa Resultados</h3><p class="text-sm text-ah-muted">Importa estadisticas desde CSV de Supremacy 1914. Calculo automatico de rankings.</p></div>
+<div class="feature-card rounded-xl p-6 bg-ah-bg"><div class="text-4xl mb-4">&#128241;</div><h3 class="text-lg font-bold text-white mb-2">App Web PWA</h3><p class="text-sm text-ah-muted">Instala Alliance Hub en tu telefono. Funciona como app nativa.</p></div>
+</div>
+</div>
+</section>
+<section class="py-16 bg-ah-bg">
+<div class="max-w-6xl mx-auto px-4">
+<h2 class="text-3xl font-bold text-center mb-10">Como Funciona</h2>
+<div class="grid md:grid-cols-3 gap-8">
+<div class="text-center"><div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4 gradient-btn">1</div><h3 class="text-lg font-bold text-white mb-2">Registrate</h3><p class="text-ah-muted">Crea tu cuenta como jugador o solicita el liderazgo de tu alianza.</p></div>
+<div class="text-center"><div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4 gradient-btn">2</div><h3 class="text-lg font-bold text-white mb-2">Compite</h3><p class="text-ah-muted">Participa en partidas organizadas con reglas justas y seguimiento de estadisticas.</p></div>
+<div class="text-center"><div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4 gradient-btn">3</div><h3 class="text-lg font-bold text-white mb-2">Escala</h3><p class="text-ah-muted">Sube en el ranking global basado en tu desempeno real en el campo de batalla.</p></div>
+</div>
+</div>
+</section>
+<section class="py-16 bg-ah-card border-t border-indigo-900">
+<div class="max-w-6xl mx-auto px-4">
+<div class="grid md:grid-cols-2 gap-8 items-center">
+<div>
+<h2 class="text-3xl font-bold text-white mb-4">&#127988; Para Alianzas</h2>
+<p class="mb-4 text-ah-muted">Eres lider de alianza? Lleva tu comunidad al siguiente nivel.</p>
+<ul class="space-y-3 mb-6">
+<li class="flex items-start gap-3"><span class="text-green-500">&#10003;</span><span class="text-ah-muted">Panel exclusivo para gestionar miembros</span></li>
+<li class="flex items-start gap-3"><span class="text-green-500">&#10003;</span><span class="text-ah-muted">Rankings internos de tu alianza</span></li>
+<li class="flex items-start gap-3"><span class="text-green-500">&#10003;</span><span class="text-ah-muted">Sistema de duelos contra otras alianzas</span></li>
+<li class="flex items-start gap-3"><span class="text-green-500">&#10003;</span><span class="text-ah-muted">Sistema de aprobacion de lideres</span></li>
+</ul>
+<a href="apply-leader.html" class="inline-block px-6 py-3 rounded-xl font-bold transition active:scale-[0.98] gradient-btn">&#127941; Solicitar Liderazgo</a>
+</div>
+<div class="rounded-2xl p-6 bg-ah-card border border-indigo-900">
+<div class="text-center"><div class="text-6xl mb-4">&#127988;</div><h3 class="text-xl font-bold text-white mb-2">Tu Alianza. Tu Equipo.</h3><p class="text-ah-muted">Solicita el liderazgo de tu alianza y gestiona a tu equipo.</p></div>
+</div>
+</div>
+</div>
+</section>
+<section class="py-16 bg-ah-card border-t border-indigo-900">
+<div class="max-w-6xl mx-auto px-4">
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
+<h2 class="text-3xl font-bold">&#128220; Reglamento</h2>
+<a href="rules.html" class="px-4 py-2 rounded-lg text-sm font-bold gradient-btn">Ver completo &#8594;</a>
+</div>
+<div id="landing-rules" class="grid md:grid-cols-2 gap-4 mb-8">
+<div class="text-center py-8 text-ah-muted">Cargando reglamento...</div>
+</div>
+<div class="mt-6 pt-6 border-t border-indigo-900">
+<h3 class="text-xl font-bold mb-4">&#9878;&#65039; Precedentes y Jurisprudencia</h3>
+<div id="landing-precedents" class="grid md:grid-cols-2 gap-3">
+<div class="text-center py-4 text-sm text-ah-muted">Cargando precedentes...</div>
+</div>
+</div>
+</div>
+</section>
+<footer class="py-8 bg-ah-bg border-t border-indigo-900">
+<div class="max-w-6xl mx-auto px-4 flex flex-wrap items-center justify-between gap-4">
+<div class="flex items-center gap-2"><span class="text-lg font-bold text-orange-400">&#9876;&#65039; Alliance Hub</span></div>
+<div class="flex gap-4 text-sm">
+<a href="rankings.html" class="text-ah-muted hover:text-ah-text">Rankings</a>
+<a href="rules.html" class="text-ah-muted hover:text-ah-text">Reglamento</a>
+<a href="apply-leader.html" class="text-ah-muted hover:text-ah-text">Liderazgo</a>
+<a href="login.html" class="text-ah-muted hover:text-ah-text">Admin</a>
+<a href="login-player.html" class="text-ah-muted hover:text-ah-text">Jugador</a>
+</div>
+<div class="text-xs text-ah-muted">&copy; 2025 Alliance Hub. No oficial. Comunidad independiente.</div>
+</div>
+</footer>
+<script>if(window.AHBuster)document.write('<script src="'+window.AHBuster.url('sw-register.js')+'"><\/script>');else document.write('<script src="sw-register.js"><\/script>');</script>
+</body>
+</html>

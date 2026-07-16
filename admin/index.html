@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Alliance Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../assets/css/theme.css">
+    <script src="../assets/js/cache-buster.js"></script>
+    <script src="../assets/js/loader.js"></script>
+    <script>AHLoader.init({ role: 'admin', pageScript: '../assets/js/pages/admin-dashboard.js' });</script>
+    <meta name="theme-color" content="#0f172a">
+</head>
+<body class="bg-slate-900 min-h-screen" data-role="admin">
+    <div id="admin-nav"></div>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-white mb-6">Panel de Administracion</h1>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <a href="matches.html" class="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-lg transition">
+                <div class="text-2xl mb-2">&#127918;</div>
+                <h3 class="font-bold text-slate-800">Partidas</h3>
+                <p class="text-xs text-slate-500">Crear y gestionar partidas</p>
+            </a>
+            <a href="players.html" class="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-lg transition">
+                <div class="text-2xl mb-2">&#128100;</div>
+                <h3 class="font-bold text-slate-800">Jugadores</h3>
+                <p class="text-xs text-slate-500">Gestion de jugadores</p>
+            </a>
+            <a href="alliances.html" class="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-lg transition">
+                <div class="text-2xl mb-2">&#127988;</div>
+                <h3 class="font-bold text-slate-800">Alianzas</h3>
+                <p class="text-xs text-slate-500">Gestion de alianzas</p>
+            </a>
+            <a href="rankings.html" class="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-lg transition">
+                <div class="text-2xl mb-2">&#127942;</div>
+                <h3 class="font-bold text-slate-800">Rankings</h3>
+                <p class="text-xs text-slate-500">Ver rankings globales</p>
+            </a>
+            <a href="import.html" class="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-lg transition">
+                <div class="text-2xl mb-2">&#128229;</div>
+                <h3 class="font-bold text-slate-800">Importar CSV</h3>
+                <p class="text-xs text-slate-500">Importar resultados</p>
+            </a>
+            <a href="reports.html" class="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-lg transition">
+                <div class="text-2xl mb-2">&#128680;</div>
+                <h3 class="font-bold text-slate-800">Reportes</h3>
+                <p class="text-xs text-slate-500">Reportes de jugadores</p>
+            </a>
+            <a href="invites.html" class="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-lg transition">
+                <div class="text-2xl mb-2">&#127381;</div>
+                <h3 class="font-bold text-slate-800">Invitaciones</h3>
+                <p class="text-xs text-slate-500">Gestion de invitaciones</p>
+            </a>
+            <a href="admins.html" class="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-lg transition">
+                <div class="text-2xl mb-2">&#128373;</div>
+                <h3 class="font-bold text-slate-800">Admins</h3>
+                <p class="text-xs text-slate-500">Gestion de administradores</p>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

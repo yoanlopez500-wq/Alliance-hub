@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e27">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="manifest" href="manifest.json">
+<title>Rankings - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="assets/css/theme.css">
+<script src="assets/js/cache-buster.js"></script>
+<script src="assets/js/loader.js"></script>
+<script>AHLoader.init({ role: 'public', pageScript: 'assets/js/pages/rankings.js' });</script>
+</head>
+<body class="bg-ah-bg min-h-screen text-ah-text" data-role="public">
+<div id="admin-nav"></div>
+<div class="max-w-6xl mx-auto px-4 py-8">
+<h1 class="text-3xl font-bold text-ah-text mb-2">&#127942; Rankings</h1>
+<p class="text-sm text-ah-muted mb-6">Estadisticas globales, por alianza, por liga y duelos</p>
+<div class="flex gap-1 overflow-x-auto pb-2 mb-6 scrollbar-hide border-b border-indigo-900">
+<button onclick="showTab('players')" id="tab-players" class="px-4 py-3 text-sm font-bold text-ah-accent border-b-2 whitespace-nowrap min-w-[80px]" style="border-color:#ff8f00;">&#128100; Jugadores</button>
+<button onclick="showTab('alliances')" id="tab-alliances" class="px-4 py-3 text-sm font-bold text-ah-muted hover:text-ah-text whitespace-nowrap min-w-[80px]">&#127988; Alianzas</button>
+<button onclick="showTab('leagues')" id="tab-leagues" class="px-4 py-3 text-sm font-bold text-ah-muted hover:text-ah-text whitespace-nowrap min-w-[80px]">&#127942; Ligas</button>
+<button onclick="showTab('duels')" id="tab-duels" class="px-4 py-3 text-sm font-bold text-ah-muted hover:text-ah-text whitespace-nowrap min-w-[80px]">&#9876;&#65039; Duelos</button>
+<button onclick="showTab('strikes')" id="tab-strikes" class="px-4 py-3 text-sm font-bold text-ah-muted hover:text-ah-text whitespace-nowrap min-w-[80px]">&#9888;&#65039; Strikes</button>
+</div>
+<div id="error-banner" class="hidden mb-4 p-3 rounded-lg text-sm font-bold bg-red-500/15 text-red-400"></div>
+<div id="players-ranking">
+<div class="flex gap-2 mb-4"><select id="filter-alliance" onchange="loadRankings()" class="px-3 py-2 rounded-lg text-sm border bg-ah-card text-ah-text border-indigo-900 min-h-[44px]"><option value="">Todas las alianzas</option></select></div>
+<div class="overflow-x-auto rounded-xl bg-slate-900 border border-indigo-900">
+<table class="w-full text-sm min-w-full"><thead><tr class="bg-white/[0.02]"><th class="text-left p-3 text-ah-muted">#</th><th class="text-left p-3 text-ah-muted">Jugador</th><th class="text-left p-3 text-ah-muted">Alianza</th><th class="text-right p-3 text-ah-muted">Partidas</th><th class="text-right p-3 text-ah-muted">Bajas</th><th class="text-right p-3 text-ah-muted">Muertes</th><th class="text-right p-3 text-ah-muted">KD</th><th class="text-right p-3 text-ah-muted">&#9889;</th></tr></thead><tbody id="players-tbody"><tr><td colspan="8" class="text-center py-8 text-ah-muted">Cargando...</td></tr></tbody></table>
+</div></div>
+<div id="alliances-ranking" class="hidden"><div id="alliances-list" class="text-center py-8 text-ah-muted">Cargando...</div></div>
+<div id="leagues-ranking" class="hidden"><div class="text-center py-8 text-ah-muted">Ligas proximamente</div></div>
+<div id="duels-ranking" class="hidden"><div id="duels-list" class="text-center py-8 text-ah-muted">Cargando...</div></div>
+<div id="strikes-ranking" class="hidden">
+<div class="overflow-x-auto rounded-xl bg-slate-900 border border-indigo-900">
+<table class="w-full text-sm min-w-full"><thead><tr class="bg-white/[0.02]"><th class="text-left p-3 text-ah-muted">Jugador</th><th class="text-left p-3 text-ah-muted">Alianza</th><th class="text-right p-3 text-ah-muted">Strikes</th><th class="text-left p-3 text-ah-muted">Estado</th><th class="text-left p-3 text-ah-muted">Ultimo No-Show</th></tr></thead><tbody id="strikes-tbody"><tr><td colspan="5" class="text-center py-8 text-ah-muted">Cargando...</td></tr></tbody></table>
+</div></div>
+</div>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e27">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="manifest" href="../manifest.json">
+<title>Registro de Lider - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/theme.js?v=28"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../assets/js/config.js?v=28"></script>
+<script src="../assets/js/base.js?v=28"></script>
+<script src="../assets/js/components.js?v=28"></script>
+<script src="../assets/js/auth-core.js?v=28"></script>
+<style>
+body{font-family:'Inter',system-ui,sans-serif;background:#0a0e27;color:#e8eaf6;}
+input{background:#11183a!important;border-color:#1a237e!important;color:#e8eaf6!important;}
+input:focus{border-color:#ff6f00!important;outline:none!important;}
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center px-4" data-role="public">
+
+<div id="loading-state" class="text-center">
+<div class="text-4xl mb-4">&#9203;</div>
+<p class="text-slate-400">Verificando tu invitacion...</p>
+</div>
+
+<div id="error-state" class="hidden text-center max-w-md">
+<div class="text-4xl mb-4">&#128683;</div>
+<h2 class="text-xl font-bold text-red-400 mb-2">Invitacion no valida</h2>
+<p id="error-msg" class="text-slate-400 mb-4">El codigo de invitacion no existe, ya fue usado o expiro.</p>
+<a href="../index.html" class="text-sm font-bold text-amber-400 hover:text-amber-300">&larr; Volver al inicio</a>
+</div>
+
+<div id="signup-form-state" class="hidden w-full max-w-md">
+<div class="rounded-2xl p-8 bg-slate-900 border border-indigo-900">
+<div class="text-center mb-6">
+<div class="text-4xl mb-3">&#127941;</div>
+<h1 class="text-2xl font-bold text-white">Bienvenido Lider!</h1>
+<p class="text-sm text-slate-400 mt-1">Tu solicitud para liderar <strong id="alliance-name-display" class="text-amber-400"></strong> fue aprobada.</p>
+</div>
+
+<form id="leader-signup-form" class="space-y-4">
+<div>
+<label class="block text-xs font-medium mb-1 text-slate-400">ID de Jugador</label>
+<input type="text" id="ls-player-id" readonly class="w-full px-4 py-3 rounded-lg border text-sm bg-slate-950 border-indigo-900 text-slate-500">
+</div>
+<div>
+<label class="block text-xs font-medium mb-1 text-slate-400">Nombre de Usuario</label>
+<input type="text" id="ls-username" readonly class="w-full px-4 py-3 rounded-lg border text-sm bg-slate-950 border-indigo-900 text-slate-500">
+</div>
+<div>
+<label class="block text-xs font-medium mb-1 text-slate-400">Alianza</label>
+<input type="text" id="ls-alliance" readonly class="w-full px-4 py-3 rounded-lg border text-sm bg-slate-950 border-indigo-900 text-slate-500">
+</div>
+<div>
+<label class="block text-xs font-medium mb-1 text-slate-400">Email *</label>
+<input type="email" id="ls-email" required class="w-full px-4 py-3 rounded-lg border text-sm min-h-[48px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="tu@email.com">
+</div>
+<div>
+<label class="block text-xs font-medium mb-1 text-slate-400">Contrasena *</label>
+<input type="password" id="ls-password" required minlength="6" class="w-full px-4 py-3 rounded-lg border text-sm min-h-[48px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Minimo 6 caracteres">
+</div>
+<input type="hidden" id="ls-invite-code">
+<input type="hidden" id="ls-supremacy-id">
+
+<div id="form-error" class="hidden text-sm text-red-400 text-center"></div>
+
+<button type="submit" class="w-full py-3 rounded-lg font-bold text-sm min-h-[48px] bg-gradient-to-r from-green-600 to-green-500 text-white hover:opacity-90 transition">
+Crear Cuenta de Lider
+</button>
+</form>
+
+<p class="text-xs text-center mt-4 text-slate-500">
+Ya tienes cuenta? <a href="../login.html" class="text-amber-400 hover:text-amber-300">Inicia sesion aqui</a>
+</p>
+</div>
+</div>
+
+<script>
+var urlParams = new URLSearchParams(window.location.search);
+var inviteCode = urlParams.get('code');
+
+if (!inviteCode) {
+    showError('No se proporciono un codigo de invitacion.');
+} else if (!/^AH[A-Z0-9]{6}$/i.test(inviteCode)) {
+    showError('Formato de codigo invalido. Debe ser AH + 6 caracteres alfanumericos.');
+} else {
+    verifyInviteCode(inviteCode);
+}
+
+function showError(msg) {
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('error-state').classList.remove('hidden');
+    document.getElementById('signup-form-state').classList.add('hidden');
+    if (msg) document.getElementById('error-msg').textContent = msg;
+}
+
+function showForm() {
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('error-state').classList.add('hidden');
+    document.getElementById('signup-form-state').classList.remove('hidden');
+}
+
+async function verifyInviteCode(code) {
+    try {
+        var now = new Date().toISOString();
+        var { data: invite, error } = await supabase.from('admin_invites')
+            .select('*, alliances(name)')
+            .eq('code', code)
+            .eq('used', false)
+            .or('expires_at.gt.' + now + ',expires_at.is.null')
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!invite) { showError('Codigo invalido, ya usado o expirado.'); return; }
+
+        // Get player data
+        var playerId = invite.player_id;
+        var supremacyId = null;
+        var username = '';
+
+        if (playerId) {
+            var { data: player } = await supabase.from('players')
+                .select('current_username, id')
+                .eq('id', playerId)
+                .maybeSingle();
+            if (player) {
+                username = player.current_username || '';
+                supremacyId = player.id;
+            }
+        }
+
+        // Pre-fill form
+        document.getElementById('ls-player-id').value = playerId || '';
+        document.getElementById('ls-username').value = username;
+        document.getElementById('ls-alliance').value = invite.alliances ? invite.alliances.name : '';
+        document.getElementById('ls-invite-code').value = code;
+        document.getElementById('ls-supremacy-id').value = supremacyId || '';
+        document.getElementById('alliance-name-display').textContent = invite.alliances ? invite.alliances.name : '';
+
+        showForm();
+    } catch(e) {
+        console.error('[verifyInvite]', e);
+        showError('Error verificando invitacion: ' + e.message);
+    }
+}
+
+document.getElementById('leader-signup-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var errorEl = document.getElementById('form-error');
+    errorEl.classList.add('hidden');
+
+    var email = document.getElementById('ls-email').value.trim();
+    var password = document.getElementById('ls-password').value;
+    var code = document.getElementById('ls-invite-code').value;
+    var supremacyId = document.getElementById('ls-supremacy-id').value;
+
+    if (!email || !password || password.length < 6) {
+        errorEl.textContent = 'Email valido y contrasena de minimo 6 caracteres son requeridos.';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    // Use existing signupWithInvite from auth-core.js
+    var displayName = document.getElementById('ls-username').value || null;
+    var result = await signupWithInvite(email, password, code, supremacyId || null, displayName);
+
+    if (result.success) {
+        showToast('Cuenta creada! Bienvenido lider.', 'success');
+        // CRITICAL FIX: Redirect to leader dashboard instead of index
+        setTimeout(function() {
+            window.location.href = '../leader-dashboard.html';
+        }, 1500);
+    } else {
+        errorEl.textContent = result.message || 'Error al crear la cuenta.';
+        errorEl.classList.remove('hidden');
+    }
+});
+</script>
+</body>
+</html>
