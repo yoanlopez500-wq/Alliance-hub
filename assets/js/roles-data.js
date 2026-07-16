@@ -55,7 +55,7 @@ var ROLE_PANELS = {
         label: 'Lider de Alianza', badgeClass: 'bg-green-500', icon: '&#127988;',
         navLinks: [
             { href: 'leader-dashboard.html', label: '&#127968; Mi Alianza', section: 'main' },
-            { href: 'admin/matches.html', label: '&#127918; Partidas', section: 'main' },
+            { href: 'leader-dashboard.html?tab=matches', label: '&#127918; Partidas', section: 'main' },
             { href: 'admin/players.html', label: '&#128100; Jugadores', section: 'main' },
             { href: 'admin/duel-manager.html', label: '&#9876;&#65039; Duelos', section: 'main' },
             { href: 'admin/officers.html', label: '&#11088; Mi Equipo', section: 'main' },
@@ -64,7 +64,7 @@ var ROLE_PANELS = {
             { href: 'chat.html', label: '&#128172; Chat', section: 'comms' },
         ],
         quickActions: [
-            { label: '&#10133; Crear Partida', action: 'openMatchModal()' },
+            { label: '&#10133; Crear Partida', action: 'openCreateMatchModal()' },
             { label: '&#9876;&#65039; Preparar Duelo', href: 'admin/duel-manager.html' },
         ]
     },
@@ -72,7 +72,7 @@ var ROLE_PANELS = {
         label: 'Co-Lider', badgeClass: 'bg-teal-500', icon: '&#11088;',
         navLinks: [
             { href: 'leader-dashboard.html', label: '&#127968; Mi Alianza', section: 'main' },
-            { href: 'admin/matches.html', label: '&#127918; Partidas', section: 'main' },
+            { href: 'leader-dashboard.html?tab=matches', label: '&#127918; Partidas', section: 'main' },
             { href: 'admin/players.html', label: '&#128100; Jugadores', section: 'main' },
             { href: 'admin/duel-manager.html', label: '&#9876;&#65039; Duelos', section: 'main' },
             { href: 'admin/officers.html', label: '&#11088; Mi Equipo', section: 'main' },
@@ -81,7 +81,7 @@ var ROLE_PANELS = {
             { href: 'chat.html', label: '&#128172; Chat', section: 'comms' },
         ],
         quickActions: [
-            { label: '&#10133; Crear Partida', action: 'openMatchModal()' },
+            { label: '&#10133; Crear Partida', action: 'openCreateMatchModal()' },
             { label: '&#9876;&#65039; Preparar Duelo', href: 'admin/duel-manager.html' },
         ]
     },

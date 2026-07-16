@@ -39,10 +39,14 @@
                 return;
             }
             myAllianceId = admin.alliance_id;
+            var cmAlliance = document.getElementById('cm-alliance');
+            if (cmAlliance) cmAlliance.value = myAllianceId;
             await loadAllianceData();
             loadMembers();
             loadPendingRequests();
             bindTabs();
+            bindCreateMatchModal();
+            activateTabFromQuery();
         } catch(e) {
             console.error('[LeaderDashboard] init error:', e);
         }
@@ -66,7 +70,7 @@
 
     async function loadPendingRequests() {
         try {
-            var { data: requests, error } = await window.DB.from('alliance_memberships')
+            var { data: requests, error } = await window.DB.from('allianceMemberships')
                 .select('*')
                 .eq('alliance_id', myAllianceId)
                 .eq('status', 'pending')
@@ -125,7 +129,7 @@
 
     async function approveRequest(membershipId, playerId) {
         try {
-            await window.DB.from('alliance_memberships').update({ status: 'approved', approved_at: new Date().toISOString() }).eq('id', membershipId);
+            await window.DB.from('allianceMemberships').update({ status: 'approved', approved_at: new Date().toISOString() }).eq('id', membershipId);
             await window.DB.from('players').update({ current_alliance_id: myAllianceId }).eq('id', playerId);
             if (typeof window.showToast === 'function') window.showToast('Solicitud aprobada!', 'success');
             loadPendingRequests();
@@ -138,7 +142,7 @@
     async function rejectRequest(membershipId) {
         if (!confirm('Rechazar solicitud?')) return;
         try {
-            await window.DB.from('alliance_memberships').update({ status: 'rejected' }).eq('id', membershipId);
+            await window.DB.from('allianceMemberships').update({ status: 'rejected' }).eq('id', membershipId);
             if (typeof window.showToast === 'function') window.showToast('Rechazada', 'info');
             loadPendingRequests();
         } catch(e) {
@@ -148,7 +152,7 @@
 
     async function loadMembers() {
         try {
-            var { data: memberships, error } = await window.DB.from('alliance_memberships')
+            var { data: memberships, error } = await window.DB.from('allianceMemberships')
                 .select('player_id')
                 .eq('alliance_id', myAllianceId)
                 .eq('status', 'approved');
@@ -188,7 +192,7 @@
         var container = document.getElementById('rankings-list');
         if (!myAllianceId) return;
         try {
-            var { data: memberships, error: mErr } = await window.DB.from('alliance_memberships')
+            var { data: memberships, error: mErr } = await window.DB.from('allianceMemberships')
                 .select('player_id')
                 .eq('alliance_id', myAllianceId)
                 .eq('status', 'approved');
@@ -313,6 +317,84 @@
         });
     }
 
+    function bindCreateMatchModal() {
+        var openBtn = document.getElementById('btn-open-create-match');
+        var closeBtn = document.getElementById('btn-close-create-match');
+        var cancelBtn = document.getElementById('btn-cancel-create-match');
+        var modal = document.getElementById('create-match-modal');
+        var form = document.getElementById('create-match-form');
+
+        if (openBtn) openBtn.addEventListener('click', openCreateMatchModal);
+        if (closeBtn) closeBtn.addEventListener('click', closeCreateMatchModal);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeCreateMatchModal);
+        if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeCreateMatchModal(); });
+        if (form) form.addEventListener('submit', createMatchFromLeaderPanel);
+    }
+
+    function openCreateMatchModal() {
+        var modal = document.getElementById('create-match-modal');
+        if (modal) modal.classList.add('active');
+    }
+
+    function closeCreateMatchModal() {
+        var modal = document.getElementById('create-match-modal');
+        if (modal) modal.classList.remove('active');
+    }
+
+    async function createMatchFromLeaderPanel(e) {
+        e.preventDefault();
+        if (!myAllianceId) {
+            if (typeof window.showToast === 'function') window.showToast('Sin alianza asignada', 'error');
+            return;
+        }
+
+        var name = document.getElementById('cm-name').value.trim();
+        var gameId = document.getElementById('cm-game-id').value.trim() || null;
+        var password = document.getElementById('cm-password').value.trim() || null;
+        var maxPlayers = parseInt(document.getElementById('cm-max').value) || 31;
+        var description = document.getElementById('cm-desc').value.trim() || null;
+        var allowExternal = document.getElementById('cm-allow-external').checked;
+        var requireApproval = document.getElementById('cm-require-approval').checked;
+
+        if (!name) {
+            if (typeof window.showToast === 'function') window.showToast('Nombre obligatorio', 'warning');
+            return;
+        }
+
+        try {
+            var { data: { session }, error: sessionError } = await window.supabase.auth.getSession();
+            if (sessionError) throw sessionError;
+            if (!session || !session.user) throw new Error('No hay sesion activa');
+
+            var { data, error } = await window.DB.from('matches').insert({
+                name: name,
+                game_id: gameId,
+                password: password,
+                alliance_id: myAllianceId,
+                match_type: 'internal',
+                max_players: maxPlayers,
+                description: description,
+                is_private: !allowExternal,
+                requires_approval: requireApproval,
+                status: 'draft',
+                created_by: session.user.id
+            }).select('id').single();
+
+            if (error) throw error;
+            if (!data || !data.id) throw new Error('No se recibio ID de partida');
+
+            if (typeof window.showToast === 'function') window.showToast('Partida interna creada', 'success');
+            document.getElementById('create-match-form').reset();
+            var cmAlliance = document.getElementById('cm-alliance');
+            if (cmAlliance) cmAlliance.value = myAllianceId;
+            closeCreateMatchModal();
+            window.location.href = 'admin/match-detail.html?id=' + data.id;
+        } catch(err) {
+            console.error('[LeaderDashboard] Error creando partida:', err);
+            if (typeof window.showToast === 'function') window.showToast('Error: ' + (err.message || err), 'error');
+        }
+    }
+
     window.switchTab = function(tab) {
         var tabs = ['members', 'requests', 'rankings', 'duels', 'matches'];
         tabs.forEach(function(t) {
@@ -339,11 +421,19 @@
         if (tab === 'requests') loadPendingRequests();
     };
 
+    function activateTabFromQuery() {
+        var tab = new URLSearchParams(window.location.search).get('tab');
+        if (tab && ['members', 'requests', 'rankings', 'duels', 'matches'].indexOf(tab) !== -1) {
+            switchTab(tab);
+        }
+    }
+
     // Exponer funciones globales necesarias
     window.loadMembers = loadMembers;
     window.loadPendingRequests = loadPendingRequests;
     window.approveRequest = approveRequest;
     window.rejectRequest = rejectRequest;
+    window.openCreateMatchModal = openCreateMatchModal;
 
     // Inicializacion robusta
     if (document.readyState === 'loading') {

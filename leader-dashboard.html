@@ -26,7 +26,7 @@
 </div>
 <div class="flex gap-2 flex-wrap">
 <a href="admin/duel-manager.html" class="px-4 py-2 rounded-lg text-sm font-bold transition active:scale-[0.98] gradient-btn">&#9876;&#65039; Preparar Duelo</a>
-<a href="admin/matches.html" class="px-4 py-2 rounded-lg text-sm font-bold transition active:scale-[0.98] border border-ah-border bg-white/5 text-ah-text">&#10133; Nueva Partida</a>
+<button type="button" id="btn-open-create-match" class="px-4 py-2 rounded-lg text-sm font-bold transition active:scale-[0.98] border border-ah-border bg-white/5 text-ah-text">&#10133; Nueva Partida</button>
 </div>
 </div>
 </div>
@@ -53,5 +53,56 @@
 <div id="matches-list"><div class="text-center py-8 text-ah-muted">Cargando partidas...</div></div>
 </div>
 </div>
+
+<!-- Create Match Modal -->
+<div id="create-match-modal" class="modal">
+<div class="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-ah-card border border-ah-border shadow-xl">
+<div class="p-5 border-b border-ah-border rounded-t-2xl bg-gradient-to-br from-orange-600 to-amber-500">
+<div class="flex items-center justify-between">
+<h2 class="text-lg font-bold text-white">&#10133; Nueva Partida Interna</h2>
+<button type="button" id="btn-close-create-match" class="text-white hover:opacity-70 text-xl">&#10005;</button>
+</div>
+</div>
+<form id="create-match-form" class="p-5 space-y-4">
+<input type="hidden" id="cm-type" value="internal">
+<input type="hidden" id="cm-alliance" value="">
+<div>
+<label class="block text-xs font-medium mb-1 text-ah-muted">Nombre *</label>
+<input type="text" id="cm-name" required class="w-full px-3 py-2 rounded-lg text-sm min-h-[44px] ah-input" placeholder="Nombre de la partida">
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-medium mb-1 text-ah-muted">ID del Juego</label>
+<input type="text" id="cm-game-id" class="w-full px-3 py-2 rounded-lg text-sm min-h-[44px] ah-input" placeholder="Opcional">
+</div>
+<div>
+<label class="block text-xs font-medium mb-1 text-ah-muted">Contraseña</label>
+<input type="text" id="cm-password" class="w-full px-3 py-2 rounded-lg text-sm min-h-[44px] ah-input" placeholder="Opcional">
+</div>
+</div>
+<div>
+<label class="block text-xs font-medium mb-1 text-ah-muted">Max Jugadores</label>
+<input type="number" id="cm-max" value="31" min="2" max="500" class="w-full px-3 py-2 rounded-lg text-sm min-h-[44px] ah-input">
+</div>
+<div>
+<label class="block text-xs font-medium mb-1 text-ah-muted">Descripción</label>
+<textarea id="cm-desc" rows="3" class="w-full px-3 py-2 rounded-lg text-sm ah-input"></textarea>
+</div>
+<div class="flex items-center gap-2">
+<input type="checkbox" id="cm-allow-external" class="w-4 h-4 rounded border-ah-border bg-ah-card text-amber-500 focus:ring-amber-500">
+<label for="cm-allow-external" class="text-sm text-ah-text">Permitir jugadores externos</label>
+</div>
+<div class="flex items-center gap-2">
+<input type="checkbox" id="cm-require-approval" class="w-4 h-4 rounded border-ah-border bg-ah-card text-amber-500 focus:ring-amber-500">
+<label for="cm-require-approval" class="text-sm text-ah-text">Requerir aprobación de registros</label>
+</div>
+<div class="flex gap-3 pt-2">
+<button type="submit" class="flex-1 font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#10133; Crear Partida</button>
+<button type="button" id="btn-cancel-create-match" class="px-4 py-2.5 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
+</div>
+</form>
+</div>
+</div>
+
 </body>
 </html>

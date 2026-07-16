@@ -124,14 +124,12 @@
                 role: 'role',
                 requestedBy: 'requested_by',
                 requestedAt: 'requested_at',
-                approvedBy: 'approved_by',
                 approvedAt: 'approved_at',
-                rejectedAt: 'rejected_at',
-                notes: 'notes'
+                rejectedAt: 'rejected_at'
             },
             selectSets: {
                 basic: 'id, player_id, alliance_id, status',
-                withPlayer: 'id, player_id, alliance_id, status, players:player_id(current_username, total_kills, total_deaths)',
+                withPlayer: 'id, player_id, alliance_id, status, role, players:player_id(current_username, total_kills, total_deaths)',
                 all: '*'
             }
         },
@@ -385,6 +383,8 @@
                 id: 'id',
                 code: 'code',
                 role: 'role',
+                playerId: 'player_id',
+                allianceId: 'alliance_id',
                 createdBy: 'created_by',
                 used: 'used',
                 usedBy: 'used_by',
@@ -393,7 +393,7 @@
                 createdAt: 'created_at'
             },
             selectSets: {
-                basic: 'id, code, role, used, created_at',
+                basic: 'id, code, role, player_id, alliance_id, used, created_at',
                 all: '*'
             }
         }

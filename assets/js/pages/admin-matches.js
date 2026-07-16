@@ -8,6 +8,7 @@
     'use strict';
 
     var allMatches = [];
+    var isAllianceLeader = false;
 
     async function loadMatches() {
         try {
@@ -18,7 +19,7 @@
             // Filtrar por alianza para lideres de alianza
             var admin = null;
             try { admin = await window.getAdminRole(); } catch(e) {}
-            var isAllianceLeader = admin && admin.role === 'alliance_leader' && admin.alliance_id;
+            isAllianceLeader = admin && admin.role === 'alliance_leader' && admin.alliance_id;
 
             var q = window.supabase.from('matches').select('*').order('created_at', { ascending: false }).limit(50);
             if (isAllianceLeader) {
@@ -58,7 +59,13 @@
         renderMatches(filtered);
     };
 
-    window.openMatchModal = function() { window.location.href = 'match-detail.html?action=new'; };
+    window.openMatchModal = function() {
+        if (isAllianceLeader) {
+            window.location.href = '../leader-dashboard.html?tab=matches';
+            return;
+        }
+        window.location.href = 'match-detail.html?action=new';
+    };
 
     // Namespace para reintentos
     window.adminMatches = { load: loadMatches };
