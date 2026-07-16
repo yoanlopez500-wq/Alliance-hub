@@ -14,7 +14,16 @@
             await window.loadAlliancesMap();
             var status = document.getElementById('filter-status');
             var statusVal = status ? status.value : '';
+
+            // Filtrar por alianza para lideres de alianza
+            var admin = null;
+            try { admin = await window.getAdminRole(); } catch(e) {}
+            var isAllianceLeader = admin && admin.role === 'alliance_leader' && admin.alliance_id;
+
             var q = window.supabase.from('matches').select('*').order('created_at', { ascending: false }).limit(50);
+            if (isAllianceLeader) {
+                q = q.eq('alliance_id', admin.alliance_id);
+            }
             if (statusVal) q = q.eq('status', statusVal);
             var { data, error } = await q;
             if (error) throw error;

@@ -243,7 +243,8 @@ async function signupWithInvite(email, password, inviteCode, supremacyId, displa
     var { error: adminError } = await supabase.from('admin_users').insert({
         id: user.id, role: invite.role, display_name: displayName,
         supremacy_player_id: sid, approved_by: invite.created_by,
-        approved_at: new Date().toISOString(), status: 'active'
+        approved_at: new Date().toISOString(), status: 'active',
+        alliance_id: invite.alliance_id || null
     });
     if (adminError) {
         console.error('[signupWithInvite] Error creando admin_user:', adminError);
