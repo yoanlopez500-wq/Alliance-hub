@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Entrar - Alliance Hub</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="assets/js/config.js?v=27"></script>
-<script src="assets/js/base.js?v=27"></script>
+<link rel="stylesheet" href="assets/css/theme.css">
+<script src="assets/js/cache-buster.js"></script>
+<script src="assets/js/loader.js"></script>
+<script>AHLoader.init({ role: 'player', pageScript: 'assets/js/pages/login-player.js' });</script>
 <meta name="theme-color" content="#0f172a">
 </head>
 <body class="bg-slate-900 min-h-screen flex items-center justify-center" data-role="public">
@@ -37,65 +38,5 @@
 <a href="index.html" class="text-slate-400 hover:text-white text-sm">&#8592; Volver al inicio</a>
 </div>
 </div>
-<script>
-// Limpiar redirect si el usuario cancela y vuelve
-// (solo si no venimos de un redirect activo)
-(function() {
-    var urlParams = new URLSearchParams(window.location.search);
-    if (!urlParams.get('redirect')) {
-        localStorage.removeItem('ah_redirect_after_login');
-    }
-})();
-
-if (typeof savePlayerSession !== 'function') {
-    window.savePlayerSession = async function(playerId, displayName) {
-        try {
-            var token = 'ah_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now();
-            localStorage.setItem('ah_v2_player_id', String(playerId));
-            localStorage.setItem('ah_v2_player_token', token);
-            localStorage.setItem('ah_v2_player_name', displayName || '');
-            return true;
-        } catch(e) { console.error('savePlayerSession guard error:', e); return false; }
-    };
-}
-
-async function doLogin() {
-    var pid = document.getElementById('player-id').value.trim();
-    var name = document.getElementById('player-name').value.trim();
-    if (!pid || !name) { showToast('ID y username son requeridos', 'error'); return; }
-    var result = document.getElementById('login-result');
-    var msg = document.getElementById('login-message');
-    result.classList.remove('hidden');
-    msg.textContent = 'Verificando...';
-    msg.className = 'text-sm text-slate-500';
-    try {
-        var { data: player, error } = await supabase.from('players').select('id, current_username, status').eq('id', parseInt(pid)).single();
-        if (error && error.code !== 'PGRST116') { msg.textContent = 'Error: ' + error.message; msg.className = 'text-sm text-red-600'; return; }
-        if (!player) {
-            var { error: insertErr } = await supabase.from('players').insert({ id: parseInt(pid), current_username: name, status: 'active', last_seen: new Date().toISOString() });
-            if (insertErr) { msg.textContent = 'Error creando jugador: ' + insertErr.message; msg.className = 'text-sm text-red-600'; return; }
-        } else {
-            await supabase.from('players').update({ last_seen: new Date().toISOString() }).eq('id', parseInt(pid));
-        }
-        var ok = await savePlayerSession(pid, name);
-        if (!ok) { msg.textContent = 'Error guardando sesion'; msg.className = 'text-sm text-red-600'; return; }
-        msg.textContent = 'Bienvenido, ' + name + '!';
-        msg.className = 'text-sm text-green-600 font-bold';
-
-        // ============================================================
-        // REDIRECT: Despues de login exitoso, verificar si hay URL guardada
-        // ============================================================
-        setTimeout(function() {
-            var redirectUrl = localStorage.getItem('ah_redirect_after_login');
-            if (redirectUrl) {
-                localStorage.removeItem('ah_redirect_after_login');
-                window.location.href = redirectUrl;
-            } else {
-                window.location.href = 'index.html';
-            }
-        }, 800);
-    } catch(e) { msg.textContent = 'Error: ' + e.message; msg.className = 'text-sm text-red-600'; }
-}
-</script>
 </body>
 </html>

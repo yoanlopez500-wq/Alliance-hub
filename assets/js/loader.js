@@ -132,6 +132,25 @@
                 url = window.AHBuster.url(url);
             }
             return loadScript(url);
+        },
+
+        // Helper para que los page scripts se inicialicen correctamente tanto si
+        // el DOM ya esta listo como si los scripts se cargaron dinamicamente.
+        // El callback se ejecuta UNA sola vez.
+        onReady: function(callback) {
+            var done = false;
+            function run() {
+                if (done) return;
+                done = true;
+                callback();
+            }
+            if (document.readyState === 'interactive' || document.readyState === 'complete') {
+                run();
+            } else {
+                document.addEventListener('DOMContentLoaded', run);
+            }
+            window.addEventListener('ah:dom-ready', run);
+            window.addEventListener('ah:loaded', run);
         }
     };
 })();

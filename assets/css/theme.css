@@ -26,13 +26,16 @@
 }
 
 /* ===================== THEME CLASSES (compatibilidad) ===================== */
-.bg-ah-bg { background-color: var(--ah-bg) !important; }
-.bg-ah-card { background-color: var(--ah-card) !important; }
-.text-ah-text { color: var(--ah-text) !important; }
-.text-ah-muted { color: var(--ah-muted) !important; }
-.text-ah-accent { color: var(--ah-accent) !important; }
-.border-ah-border { border-color: var(--ah-border) !important; }
-.border-ah-accent { border-color: var(--ah-accent) !important; }
+/* Nota: se cargan DESPUES de Tailwind, asi que no necesitan !important
+   para ganar en la mayoria de los casos. Si hay conflictos especificos,
+   se puede restaurar !important en esas clases concretas. */
+.bg-ah-bg { background-color: var(--ah-bg); }
+.bg-ah-card { background-color: var(--ah-card); }
+.text-ah-text { color: var(--ah-text); }
+.text-ah-muted { color: var(--ah-muted); }
+.text-ah-accent { color: var(--ah-accent); }
+.border-ah-border { border-color: var(--ah-border); }
+.border-ah-accent { border-color: var(--ah-accent); }
 
 /* ===================== BODY BASE (reemplaza <style> duplicado) ===================== */
 body {
@@ -257,6 +260,7 @@ textarea.ah-input-dark:focus {
     filter: blur(120px);
     opacity: 0.15;
     pointer-events: none;
+    z-index: 0;
 }
 
 /* ===================== STAT/FEATURE CARDS ===================== */

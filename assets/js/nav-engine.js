@@ -2,6 +2,23 @@
 // Depende de: base.js, roles-data.js, auth-core.js, notifications.js, pwa-utils.js
 
 window.__ahNavRetryCount = 0;
+window.__ahNavInitialized = false;
+
+// ===================== ESPERA DE DEPENDENCIAS =====================
+
+function waitForSupabaseNav(callback, attempts) {
+    attempts = attempts || 0;
+    if (typeof window.supabase !== 'undefined' && typeof window.supabase.from === 'function') {
+        callback();
+        return;
+    }
+    if (attempts < 50) {
+        setTimeout(function() { waitForSupabaseNav(callback, attempts + 1); }, 100);
+    } else {
+        console.error('[NavEngine] Supabase no disponible despues de 5 segundos');
+        callback();
+    }
+}
 
 // ===================== DETECCION DE SESION =====================
 
@@ -24,9 +41,11 @@ function getPlayerDataNav() {
 async function initAdminNav() {
     var nav = document.getElementById('admin-nav');
     if (!nav) return;
+    if (window.__ahNavInitialized) return;
+    window.__ahNavInitialized = true;
 
     try {
-        var sessionData = await supabase.auth.getSession();
+        var sessionData = await window.supabase.auth.getSession();
         var adminSession = sessionData.data.session;
 
         var playerData = (typeof getPlayerData === 'function') ? getPlayerData() : getPlayerDataNav();
@@ -305,14 +324,28 @@ function renderPublicNav(nav) {
 
 // ===================== AUTO-INIT =====================
 
-document.addEventListener('DOMContentLoaded', function() {
+function runNavInit() {
+    if (window.__ahNavInitialized) return;
     window.__ahNavRetryCount = 0;
-    initAdminNav().catch(function(e) {
-        console.error('[NavEngine] DOMContentLoaded init error:', e);
-        var nav = document.getElementById('admin-nav');
-        if (nav) renderPublicNav(nav);
+    waitForSupabaseNav(function() {
+        initAdminNav().catch(function(e) {
+            console.error('[NavEngine] init error:', e);
+            var nav = document.getElementById('admin-nav');
+            if (nav && !window.__ahNavInitialized) renderPublicNav(nav);
+        });
     });
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runNavInit);
+} else {
+    runNavInit();
+}
+
+// Fallback para carga dinamica via loader.js: si el DOM ya estaba listo cuando
+// los scripts terminaron de cargar, el loader dispara ah:dom-ready.
+window.addEventListener('ah:dom-ready', runNavInit);
+window.addEventListener('ah:loaded', runNavInit);
 
 window.initAdminNav = initAdminNav;
 window.renderPlayerNav = renderPlayerNav;

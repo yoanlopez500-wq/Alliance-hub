@@ -7,6 +7,23 @@
 (function() {
     'use strict';
 
+    var initialized = false;
+
+    // Esperar a Supabase antes de hacer auto-login
+    function waitForSupabaseLogin(callback, attempts) {
+        attempts = attempts || 0;
+        if (typeof window.supabase !== 'undefined' && typeof window.supabase.from === 'function') {
+            callback();
+            return;
+        }
+        if (attempts < 50) {
+            setTimeout(function() { waitForSupabaseLogin(callback, attempts + 1); }, 100);
+        } else {
+            console.error('[Login] Supabase no disponible despues de 5 segundos');
+            callback();
+        }
+    }
+
     // Auto-login: si hay token, redirigir al admin
     function autoLoginAdmin() {
         var token = localStorage.getItem('sb-qkccyjegkgjzwoxytnqp-auth-token');
@@ -40,83 +57,97 @@
         });
     };
 
-    // Inicializar
-    document.addEventListener('DOMContentLoaded', function() {
-        // Intentar auto-login
-        if (autoLoginAdmin()) {
-            document.documentElement.style.display = 'none';
-            return;
-        }
+    function init() {
+        if (initialized) return;
+        initialized = true;
 
-        // Handler pageshow para BFCache
-        window.addEventListener('pageshow', function(event) {
-            if (event.persisted) autoLoginAdmin();
+        waitForSupabaseLogin(function() {
+            // Intentar auto-login
+            if (autoLoginAdmin()) {
+                document.documentElement.style.display = 'none';
+                return;
+            }
+
+            // Handler pageshow para BFCache
+            window.addEventListener('pageshow', function(event) {
+                if (event.persisted) autoLoginAdmin();
+            });
+
+            // Login form
+            var loginForm = document.getElementById('login-form');
+            if (loginForm) {
+                loginForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    var errorMsg = document.getElementById('error-msg');
+                    var successMsg = document.getElementById('success-msg');
+                    if (errorMsg) errorMsg.classList.add('hidden');
+                    if (successMsg) successMsg.classList.add('hidden');
+                    var success = await window.login(
+                        document.getElementById('login-email').value,
+                        document.getElementById('login-password').value
+                    );
+                    if (success) {
+                        window.location.href = 'admin/index.html';
+                    } else {
+                        if (errorMsg) { errorMsg.textContent = 'Email o contrasena incorrectos'; errorMsg.classList.remove('hidden'); }
+                    }
+                });
+            }
+
+            // Signup form
+            var signupForm = document.getElementById('signup-form');
+            if (signupForm) {
+                signupForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    var errorMsg = document.getElementById('error-msg');
+                    var successMsg = document.getElementById('success-msg');
+                    if (errorMsg) errorMsg.classList.add('hidden');
+                    if (successMsg) successMsg.classList.add('hidden');
+                    var result = await window.signupWithInvite(
+                        document.getElementById('signup-email').value,
+                        document.getElementById('signup-password').value,
+                        document.getElementById('signup-code').value,
+                        document.getElementById('signup-supremacy-id').value,
+                        document.getElementById('signup-display-name').value.trim()
+                    );
+                    if (result.success) {
+                        if (successMsg) { successMsg.textContent = result.message; successMsg.classList.remove('hidden'); }
+                        this.reset();
+                        setTimeout(function() { showTab('login'); }, 2000);
+                    } else {
+                        if (errorMsg) { errorMsg.textContent = result.message; errorMsg.classList.remove('hidden'); }
+                    }
+                });
+            }
+
+            // Reset password form
+            var resetForm = document.getElementById('reset-form');
+            if (resetForm) {
+                resetForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    var errorMsg = document.getElementById('error-msg');
+                    var successMsg = document.getElementById('success-msg');
+                    if (errorMsg) errorMsg.classList.add('hidden');
+                    if (successMsg) successMsg.classList.add('hidden');
+                    var result = await window.sendPasswordReset(document.getElementById('reset-email').value);
+                    if (result.success) {
+                        if (successMsg) { successMsg.textContent = result.message; successMsg.classList.remove('hidden'); }
+                        this.reset();
+                    } else {
+                        if (errorMsg) { errorMsg.textContent = result.message; errorMsg.classList.remove('hidden'); }
+                    }
+                });
+            }
         });
+    }
 
-        // Login form
-        var loginForm = document.getElementById('login-form');
-        if (loginForm) {
-            loginForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                var errorMsg = document.getElementById('error-msg');
-                var successMsg = document.getElementById('success-msg');
-                if (errorMsg) errorMsg.classList.add('hidden');
-                if (successMsg) successMsg.classList.add('hidden');
-                var success = await window.login(
-                    document.getElementById('login-email').value,
-                    document.getElementById('login-password').value
-                );
-                if (success) {
-                    window.location.href = 'admin/index.html';
-                } else {
-                    if (errorMsg) { errorMsg.textContent = 'Email o contrasena incorrectos'; errorMsg.classList.remove('hidden'); }
-                }
-            });
-        }
-
-        // Signup form
-        var signupForm = document.getElementById('signup-form');
-        if (signupForm) {
-            signupForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                var errorMsg = document.getElementById('error-msg');
-                var successMsg = document.getElementById('success-msg');
-                if (errorMsg) errorMsg.classList.add('hidden');
-                if (successMsg) successMsg.classList.add('hidden');
-                var result = await window.signupWithInvite(
-                    document.getElementById('signup-email').value,
-                    document.getElementById('signup-password').value,
-                    document.getElementById('signup-code').value,
-                    document.getElementById('signup-supremacy-id').value,
-                    document.getElementById('signup-display-name').value.trim()
-                );
-                if (result.success) {
-                    if (successMsg) { successMsg.textContent = result.message; successMsg.classList.remove('hidden'); }
-                    this.reset();
-                    setTimeout(function() { showTab('login'); }, 2000);
-                } else {
-                    if (errorMsg) { errorMsg.textContent = result.message; errorMsg.classList.remove('hidden'); }
-                }
-            });
-        }
-
-        // Reset password form
-        var resetForm = document.getElementById('reset-form');
-        if (resetForm) {
-            resetForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                var errorMsg = document.getElementById('error-msg');
-                var successMsg = document.getElementById('success-msg');
-                if (errorMsg) errorMsg.classList.add('hidden');
-                if (successMsg) successMsg.classList.add('hidden');
-                var result = await window.sendPasswordReset(document.getElementById('reset-email').value);
-                if (result.success) {
-                    if (successMsg) { successMsg.textContent = result.message; successMsg.classList.remove('hidden'); }
-                    this.reset();
-                } else {
-                    if (errorMsg) { errorMsg.textContent = result.message; errorMsg.classList.remove('hidden'); }
-                }
-            });
-        }
-    });
+    // Inicializar tan pronto como sea posible: ya sea que el DOM este listo,
+    // o que el loader haya terminado de cargar los scripts dinamicamente.
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+    window.addEventListener('ah:dom-ready', init);
+    window.addEventListener('ah:loaded', init);
 })();

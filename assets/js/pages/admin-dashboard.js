@@ -7,7 +7,11 @@
 (function() {
     'use strict';
 
-    document.addEventListener('DOMContentLoaded', async function() {
+    var initialized = false;
+
+    async function init() {
+        if (initialized) return;
+        initialized = true;
         try {
             var sessionRes = await window.supabase.auth.getSession();
             if (!sessionRes.data || !sessionRes.data.session) {
@@ -29,5 +33,14 @@
             console.error('Auth error:', e);
             window.location.href = '../login.html';
         }
-    });
+    }
+
+    // Inicializar cuando el DOM este listo (compat con carga dinamica del loader)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+    window.addEventListener('ah:dom-ready', init);
+    window.addEventListener('ah:loaded', init);
 })();
