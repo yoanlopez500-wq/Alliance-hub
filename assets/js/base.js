@@ -9,7 +9,7 @@ window.__AH_BASE_PATH = (function() {
         return '/';
     }
     if (parts.length >= 1) {
-        var knownPages = ['index.html','login.html','login-player.html','rankings.html','game.html','player.html','dashboard.html','reset-password.html','chat.html','404.html','manifest.json','assets','register','service-worker.js','course','landing.html','leader-dashboard.html','alliance-panel.html'];
+        var knownPages = ['index.html','login.html','login-player.html','rankings.html','game.html','player.html','dashboard.html','reset-password.html','chat.html','404.html','manifest.json','assets','register','service-worker.js','course','landing.html','leader-dashboard.html','alliance-panel.html','rules.html','apply-leader.html','report.html'];
         if (knownPages.indexOf(parts[0]) === -1) return '/' + parts[0] + '/';
     }
     if (parts.length >= 2) return '/' + parts[0] + '/';

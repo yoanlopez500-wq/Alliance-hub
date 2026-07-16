@@ -413,23 +413,25 @@ async function checkPendingLeaderApproval() {
         console.log('[checkPendingLeaderApproval] Checking player_id:', playerId);
 
         var now = new Date().toISOString();
-        var { data: invite, error } = await supabase
+        var { data: invites, error } = await supabase
             .from('admin_invites')
             .select('code, role, alliance_id')
             .eq('player_id', playerId)
             .eq('used', false)
             .or('expires_at.gt.' + now + ',expires_at.is.null')
-            .maybeSingle();
+            .order('created_at', { ascending: false })
+            .limit(1);
 
         if (error) {
             console.error('[checkPendingLeaderApproval] Query error:', error);
             return;
         }
-        if (!invite) {
+        if (!invites || invites.length === 0) {
             console.log('[checkPendingLeaderApproval] No pending invite for player', playerId);
             return;
         }
 
+        var invite = invites[0];
         console.log('[checkPendingLeaderApproval] Found invite:', invite.code);
 
         var allianceName = 'tu alianza';

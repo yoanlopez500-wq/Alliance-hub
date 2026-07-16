@@ -8,77 +8,60 @@
 <meta http-equiv="Expires" content="0">
 <title>Solicitar Liderazgo - Alliance Hub</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="assets/js/theme.js?v=27"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="assets/js/config.js?v=27"></script>
-<script src="assets/js/base.js?v=27"></script>
-<script src="assets/js/components.js?v=27"></script>
-<script src="assets/js/roles-data.js?v=27"></script>
-<script src="assets/js/auth-core.js?v=27"></script>
-<script src="assets/js/messaging.js?v=27"></script>
-<script src="assets/js/notifications.js?v=27"></script>
-<script src="assets/js/nav-engine.js?v=27"></script>
-<script src="assets/js/training.js?v=27"></script>
+<link rel="stylesheet" href="assets/css/theme.css">
+<script src="assets/js/cache-buster.js"></script>
+<script src="assets/js/loader.js"></script>
+<script>AHLoader.init({ role: 'public', pageScript: 'assets/js/pages/apply-leader.js' });</script>
 <meta name="theme-color" content="#0a0e27">
-<style>body{font-family:'Inter',system-ui,sans-serif;background:#0a0e27;color:#e8eaf6;}</style>
 </head>
-<body class="min-h-screen" data-role="public">
+<body class="min-h-screen bg-ah-bg text-ah-text" data-role="public">
 <div id="admin-nav"></div>
 <div class="max-w-2xl mx-auto px-4 py-8">
 <h1 class="text-2xl font-bold mb-2">&#127941; Solicitar Liderazgo de Alianza</h1>
-<p class="text-sm mb-6" style="color:#9fa8da;">Completa el formulario para registrar tu alianza en Alliance Hub. Un superadmin revisara tu solicitud.</p>
-<div id="error-banner" class="hidden mb-4 p-3 rounded-lg text-sm font-bold" style="background:rgba(198,40,40,0.15);color:#ef5350;"></div>
-<div id="success-msg" class="hidden mb-4 p-3 rounded-lg text-sm font-bold" style="background:rgba(46,125,50,0.15);color:#4caf50;"></div>
+<p class="text-sm mb-6 text-ah-muted">Completa el formulario para registrar tu alianza en Alliance Hub. Un superadmin revisara tu solicitud.</p>
+
+<div id="error-banner" class="hidden mb-4 p-3 rounded-lg text-sm font-bold bg-red-500/15 text-red-400"></div>
+<div id="success-msg" class="hidden mb-4 p-3 rounded-lg text-sm font-bold bg-green-500/15 text-green-400"></div>
+
+<div id="status-card" class="hidden mb-6"></div>
+
+<div id="form-container">
 <form id="leader-form" class="space-y-4">
-<div><label class="block text-sm font-medium mb-1" style="color:#9fa8da;">Nombre de la Alianza *</label><input type="text" id="alliance-name" required class="w-full px-3 py-2 rounded-lg border text-sm" style="background:#11183a;border-color:#1a237e;color:#e8eaf6;" placeholder="Ej: Los Guerreros Aguilas"></div>
-<div><label class="block text-sm font-medium mb-1" style="color:#9fa8da;">Tag (abreviatura) *</label><input type="text" id="alliance-tag" required maxlength="10" class="w-full px-3 py-2 rounded-lg border text-sm uppercase" style="background:#11183a;border-color:#1a237e;color:#e8eaf6;" placeholder="Ej: LGA"></div>
-<div><label class="block text-sm font-medium mb-1" style="color:#9fa8da;">Descripcion</label><textarea id="alliance-desc" rows="3" class="w-full px-3 py-2 rounded-lg border text-sm" style="background:#11183a;border-color:#1a237e;color:#e8eaf6;" placeholder="Describe tu alianza, sus objetivos y reglas internas..."></textarea></div>
-<div><label class="block text-sm font-medium mb-1" style="color:#9fa8da;">Tu ID de Supremacy 1914 *</label><input type="number" id="supremacy-id" required class="w-full px-3 py-2 rounded-lg border text-sm" style="background:#11183a;border-color:#1a237e;color:#e8eaf6;" placeholder="Ej: 24549130"></div>
-<div><label class="block text-sm font-medium mb-1" style="color:#9fa8da;">Tu nombre de usuario en Supremacy *</label><input type="text" id="username" required class="w-full px-3 py-2 rounded-lg border text-sm" style="background:#11183a;border-color:#1a237e;color:#e8eaf6;" placeholder="Ej: Tlaloc27"></div>
-<div><label class="block text-sm font-medium mb-1" style="color:#9fa8da;">Discord (opcional)</label><input type="text" id="discord" class="w-full px-3 py-2 rounded-lg border text-sm" style="background:#11183a;border-color:#1a237e;color:#e8eaf6;" placeholder="usuario#1234"></div>
-<div><label class="block text-sm font-medium mb-1" style="color:#9fa8da;">Numero aproximado de miembros</label><input type="number" id="member-count" min="1" class="w-full px-3 py-2 rounded-lg border text-sm" style="background:#11183a;border-color:#1a237e;color:#e8eaf6;" placeholder="Ej: 10"></div>
-<div class="flex items-start gap-2"><input type="checkbox" id="accept-rules" required class="mt-1"><label for="accept-rules" class="text-sm" style="color:#9fa8da;">He leido y acepto el <a href="rules.html" class="underline" style="color:#ff8f00;">reglamento de Alliance Hub</a> y me comprometo a hacerlo cumplir en mi alianza. *</label></div>
-<button type="submit" id="submit-btn" class="w-full py-3 rounded-lg font-bold text-sm transition active:scale-[0.98]" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:white;">&#128232; Enviar Solicitud</button>
+<div>
+<label class="block text-sm font-medium mb-1 text-ah-muted">Nombre de la Alianza *</label>
+<input type="text" id="alliance-name" required class="w-full px-3 py-2 rounded-lg border text-sm bg-ah-card border-ah-border text-ah-text focus:border-ah-accent outline-none" placeholder="Ej: Los Guerreros Aguilas">
+</div>
+<div>
+<label class="block text-sm font-medium mb-1 text-ah-muted">Tag (abreviatura) *</label>
+<input type="text" id="alliance-tag" required maxlength="10" class="w-full px-3 py-2 rounded-lg border text-sm uppercase bg-ah-card border-ah-border text-ah-text focus:border-ah-accent outline-none" placeholder="Ej: LGA">
+</div>
+<div>
+<label class="block text-sm font-medium mb-1 text-ah-muted">Descripcion</label>
+<textarea id="alliance-desc" rows="3" class="w-full px-3 py-2 rounded-lg border text-sm bg-ah-card border-ah-border text-ah-text focus:border-ah-accent outline-none" placeholder="Describe tu alianza, sus objetivos y reglas internas..."></textarea>
+</div>
+<div>
+<label class="block text-sm font-medium mb-1 text-ah-muted">Tu ID de Supremacy 1914 *</label>
+<input type="number" id="supremacy-id" required class="w-full px-3 py-2 rounded-lg border text-sm bg-ah-card border-ah-border text-ah-text focus:border-ah-accent outline-none" placeholder="Ej: 24549130">
+</div>
+<div>
+<label class="block text-sm font-medium mb-1 text-ah-muted">Tu nombre de usuario en Supremacy *</label>
+<input type="text" id="username" required class="w-full px-3 py-2 rounded-lg border text-sm bg-ah-card border-ah-border text-ah-text focus:border-ah-accent outline-none" placeholder="Ej: Tlaloc27">
+</div>
+<div>
+<label class="block text-sm font-medium mb-1 text-ah-muted">Discord (opcional)</label>
+<input type="text" id="discord" class="w-full px-3 py-2 rounded-lg border text-sm bg-ah-card border-ah-border text-ah-text focus:border-ah-accent outline-none" placeholder="usuario#1234">
+</div>
+<div>
+<label class="block text-sm font-medium mb-1 text-ah-muted">Numero aproximado de miembros</label>
+<input type="number" id="member-count" min="1" class="w-full px-3 py-2 rounded-lg border text-sm bg-ah-card border-ah-border text-ah-text focus:border-ah-accent outline-none" placeholder="Ej: 10">
+</div>
+<div class="flex items-start gap-2">
+<input type="checkbox" id="accept-rules" required class="mt-1">
+<label for="accept-rules" class="text-sm text-ah-muted">He leido y acepto el <a href="rules.html" class="underline text-ah-accent">reglamento de Alliance Hub</a> y me comprometo a hacerlo cumplir en mi alianza. *</label>
+</div>
+<button type="submit" id="submit-btn" class="w-full py-3 rounded-lg font-bold text-sm transition active:scale-[0.98] gradient-btn">&#128232; Enviar Solicitud</button>
 </form>
 </div>
-<script>
-document.getElementById('leader-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    var btn = document.getElementById('submit-btn');
-    btn.disabled = true; btn.textContent = 'Enviando...';
-    document.getElementById('error-banner').classList.add('hidden');
-    document.getElementById('success-msg').classList.add('hidden');
-    try {
-        var supremacyId = parseInt(document.getElementById('supremacy-id').value);
-        var name = document.getElementById('alliance-name').value.trim();
-        var tag = document.getElementById('alliance-tag').value.trim().toUpperCase();
-        var desc = document.getElementById('alliance-desc').value.trim();
-        var username = document.getElementById('username').value.trim();
-        var discord = document.getElementById('discord').value.trim();
-        var memberCount = parseInt(document.getElementById('member-count').value) || null;
-        if (!name || !tag || !supremacyId || !username) throw new Error('Completa todos los campos obligatorios');
-        var { data: existingPlayer } = await supabase.from('players').select('id').eq('id', supremacyId).maybeSingle();
-        if (!existingPlayer) { var { error: pe } = await supabase.from('players').insert({ id: supremacyId, current_username: username, status: 'active' }); if (pe) throw new Error('Error creando jugador: ' + pe.message); }
-        var { data: existingReq } = await supabase.from('alliance_leader_requests').select('id, status').eq('player_id', supremacyId).in('status', ['pending', 'under_review']).maybeSingle();
-        if (existingReq) throw new Error('Ya tienes una solicitud pendiente. Espera la respuesta del equipo.');
-        var { error } = await supabase.from('alliance_leader_requests').insert({
-            player_id: supremacyId,
-            display_name: username,
-            supremacy_player_id: supremacyId,
-            alliance_name: name,
-            alliance_tag: tag,
-            alliance_description: desc || null,
-            discord_handle: discord || null,
-            member_count: memberCount,
-            status: 'pending'
-        });
-        if (error) throw new Error(error.message);
-        document.getElementById('success-msg').textContent = 'Solicitud enviada correctamente. Un superadmin la revisara pronto.';
-        document.getElementById('success-msg').classList.remove('hidden');
-        document.getElementById('leader-form').reset();
-    } catch(err) { document.getElementById('error-banner').textContent = err.message; document.getElementById('error-banner').classList.remove('hidden'); }
-    btn.disabled = false; btn.textContent = '\uD83D\uDCE8 Enviar Solicitud';
-});
-</script>
+</div>
 </body>
 </html>

@@ -343,6 +343,42 @@
                 all: '*'
             }
         },
+        matchNullifiedKills: {
+            name: 'match_nullified_kills',
+            cols: {
+                id: 'id',
+                playerStrikeId: 'player_strike_id',
+                playerId: 'player_id',
+                matchId: 'match_id',
+                killsNullified: 'kills_nullified',
+                createdAt: 'created_at'
+            },
+            selectSets: {
+                basic: 'id, player_id, match_id, kills_nullified, created_at',
+                all: '*'
+            }
+        },
+        playerSanctions: {
+            name: 'player_sanctions',
+            cols: {
+                id: 'id',
+                playerId: 'player_id',
+                strikeId: 'strike_id',
+                strikeTypeId: 'strike_type_id',
+                killsBefore: 'kills_before',
+                killsAfter: 'kills_after',
+                pointsBefore: 'points_before',
+                pointsAfter: 'points_after',
+                penaltyPct: 'penalty_pct',
+                reputationDelta: 'reputation_delta',
+                formulaUsed: 'formula_used',
+                createdAt: 'created_at'
+            },
+            selectSets: {
+                basic: 'id, player_id, kills_after, penalty_pct, created_at',
+                all: '*'
+            }
+        },
         adminInvites: {
             name: 'admin_invites',
             cols: {

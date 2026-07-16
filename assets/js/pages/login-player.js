@@ -12,11 +12,13 @@
         if (initialized) return;
         initialized = true;
 
-        // Limpiar redirect si el usuario cancela y vuelve
-        // (solo si no venimos de un redirect activo)
+        // Manejar parametro ?redirect= de la URL
         (function() {
             var urlParams = new URLSearchParams(window.location.search);
-            if (!urlParams.get('redirect')) {
+            var redirect = urlParams.get('redirect');
+            if (redirect) {
+                localStorage.setItem('ah_redirect_after_login', redirect);
+            } else {
                 localStorage.removeItem('ah_redirect_after_login');
             }
         })();
