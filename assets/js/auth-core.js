@@ -188,9 +188,16 @@ async function switchToAdminMode() {
 function playerLogout() {
     if (typeof clearPlayerData === 'function') clearPlayerData();
     if (typeof clearModePreference === 'function') clearModePreference();
-    isAdmin().then(function(isAdmin) {
-        if (isAdmin) window.location.href = ahPath('admin/index.html');
-        else window.location.href = ahPath('index.html');
+    getAdminRole().then(function(admin) {
+        if (admin) {
+            var target = admin.role === 'alliance_leader' ? 'leader-dashboard.html' : 'admin/index.html';
+            window.location.href = ahPath(target);
+        } else {
+            window.location.href = ahPath('index.html');
+        }
+    }).catch(function(e) {
+        console.error('[playerLogout] error:', e);
+        window.location.href = ahPath('index.html');
     });
 }
 

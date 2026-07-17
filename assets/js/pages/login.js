@@ -24,17 +24,28 @@
         }
     }
 
-    // Auto-login: si hay token, redirigir al admin
-    function autoLoginAdmin() {
+    // Auto-login: si hay token, redirigir segun rol
+    async function autoLoginAdmin() {
         var token = localStorage.getItem('sb-qkccyjegkgjzwoxytnqp-auth-token');
         if (!token) return false;
-        if (typeof window.supabase !== 'undefined') {
-            window.supabase.auth.getSession().then(function(result) {
-                if (!result.data.session) localStorage.removeItem('sb-qkccyjegkgjzwoxytnqp-auth-token');
-            }).catch(function() {});
+        try {
+            var result = await window.supabase.auth.getSession();
+            if (!result.data.session) {
+                localStorage.removeItem('sb-qkccyjegkgjzwoxytnqp-auth-token');
+                return false;
+            }
+            var admin = await window.getAdminRole();
+            if (!admin) {
+                window.location.replace('index.html');
+                return true;
+            }
+            var target = admin.role === 'alliance_leader' ? 'leader-dashboard.html' : 'admin/index.html';
+            window.location.replace(target);
+            return true;
+        } catch(e) {
+            console.error('[Login] autoLogin error:', e);
+            return false;
         }
-        window.location.replace('admin/index.html');
-        return true;
     }
 
     // Mostrar tab activo
@@ -57,20 +68,20 @@
         });
     };
 
-    function init() {
+    async function init() {
         if (initialized) return;
         initialized = true;
 
-        waitForSupabaseLogin(function() {
+        waitForSupabaseLogin(async function() {
             // Intentar auto-login
-            if (autoLoginAdmin()) {
+            if (await autoLoginAdmin()) {
                 document.documentElement.style.display = 'none';
                 return;
             }
 
             // Handler pageshow para BFCache
-            window.addEventListener('pageshow', function(event) {
-                if (event.persisted) autoLoginAdmin();
+            window.addEventListener('pageshow', async function(event) {
+                if (event.persisted) await autoLoginAdmin();
             });
 
             // Login form
@@ -87,7 +98,9 @@
                         document.getElementById('login-password').value
                     );
                     if (success) {
-                        window.location.href = 'admin/index.html';
+                        var admin = await window.getAdminRole();
+                        var target = admin && admin.role === 'alliance_leader' ? 'leader-dashboard.html' : 'admin/index.html';
+                        window.location.href = target;
                     } else {
                         if (errorMsg) { errorMsg.textContent = 'Email o contrasena incorrectos'; errorMsg.classList.remove('hidden'); }
                     }

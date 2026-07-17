@@ -28,6 +28,11 @@
 
             if (error || !admin) {
                 window.location.href = '../index.html';
+                return;
+            }
+            if (admin.role === 'alliance_leader') {
+                window.location.href = '../leader-dashboard.html';
+                return;
             }
         } catch (e) {
             console.error('Auth error:', e);
