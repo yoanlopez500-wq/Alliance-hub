@@ -162,12 +162,12 @@ $$;
 
 ```sql
 -- Lectura pública de tipos activos
-CREATE POLICY "strike_types_select_public"
+CREATE POLICY IF NOT EXISTS "strike_types_select_public"
 ON public.strike_types FOR SELECT
 USING (is_active = true);
 
 -- Escritura solo para admins activos
-CREATE POLICY "strike_types_write_admin"
+CREATE POLICY IF NOT EXISTS "strike_types_write_admin"
 ON public.strike_types FOR ALL
 TO authenticated
 USING (public.is_active_admin())
@@ -177,13 +177,16 @@ WITH CHECK (public.is_active_admin());
 ### 3.2 `player_strikes`
 
 ```sql
--- Lectura pública (rankings y perfiles necesitan ver strikes activos)
-CREATE POLICY "player_strikes_select_public"
+-- Admins autenticados ven todos los strikes; público anónimo solo los activos
+CREATE POLICY IF NOT EXISTS "player_strikes_select"
 ON public.player_strikes FOR SELECT
-USING (status = 'active');
+USING (
+  auth.role() = 'authenticated'
+  OR status = 'active'
+);
 
 -- Escritura solo para admins activos
-CREATE POLICY "player_strikes_write_admin"
+CREATE POLICY IF NOT EXISTS "player_strikes_write_admin"
 ON public.player_strikes FOR ALL
 TO authenticated
 USING (public.is_active_admin())
@@ -194,18 +197,18 @@ WITH CHECK (public.is_active_admin());
 
 ```sql
 -- Inserción pública (jugadores anónimos envían reportes)
-CREATE POLICY "player_reports_insert_public"
+CREATE POLICY IF NOT EXISTS "player_reports_insert_public"
 ON public.player_reports FOR INSERT
 TO anon, authenticated
 WITH CHECK (true);
 
 -- Lectura pública para listado del admin
-CREATE POLICY "player_reports_select_public"
+CREATE POLICY IF NOT EXISTS "player_reports_select_public"
 ON public.player_reports FOR SELECT
 USING (true);
 
 -- Actualización solo para admins activos
-CREATE POLICY "player_reports_update_admin"
+CREATE POLICY IF NOT EXISTS "player_reports_update_admin"
 ON public.player_reports FOR UPDATE
 TO authenticated
 USING (public.is_active_admin())
@@ -216,12 +219,12 @@ WITH CHECK (public.is_active_admin());
 
 ```sql
 -- Lectura pública (rankings y perfiles)
-CREATE POLICY "player_sanctions_select_public"
+CREATE POLICY IF NOT EXISTS "player_sanctions_select_public"
 ON public.player_sanctions FOR SELECT
 USING (true);
 
 -- Escritura solo para admins activos
-CREATE POLICY "player_sanctions_write_admin"
+CREATE POLICY IF NOT EXISTS "player_sanctions_write_admin"
 ON public.player_sanctions FOR ALL
 TO authenticated
 USING (public.is_active_admin())
@@ -233,7 +236,7 @@ WITH CHECK (public.is_active_admin());
 ```sql
 -- SELECT e INSERT ya deberían estar abiertos en tu proyecto.
 -- Esta política permite que solo admins actualicen status/banned_until/suspended_until.
-CREATE POLICY "players_update_admin_only"
+CREATE POLICY IF NOT EXISTS "players_update_admin_only"
 ON public.players FOR UPDATE
 TO authenticated
 USING (public.is_active_admin())
@@ -261,6 +264,7 @@ ON CONFLICT (code) DO UPDATE SET
   severity = EXCLUDED.severity,
   legend = EXCLUDED.legend,
   is_active = EXCLUDED.is_active,
+  is_preset = EXCLUDED.is_preset,
   nullifies_kills = EXCLUDED.nullifies_kills,
   is_ban = EXCLUDED.is_ban,
   ban_duration_hours = EXCLUDED.ban_duration_hours;
@@ -354,6 +358,7 @@ Después de ejecutar todo, confirma en Supabase:
 - Error `401` al crear strike: el usuario admin no aparece en `admin_users` con `status = 'active'`.
 - Error `403` al insertar reporte: revisa la política INSERT de `player_reports`.
 - No se aplica ban: revisa que `strike_types.is_ban = true` y `ban_duration_hours` tenga valor (o null para permanente).
+- Error `column "is_active" does not exist` al revocar un strike: asegúrate de tener la última versión de `admin-strikes.js` (ya no usa `is_active`).
 
 ---
 
