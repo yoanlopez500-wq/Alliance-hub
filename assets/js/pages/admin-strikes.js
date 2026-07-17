@@ -69,7 +69,7 @@ async function loadStrikes() {
             } catch(e) {}
         }
 
-        allStrikes = (strikesData || []).map(function(s) {
+        allStrikes = (strikesData || []).filter(function(s) { return s.status !== 'removed'; }).map(function(s) {
             s.strike_types = strikeTypesMap[s.strike_type_id] || null;
             s.matches = s.match_id ? (matchesMap[s.match_id] || null) : null;
             return s;
@@ -106,7 +106,9 @@ function renderStrikes(data) {
         var playerName = s.players ? s.players.current_username : 'Jugador ' + s.player_id;
         var matchName = s.matches ? s.matches.name : (s.match_id ? 'Partida ' + s.match_id : '-');
         var evBadge = (s.evidence_urls && s.evidence_urls.length > 0) ? ' <span class="px-2 py-0.5 rounded text-xs font-bold bg-orange-500/15 text-orange-500">&#128247; ' + s.evidence_urls.length + '</span>' : '';
-        return '<div class="strike-card rounded-xl p-4 bg-slate-900 cursor-pointer" onclick="openViewModal(\'' + s.id + '\')"><div class="flex items-start justify-between"><div class="flex-1"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-bold">' + playerName + '</h3><span class="px-2 py-0.5 rounded text-xs font-bold" style="background:' + sevColor + '20;color:' + sevColor + ';">' + sevLabel + '</span>' + isNullifier + evBadge + '</div><p class="text-sm mt-1 text-slate-100">' + s.reason + '</p><p class="text-xs mt-1 text-slate-400">Partida: ' + matchName + ' | ' + window.formatDate(s.applied_at) + (s.strike_types ? ' | ' + s.strike_types.code + ': ' + s.strike_types.name : '') + '</p></div><button onclick="event.stopPropagation();removeStrike(\'' + s.id + '\')" class="px-2 py-1 rounded text-xs bg-red-500/30 text-red-400 min-h-[28px]">Revocar</button></div></div>';
+        var removedBadge = s.status === 'removed' ? ' <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-500/20 text-slate-400">REMOVIDO</span>' : '';
+        var revokeBtn = s.status === 'removed' ? '' : '<button onclick="event.stopPropagation();removeStrike(\'' + s.id + '\')" class="px-2 py-1 rounded text-xs bg-red-500/30 text-red-400 min-h-[28px]">Revocar</button>';
+        return '<div class="strike-card rounded-xl p-4 bg-slate-900 cursor-pointer" onclick="openViewModal(\'' + s.id + '\')"><div class="flex items-start justify-between"><div class="flex-1"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-bold">' + playerName + '</h3><span class="px-2 py-0.5 rounded text-xs font-bold" style="background:' + sevColor + '20;color:' + sevColor + ';">' + sevLabel + '</span>' + isNullifier + evBadge + removedBadge + '</div><p class="text-sm mt-1 text-slate-100">' + s.reason + '</p><p class="text-xs mt-1 text-slate-400">Partida: ' + matchName + ' | ' + window.formatDate(s.applied_at) + (s.strike_types ? ' | ' + s.strike_types.code + ': ' + s.strike_types.name : '') + '</p></div>' + revokeBtn + '</div></div>';
     }).join('');
 }
 
