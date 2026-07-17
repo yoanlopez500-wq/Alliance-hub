@@ -8,12 +8,12 @@
 <meta http-equiv="Expires" content="0">
 <title>Rankings Admin - Alliance Hub</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="../assets/js/theme.js?v=27"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/js/config.js?v=27"></script>
-<script src="../assets/js/base.js?v=27"></script>
-<script src="../assets/js/components.js?v=27"></script>
-<script src="../assets/js/auth.js?v=27"></script>
+<link rel="stylesheet" href="../assets/css/theme.css">
+<script src="../assets/js/cache-buster.js"></script>
+<script src="../assets/js/loader.js"></script>
+<script>
+AHLoader.init({ role: 'admin', pageScript: 'assets/js/pages/admin-rankings.js' });
+</script>
 <style>body{font-family:'Inter',system-ui,sans-serif;background:#0a0e27;color:#e8eaf6;}</style>
 </head>
 <body class="min-h-screen" data-role="admin">
@@ -22,30 +22,5 @@
 <h1 class="text-2xl font-bold mb-6">&#127942; Rankings (Admin)</h1>
 <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr style="background:#11183a;"><th class="text-left p-3">#</th><th class="text-left p-3">Jugador</th><th class="text-left p-3">Alianza</th><th class="text-right p-3">Kills</th><th class="text-right p-3">Deaths</th><th class="text-right p-3">KD</th><th class="text-left p-3">Estado</th></tr></thead><tbody id="rankings-tbody"><tr><td colspan="7" class="text-center py-8" style="color:#9fa8da;">Cargando...</td></tr></tbody></table></div>
 </div>
-<script>
-var allAlliances = [];
-
-async function loadAlliances() {
-    try { var { data, error } = await supabase.from('alliances').select('id, name'); if (error) throw error; allAlliances = data || []; } catch(e) { console.error('[Rankings] Error cargando alliances:', e); }
-}
-
-function getAllianceName(allianceId) {
-    if (!allianceId || !allAlliances.length) return null;
-    return allAlliances.find(function(x) { return x.id === allianceId; });
-}
-
-async function loadRankings() {
-    try {
-        await loadAlliances();
-        var { data, error } = await supabase.from('players').select('*').order('total_kills', { ascending: false }).limit(100);
-        if (error) throw error;
-        var tbody = document.getElementById('rankings-tbody');
-        if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8" style="color:#9fa8da;">Sin datos</td></tr>'; return; }
-        tbody.innerHTML = data.map(function(p, i) { var kd = p.total_deaths > 0 ? (p.total_kills / p.total_deaths).toFixed(2) : p.total_kills > 0 ? p.total_kills.toFixed(2) : '0.00'; var alliance = getAllianceName(p.current_alliance_id); return '<tr style="border-bottom:1px solid #1a237e;"><td class="p-3 font-bold">' + (i+1) + '</td><td class="p-3 font-medium">' + p.current_username + '</td><td class="p-3" style="color:#9fa8da;">' + (alliance ? alliance.name : '-') + '</td><td class="p-3 text-right">' + (p.total_kills || 0) + '</td><td class="p-3 text-right">' + (p.total_deaths || 0) + '</td><td class="p-3 text-right">' + kd + '</td><td class="p-3">' + getStatusBadgePlayer(p.status) + '</td></tr>'; }).join('');
-    } catch(e) { console.error('[Rankings]', e); }
-}
-requireAdmin();
-loadRankings();
-</script>
 </body>
 </html>

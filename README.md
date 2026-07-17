@@ -98,7 +98,7 @@ SELECT complete_setup();
 
 ## Convenciones de Codigo
 
-- **Versionado**: `?v=19` en todos los recursos JS/CSS
+- **Versionado**: usar `assets/js/cache-buster.js` + `assets/js/loader.js`. El loader aplica `?h=YYYYMMDD` automaticamente. No usar `?v=XX` manualmente.
 - **DB**: Usar `DB.from('tableKey')`, `DB.select('tableKey', 'setName')`, `DB.col('tableKey', 'colKey')`
 - **Auth**: Usar `auth-core.js` directamente (no el shim legacy `auth.js`)
 - **Tabs**: Tablas de 2 espacios en JS, 4 en HTML

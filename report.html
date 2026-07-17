@@ -12,13 +12,16 @@
 <link rel="manifest" href="manifest.json">
 <title>Reportar Jugador - Alliance Hub</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="assets/js/theme.js?v=27"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="assets/js/config.js?v=27"></script>
-<script src="assets/js/base.js?v=27"></script>
-<script src="assets/js/components.js?v=27"></script>
-<script src="assets/js/auth.js?v=27"></script>
-<script src="assets/js/storage-utils.js?v=27"></script>
+<link rel="stylesheet" href="assets/css/theme.css">
+<script src="assets/js/cache-buster.js"></script>
+<script src="assets/js/loader.js"></script>
+<script>
+AHLoader.init({
+    role: 'public',
+    extraScripts: ['assets/js/storage-utils.js'],
+    pageScript: 'assets/js/pages/report.js'
+});
+</script>
 <style>
 body{font-family:'Inter',system-ui,sans-serif;background:#0a0e27;color:#e8eaf6;}
 #evidence-dropzone{border:2px dashed #1a237e;border-radius:12px;padding:16px;text-align:center;transition:all .2s;cursor:pointer;background:rgba(255,255,255,0.02);}
@@ -27,142 +30,33 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0e27;color:#e8eaf6;}
 .evidence-preview-item .remove-btn{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(198,40,40,0.9);color:#fff;border:none;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 </style>
 </head>
-<body class="min-h-screen" data-role="public">
+<body class="min-h-screen bg-ah-bg text-ah-text" data-role="public">
 <div id="admin-nav"></div>
 <div class="max-w-2xl mx-auto px-4 py-8">
 <h1 class="text-2xl font-bold mb-2">&#128680; Reportar Jugador</h1>
-<p class="text-sm mb-6 text-slate-400">Reporta una infraccion del reglamento. Selecciona la seccion de la regla que fue violada y adjunta evidencia (imagenes o videos).</p>
+<p class="text-sm mb-6 text-ah-muted">Reporta una infraccion del reglamento. Selecciona la seccion de la regla que fue violada y adjunta evidencia (imagenes o videos).</p>
 <div id="error-banner" class="hidden mb-4 p-3 rounded-lg text-sm font-bold bg-red-500/15 text-red-400"></div>
 <div id="success-msg" class="hidden mb-4 p-3 rounded-lg text-sm font-bold bg-green-500/15 text-green-500"></div>
 <form id="report-form" class="space-y-4">
-<div><label class="block text-sm font-medium mb-1 text-slate-400">ID del jugador reportado *</label><input type="number" id="r-player-id" required class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Ej: 24549130"></div>
-<div><label class="block text-sm font-medium mb-1 text-slate-400">Seccion del reglamento violada *</label><select id="r-rule" required class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="">Seleccionar seccion...</option></select></div>
-<div><label class="block text-sm font-medium mb-1 text-slate-400">Descripcion de la infraccion *</label><textarea id="r-desc" rows="4" required class="w-full px-3 py-2 rounded-lg border text-sm bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Describe lo que ocurrio..."></textarea></div>
+<div><label class="block text-sm font-medium mb-1 text-ah-muted">ID del jugador reportado *</label><input type="number" id="r-player-id" required class="w-full px-3 py-2 rounded-lg text-sm min-h-[44px] ah-input" placeholder="Ej: 24549130"></div>
+<div><label class="block text-sm font-medium mb-1 text-ah-muted">Seccion del reglamento violada *</label><select id="r-rule" required class="w-full px-3 py-2 rounded-lg text-sm min-h-[44px] ah-input"><option value="">Seleccionar seccion...</option></select></div>
+<div><label class="block text-sm font-medium mb-1 text-ah-muted">Descripcion de la infraccion *</label><textarea id="r-desc" rows="4" required class="w-full px-3 py-2 rounded-lg text-sm ah-input" placeholder="Describe lo que ocurrio..."></textarea></div>
 
 <!-- EVIDENCE UPLOAD -->
 <div>
-    <label class="block text-sm font-medium mb-1 text-slate-400">Evidencia (imagenes o videos)</label>
+    <label class="block text-sm font-medium mb-1 text-ah-muted">Evidencia (imagenes o videos)</label>
     <div id="evidence-dropzone" onclick="document.getElementById('evidence-input').click()">
         <div class="text-3xl mb-2">&#128247;</div>
-        <p class="text-sm text-slate-400">Arrastra archivos aqui o <strong class="text-amber-400">haz clic para seleccionar</strong></p>
-        <p class="text-xs mt-1 text-slate-500">Max 3 archivos. Imagenes (PNG, JPG, WebP) y videos (MP4). Max 5MB cada uno.</p>
+        <p class="text-sm text-ah-muted">Arrastra archivos aqui o <strong class="text-amber-400">haz clic para seleccionar</strong></p>
+        <p class="text-xs mt-1 text-ah-muted">Max 3 archivos. Imagenes (PNG, JPG, WebP) y videos (MP4). Max 5MB cada uno.</p>
         <input type="file" id="evidence-input" class="hidden" accept="image/*,video/*" multiple onchange="handleEvidenceSelect(this.files)">
     </div>
     <div id="evidence-preview" class="grid grid-cols-3 gap-2 mt-3"></div>
-    <p id="evidence-status" class="text-xs mt-1 hidden text-slate-400"></p>
+    <p id="evidence-status" class="text-xs mt-1 hidden text-ah-muted"></p>
 </div>
 
-<button type="submit" id="submit-btn" class="w-full py-3 rounded-lg font-bold text-sm transition active:scale-[0.98] min-h-[48px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#128680; Enviar Reporte</button>
+<button type="submit" id="submit-btn" class="w-full py-3 rounded-lg font-bold text-sm transition active:scale-[0.98] min-h-[48px] gradient-btn">&#128680; Enviar Reporte</button>
 </form>
 </div>
-<script src="sw-register.js?v=27"></script>
-<script>
-var selectedEvidenceFiles = [];
-var uploadedEvidenceUrls = [];
-
-async function loadRules() {
-    try {
-        var { data, error } = await supabase.from('rule_sections').select('id, title').order('order_index');
-        var select = document.getElementById('r-rule');
-        select.innerHTML = '<option value="">Seleccionar seccion...</option>';
-        if (data) data.forEach(function(r) { select.innerHTML += '<option value="' + r.id + '">' + r.title + '</option>'; });
-    } catch(e) { console.error('[Rules]', e); }
-}
-
-function handleEvidenceSelect(files) {
-    var statusEl = document.getElementById('evidence-status');
-    var previewEl = document.getElementById('evidence-preview');
-    if (!files || files.length === 0) return;
-    if (selectedEvidenceFiles.length + files.length > STORAGE_CONFIG.maxFilesPerUpload) {
-        statusEl.textContent = 'Maximo ' + STORAGE_CONFIG.maxFilesPerUpload + ' archivos';
-        statusEl.classList.remove('hidden');
-        return;
-    }
-    for (var i = 0; i < files.length; i++) {
-        if (selectedEvidenceFiles.length >= STORAGE_CONFIG.maxFilesPerUpload) break;
-        selectedEvidenceFiles.push(files[i]);
-    }
-    renderEvidencePreviews();
-    statusEl.textContent = selectedEvidenceFiles.length + ' archivo(s) seleccionado(s)';
-    statusEl.classList.remove('hidden');
-}
-
-function renderEvidencePreviews() {
-    var previewEl = document.getElementById('evidence-preview');
-    previewEl.innerHTML = selectedEvidenceFiles.map(function(file, idx) {
-        var isVideo = file.type.startsWith('video/');
-        var url = URL.createObjectURL(file);
-        if (isVideo) {
-            return '<div class="evidence-preview-item"><video src="' + url + '" class="w-full h-20 object-cover"></video><button type="button" class="remove-btn" onclick="removeEvidence(' + idx + ')">&#10005;</button></div>';
-        }
-        return '<div class="evidence-preview-item"><img src="' + url + '" class="w-full h-20 object-cover"><button type="button" class="remove-btn" onclick="removeEvidence(' + idx + ')">&#10005;</button></div>';
-    }).join('');
-}
-
-function removeEvidence(idx) {
-    selectedEvidenceFiles.splice(idx, 1);
-    renderEvidencePreviews();
-    var statusEl = document.getElementById('evidence-status');
-    if (selectedEvidenceFiles.length === 0) { statusEl.classList.add('hidden'); }
-    else { statusEl.textContent = selectedEvidenceFiles.length + ' archivo(s) seleccionado(s)'; }
-}
-
-var dropzone = document.getElementById('evidence-dropzone');
-dropzone.addEventListener('dragover', function(e) { e.preventDefault(); dropzone.classList.add('dragover'); });
-dropzone.addEventListener('dragleave', function() { dropzone.classList.remove('dragover'); });
-dropzone.addEventListener('drop', function(e) { e.preventDefault(); dropzone.classList.remove('dragover'); handleEvidenceSelect(e.dataTransfer.files); });
-
-document.getElementById('report-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    var btn = document.getElementById('submit-btn');
-    btn.disabled = true; btn.textContent = 'Enviando...';
-    document.getElementById('error-banner').classList.add('hidden');
-    document.getElementById('success-msg').classList.add('hidden');
-
-    try {
-        var playerId = parseInt(document.getElementById('r-player-id').value);
-        var ruleId = document.getElementById('r-rule').value;
-        var desc = document.getElementById('r-desc').value.trim();
-        if (!playerId || !ruleId || !desc) throw new Error('Completa todos los campos obligatorios');
-        var reporterId = null;
-        var playerData = getPlayerData();
-        if (playerData) reporterId = parseInt(playerData.playerId);
-
-        uploadedEvidenceUrls = [];
-        if (selectedEvidenceFiles.length > 0) {
-            btn.textContent = 'Subiendo evidencia...';
-            var targetId = 'report_' + Date.now();
-            uploadedEvidenceUrls = await compressAndUpload(selectedEvidenceFiles, 'reports', targetId);
-        }
-
-        var insertPayload = {
-            reported_player_id: playerId,
-            reporter_player_id: reporterId,
-            rule_section_id: ruleId,
-            description: desc,
-            status: 'open'
-        };
-        if (uploadedEvidenceUrls.length > 0) {
-            insertPayload.evidence_urls = uploadedEvidenceUrls;
-        }
-
-        var { error } = await supabase.from('player_reports').insert(insertPayload);
-        if (error) throw new Error(error.message);
-
-        document.getElementById('success-msg').textContent = '\u2713 Reporte enviado correctamente. Un admin lo revisara pronto.';
-        document.getElementById('success-msg').classList.remove('hidden');
-        document.getElementById('report-form').reset();
-        selectedEvidenceFiles = [];
-        uploadedEvidenceUrls = [];
-        document.getElementById('evidence-preview').innerHTML = '';
-        document.getElementById('evidence-status').classList.add('hidden');
-    } catch(err) {
-        document.getElementById('error-banner').textContent = '\u2716 ' + err.message;
-        document.getElementById('error-banner').classList.remove('hidden');
-    }
-    btn.disabled = false; btn.textContent = '\uD83D\uDEA8 Enviar Reporte';
-});
-loadRules();
-</script>
 </body>
 </html>

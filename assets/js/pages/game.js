@@ -76,21 +76,31 @@
             }
 
             var isRegistered = false, regStatus = null;
+            var currentPlayer = null;
             if (playerData && playerData.playerId) {
-                var { data: reg } = await window.supabase.from('match_registrations').select('status').eq('match_id', matchId).eq('player_id', playerData.playerId).maybeSingle();
+                var [{ data: reg }, { data: player }] = await Promise.all([
+                    window.supabase.from('match_registrations').select('status').eq('match_id', matchId).eq('player_id', playerData.playerId).maybeSingle(),
+                    window.supabase.from('players').select('status, banned_until, suspended_until, suspension_reason').eq('id', playerData.playerId).maybeSingle()
+                ]);
                 isRegistered = !!reg;
                 regStatus = reg ? reg.status : null;
+                currentPlayer = player;
+                if (currentPlayer) await checkAndClearExpiredBan(parseInt(playerData.playerId));
             }
 
-            if (isRegistered && (regStatus === 'confirmed' || regStatus === 'approved')) {
+            var isBanned = isPlayerBanned(currentPlayer);
+
+            if (isRegistered && (regStatus === 'confirmed' || regStatus === 'approved') && !isBanned) {
                 var reportSection = document.getElementById('report-section');
                 var reportLink = document.getElementById('report-link');
                 if (reportSection) reportSection.classList.remove('hidden');
                 if (reportLink) reportLink.href = 'report.html?match_id=' + matchId;
             }
 
-            var showCredentials = false, showWaiting = false;
-            if (match.requires_approval) {
+            var showCredentials = false, showWaiting = false, showBan = false;
+            if (isBanned) {
+                showBan = true;
+            } else if (match.requires_approval) {
                 if (regStatus === 'confirmed' || regStatus === 'approved') showCredentials = true;
                 else if (regStatus === 'pending') showWaiting = true;
             } else {
@@ -108,6 +118,17 @@
             if (showWaiting) {
                 var waitingBanner = document.getElementById('waiting-approval-banner');
                 if (waitingBanner) waitingBanner.classList.remove('hidden');
+            }
+            if (showBan) {
+                var banBanner = document.getElementById('ban-banner');
+                if (banBanner) {
+                    banBanner.classList.remove('hidden');
+                    banBanner.innerHTML =
+                        '<div class="text-4xl mb-3">&#128683;</div>' +
+                        '<h2 class="font-bold text-red-400">Cuenta restringida</h2>' +
+                        '<p class="text-sm mt-2 text-ah-muted">' + (currentPlayer.suspension_reason || 'Has recibido una sancion.') + '</p>' +
+                        '<p class="text-sm mt-1 text-amber-400">Tiempo restante: ' + getBanRemainingText(currentPlayer) + '</p>';
+                }
             }
 
             var regBadge = '';

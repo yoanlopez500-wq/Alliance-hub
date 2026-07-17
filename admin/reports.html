@@ -30,7 +30,7 @@ AHLoader.init({
 <div><h1 class="text-2xl font-bold">&#128680; Reportes de Jugadores</h1><p class="text-sm text-slate-400">Filtra por regla, sugiere precedentes y gestiona reportes.</p></div>
 <div class="flex gap-2">
 <select id="filter-rule" onchange="loadReports()" class="px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="">Todas las reglas</option></select>
-<select id="filter-status" onchange="loadReports()" class="px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="all">Todos</option><option value="open" selected>Abiertos</option><option value="resolved">Resueltos</option><option value="dismissed">Desestimados</option></select>
+<select id="filter-status" onchange="loadReports()" class="px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="all">Todos</option><option value="pending" selected>Pendientes</option><option value="investigating">En investigacion</option><option value="resolved">Resueltos</option><option value="dismissed">Desestimados</option></select>
 </div>
 </div>
 <div id="reports-list">Cargando...</div>
@@ -41,7 +41,8 @@ AHLoader.init({
 <div id="d-content"></div>
 <div id="d-evidence" class="mt-4 hidden"></div>
 <div id="d-precedents" class="mt-4 p-3 rounded-lg hidden bg-amber-500/5 border border-amber-500/10"></div>
-<div class="flex flex-wrap gap-2 justify-end mt-4"><button onclick="closeDetail()" class="px-4 py-2 rounded-lg text-sm font-bold bg-indigo-900 text-slate-100 min-h-[44px]">Cerrar</button><button onclick="resolveReport()" class="px-4 py-2 rounded-lg text-sm font-bold bg-green-700 text-white min-h-[44px]">Resolver</button><button onclick="dismissReport()" class="px-4 py-2 rounded-lg text-sm font-bold bg-red-500/80 text-white min-h-[44px]">Desestimar</button></div>
+<div class="mt-4"><label class="block text-sm mb-1 text-slate-400">Respuesta del admin (visible para el reportante)</label><textarea id="d-admin-response" rows="2" class="w-full px-3 py-2 rounded-lg border text-sm bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></textarea></div>
+<div class="flex flex-wrap gap-2 justify-end mt-4"><button onclick="closeDetail()" class="px-4 py-2 rounded-lg text-sm font-bold bg-indigo-900 text-slate-100 min-h-[44px]">Cerrar</button><button onclick="applyStrikeFromReport()" class="px-4 py-2 rounded-lg text-sm font-bold bg-orange-600 text-white min-h-[44px]">&#9889; Aplicar Strike</button><button onclick="resolveReport()" class="px-4 py-2 rounded-lg text-sm font-bold bg-green-700 text-white min-h-[44px]">Resolver</button><button onclick="dismissReport()" class="px-4 py-2 rounded-lg text-sm font-bold bg-red-500/80 text-white min-h-[44px]">Desestimar</button></div>
 </div></div>
 </body>
 </html>

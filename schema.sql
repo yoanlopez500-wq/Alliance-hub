@@ -63,6 +63,8 @@ Used in rule_sections.visibility to control access levels to rule content.
 | current_alliance_id | uuid | nullable FK->alliances.id | - |
 | reputation_score | int4 | - | 100 |
 | suspension_reason | text | nullable | - |
+| banned_until | timestamptz | nullable | - |
+| suspended_until | timestamptz | nullable | -
 
 **RLS**: Enabled. Comment: Alliance Hub players v2
 **RLS Policies**: SELECT public; INSERT public (open); UPDATE requires active admin
@@ -217,6 +219,8 @@ Used in rule_sections.visibility to control access levels to rule content.
 
 ## Table: player_strikes
 
+**Note:** This table must exist in the live Supabase project. The repo documents the schema; create it via the Supabase SQL editor if you get a 404.
+
 | Column | Type | Constraints | Default |
 |--------|------|-------------|---------|
 | id | uuid | PK | gen_random_uuid() |
@@ -236,6 +240,7 @@ Used in rule_sections.visibility to control access levels to rule content.
 | rule_precedent_id | uuid | nullable FK->rule_precedents.id | - |
 | status | text | [pending_precedent,active,rejected,removed] | 'active' |
 | evidence_urls | text[] | nullable | '{}' |
+| expires_at | timestamptz | nullable | -
 
 **RLS**: Enabled
 **Triggers**:
@@ -247,6 +252,8 @@ Used in rule_sections.visibility to control access levels to rule content.
 ---
 
 ## Table: strike_types
+
+**Note:** This table must exist in the live Supabase project. The repo documents the schema; create it via the Supabase SQL editor if queries fail.
 
 | Column | Type | Constraints | Default |
 |--------|------|-------------|---------|
@@ -262,6 +269,13 @@ Used in rule_sections.visibility to control access levels to rule content.
 | nullifies_kills | bool | - | false |
 | formula_id | uuid | nullable | - |
 | is_preset | bool | - | false |
+| is_ban | bool | - | false |
+| ban_duration_hours | int4 | nullable | - |
+| rule_section_id | uuid | nullable FK->rule_sections.id | -
+
+**Notes:**
+- `legend` may contain a JSON formula config: `{"penalty_pct":30,"nullifies_kills":false,"is_ban":true,"ban_duration_hours":168}`.
+- `ban_duration_hours` is null for permanent bans.
 
 **Severity**: 1=Leve, 2=Medio, 3=Grave
 **RLS**: Enabled

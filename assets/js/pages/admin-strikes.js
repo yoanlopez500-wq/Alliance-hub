@@ -166,6 +166,13 @@ async function saveStrike() {
             evidenceUrls = await compressAndUpload(strikeEvidenceFiles, 'strikes', targetId);
         }
 
+        var typeInfo = strikeTypesMap[typeId] || {};
+        var now = new Date();
+        var expiresAt = null;
+        if (typeInfo.is_ban && typeInfo.ban_duration_hours) {
+            expiresAt = new Date(now.getTime() + typeInfo.ban_duration_hours * 60 * 60 * 1000).toISOString();
+        }
+
         var insertPayload = {
             player_id: playerId,
             match_id: matchId,
@@ -173,29 +180,79 @@ async function saveStrike() {
             reason: reason,
             notes: notes,
             rule_section_id: ruleId,
-            applied_by: session.user.id
+            report_id: prefillReport || null,
+            applied_by: session.user.id,
+            status: 'active',
+            expires_at: expiresAt
         };
         if (evidenceUrls.length > 0) {
             insertPayload.evidence_urls = evidenceUrls;
         }
 
-        var { error } = await window.supabase.from('player_strikes').insert(insertPayload);
+        var { data: newStrike, error } = await window.supabase.from('player_strikes').insert(insertPayload).select('id').single();
         if (error) throw error;
 
-        try {
-            var typeInfo = strikeTypesMap[typeId] || {};
-            var sevLabel = typeInfo.severity === 1 ? 'Leve' : typeInfo.severity === 2 ? 'Medio' : 'Grave';
-            await window.supabase.from('reports').insert({
-                player_id: playerId,
-                match_id: matchId,
-                type: 'strike_' + sevLabel.toLowerCase(),
-                reason: '[AUTO] Strike ' + sevLabel + ': ' + (typeInfo.name || '') + ' - ' + reason,
-                status: 'resolved',
-                reported_by: session.user.id
-            });
-        } catch(repErr) { console.log('[Strikes] No se pudo crear reporte automatico:', repErr.message); }
+        // Apply ban side-effect if the strike type is a ban
+        if (typeInfo.is_ban) {
+            try {
+                await window.supabase.from('players').update({
+                    status: 'banned',
+                    banned_until: expiresAt,
+                    suspension_reason: reason
+                }).eq('id', playerId);
+            } catch(banErr) { console.error('[Strikes] No se pudo aplicar ban:', banErr.message); }
+        }
 
-        window.showToast('Strike aplicado correctamente', 'success');
+        // Insert sanction snapshot
+        try {
+            var { data: playerBefore } = await window.supabase.from('players').select('total_kills, total_deaths, status').eq('id', playerId).single();
+            var formula = parseStrikeFormula(typeInfo.legend);
+            var killsBefore = playerBefore ? (playerBefore.total_kills || 0) : 0;
+            var penaltyPct = formula.penalty_pct || 0;
+            var killsAfter = typeInfo.nullifies_kills ? 0 : Math.round(killsBefore * (1 - penaltyPct / 100));
+            await window.supabase.from('player_sanctions').insert({
+                player_id: playerId,
+                strike_id: newStrike ? newStrike.id : null,
+                strike_type_id: typeId,
+                kills_before: killsBefore,
+                kills_after: killsAfter,
+                status_before: playerBefore ? playerBefore.status : null,
+                status_after: typeInfo.is_ban ? 'banned' : (playerBefore ? playerBefore.status : null),
+                penalty_pct: penaltyPct,
+                formula_used: typeInfo.legend || null
+            });
+        } catch(sancErr) { console.error('[Strikes] No se pudo guardar sancion:', sancErr.message); }
+
+        // Mark originating report as resolved with strike applied
+        if (prefillReport) {
+            try {
+                await window.supabase.from('player_reports').update({
+                    status: 'resolved',
+                    strike_applied: true,
+                    strike_id: newStrike ? newStrike.id : null,
+                    resolved_at: now.toISOString(),
+                    resolved_by: session.user.id,
+                    admin_response: '[AUTO] Strike aplicado: ' + (typeInfo.name || '')
+                }).eq('id', prefillReport);
+            } catch(repErr) { console.log('[Strikes] No se pudo actualizar reporte:', repErr.message); }
+        } else {
+            // Legacy auto-report creation when not prefilled
+            try {
+                var sevLabel = typeInfo.severity === 1 ? 'Leve' : typeInfo.severity === 2 ? 'Medio' : 'Grave';
+                await window.supabase.from('player_reports').insert({
+                    reported_player_id: playerId,
+                    match_id: matchId,
+                    report_type: 'strike_' + sevLabel.toLowerCase(),
+                    description: '[AUTO] Strike ' + sevLabel + ': ' + (typeInfo.name || '') + ' - ' + reason,
+                    status: 'resolved',
+                    resolved_by: session.user.id,
+                    resolved_at: now.toISOString(),
+                    admin_response: 'Strike aplicado automaticamente'
+                });
+            } catch(repErr) { console.log('[Strikes] No se pudo crear reporte automatico:', repErr.message); }
+        }
+
+        window.showToast(typeInfo.is_ban ? 'Ban aplicado correctamente' : 'Strike aplicado correctamente', 'success');
         closeModal();
         loadStrikes();
     } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
@@ -203,12 +260,42 @@ async function saveStrike() {
 
 async function removeStrike(id) {
     if (!confirm('Revocar este strike?')) return;
+    var reason = prompt('Razon de la revocacion (opcional):') || '';
     try {
-        var { error } = await window.supabase.from('player_strikes').delete().eq('id', id);
+        var { data: { session } } = await window.supabase.auth.getSession();
+        var { error } = await window.supabase.from('player_strikes').update({
+            status: 'removed',
+            removed_at: new Date().toISOString(),
+            removed_by: session.user.id,
+            removal_reason: reason,
+            is_active: false
+        }).eq('id', id);
         if (error) throw error;
         window.showToast('Strike revocado', 'success');
         loadStrikes();
     } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
+}
+
+function parseStrikeFormula(legend) {
+    if (!legend) return { penalty_pct: 0, nullifies_kills: false, is_ban: false, ban_duration_hours: null };
+    try {
+        var parsed = JSON.parse(legend);
+        return {
+            penalty_pct: parseFloat(parsed.penalty_pct) || 0,
+            nullifies_kills: !!parsed.nullifies_kills,
+            is_ban: !!parsed.is_ban,
+            ban_duration_hours: parsed.ban_duration_hours || null
+        };
+    } catch(e) {
+        // Legacy text legend fallback
+        var penaltyMatch = legend.match(/(\d+)%/);
+        return {
+            penalty_pct: penaltyMatch ? parseInt(penaltyMatch[1]) : 0,
+            nullifies_kills: /nullif/i.test(legend),
+            is_ban: /ban/i.test(legend),
+            ban_duration_hours: null
+        };
+    }
 }
 
 // --- View modal for strike detail + evidence ---
@@ -248,13 +335,14 @@ function closeViewModal() {
     document.getElementById('view-modal').classList.add('hidden');
 }
 
-// --- URL Prefill: open modal with prefill_player and prefill_match ---
+// --- URL Prefill: open modal with prefill_player, prefill_match and prefill_report ---
 var urlParamsStrikes = new URLSearchParams(window.location.search);
 var prefillPlayer = urlParamsStrikes.get('prefill_player');
 var prefillMatch = urlParamsStrikes.get('prefill_match');
+var prefillReport = urlParamsStrikes.get('prefill_report');
 
 async function applyPrefill() {
-    if (!prefillPlayer && !prefillMatch) return;
+    if (!prefillPlayer && !prefillMatch && !prefillReport) return;
     await loadDropdowns();
     if (prefillPlayer) {
         document.getElementById('s-player-id').value = prefillPlayer;

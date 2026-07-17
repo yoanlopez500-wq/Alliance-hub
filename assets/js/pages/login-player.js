@@ -45,8 +45,19 @@
             msg.textContent = 'Verificando...';
             msg.className = 'text-sm text-slate-500';
             try {
-                var { data: player, error } = await window.supabase.from('players').select('id, current_username, status').eq('id', parseInt(pid)).single();
+                var { data: player, error } = await window.supabase.from('players').select('id, current_username, status, banned_until, suspended_until, suspension_reason').eq('id', parseInt(pid)).single();
                 if (error && error.code !== 'PGRST116') { msg.textContent = 'Error: ' + error.message; msg.className = 'text-sm text-red-600'; return; }
+                if (player) {
+                    await checkAndClearExpiredBan(parseInt(pid));
+                    // Re-fetch after cleanup
+                    var { data: refreshed } = await window.supabase.from('players').select('id, current_username, status, banned_until, suspended_until, suspension_reason').eq('id', parseInt(pid)).single();
+                    player = refreshed;
+                    if (isPlayerBanned(player)) {
+                        msg.innerHTML = '\u2716 Cuenta restringida.<br><strong>' + getBanRemainingText(player) + '</strong>' + (player.suspension_reason ? '<br>' + player.suspension_reason : '');
+                        msg.className = 'text-sm text-red-600 font-bold';
+                        return;
+                    }
+                }
                 if (!player) {
                     var { error: insertErr } = await window.supabase.from('players').insert({ id: parseInt(pid), current_username: name, status: 'active', last_seen: new Date().toISOString() });
                     if (insertErr) { msg.textContent = 'Error creando jugador: ' + insertErr.message; msg.className = 'text-sm text-red-600'; return; }

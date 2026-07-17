@@ -311,6 +311,12 @@ async function registerForMatch(matchId) {
     var playerData = (typeof getPlayerData === 'function') ? getPlayerData() : {};
     if (!playerData || !playerData.playerId) { showToast('Inicia sesion como jugador primero', 'error'); return; }
     try {
+        var { data: player } = await supabase.from('players').select('status, banned_until, suspended_until').eq('id', parseInt(playerData.playerId)).maybeSingle();
+        if (player) {
+            await checkAndClearExpiredBan(parseInt(playerData.playerId));
+            var { data: refreshed } = await supabase.from('players').select('status, banned_until, suspended_until').eq('id', parseInt(playerData.playerId)).maybeSingle();
+            if (isPlayerBanned(refreshed)) { showToast('Cuenta restringida. No puedes registrarte en partidas.', 'error'); return; }
+        }
         var { error } = await supabase.from('match_registrations').insert({ match_id: matchId, player_id: parseInt(playerData.playerId) });
         if (error) { showToast('Error: ' + error.message, 'error'); return; }
         showToast('Registrado en la partida', 'success');

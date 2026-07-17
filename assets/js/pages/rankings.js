@@ -27,23 +27,18 @@
         if (sanc && sanc.kills_after != null) return Math.round(sanc.kills_after);
         var total = player[pc.kills] || 0;
         var nullified = nullifiedCache[player[pc.id]] || 0;
-        var killsWN = Math.max(0, total - nullified);
-        var strikes = strikesCache[player[pc.id]] || 0;
-        if (strikes === 1) return Math.round(killsWN * 0.9);
-        if (strikes === 2) return Math.round(killsWN * 0.7);
-        if (strikes >= 3) return Math.round(killsWN * 0.5);
-        return killsWN;
+        var strikes = strikesCache[player[pc.id]] || [];
+        return computeEffectiveKills(total, strikes, nullified).effKills;
     }
 
     function getPenaltyPct(player) {
         var pc = window.DB.tableCols('players');
         var sanc = sanctionsCache[player[pc.id]];
         if (sanc && sanc.penalty_pct != null) return sanc.penalty_pct;
-        var strikes = strikesCache[player[pc.id]] || 0;
-        if (strikes === 1) return 10;
-        if (strikes === 2) return 30;
-        if (strikes >= 3) return 50;
-        return 0;
+        var total = player[pc.kills] || 0;
+        var nullified = nullifiedCache[player[pc.id]] || 0;
+        var strikes = strikesCache[player[pc.id]] || [];
+        return computeEffectiveKills(total, strikes, nullified).penaltyPct;
     }
 
     async function loadSanctions() {
@@ -86,10 +81,14 @@
 
         try {
             var stc = window.DB.tableCols('playerStrikes');
-            var res3 = await window.DB.from('playerStrikes').select(stc.playerId).eq(stc.isActive, true);
+            var res3 = await window.DB.from('playerStrikes').select(window.DB.select('playerStrikes', 'withType')).eq(stc.isActive, true);
             if (res3.error) throw res3.error;
             strikesCache = {};
-            (res3.data || []).forEach(function(s) { strikesCache[s[stc.playerId]] = (strikesCache[s[stc.playerId]] || 0) + 1; });
+            (res3.data || []).forEach(function(s) {
+                var pid = s[stc.playerId];
+                if (!strikesCache[pid]) strikesCache[pid] = [];
+                strikesCache[pid].push(s);
+            });
         } catch(e) { console.error('[Rankings] Error strikes:', e); strikesCache = {}; }
 
         try { await loadRankings(); } catch(e) { console.error('[Rankings] jugadores:', e); }

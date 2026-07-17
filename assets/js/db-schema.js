@@ -69,12 +69,64 @@
                 removalReason: 'removal_reason',
                 status: 'status',
                 isActive: 'is_active',
-                notes: 'notes'
+                notes: 'notes',
+                evidenceUrls: 'evidence_urls',
+                expiresAt: 'expires_at'
             },
             selectSets: {
-                basic: 'id, player_id, strike_type_id, match_id, rule_section_id, rule_precedent_id, reason, applied_by, applied_at, status, is_active',
-                withRelations: 'id, player_id, strike_type_id, match_id, rule_section_id, rule_precedent_id, report_id, reason, applied_by, applied_at, removed_by, removed_at, removal_reason, status, is_active, notes, players:player_id(current_username), strike_types:strike_type_id(name), rule_sections:rule_section_id(title), rule_precedents:rule_precedent_id(title)',
-                pending: 'id, player_id, strike_type_id, match_id, rule_section_id, rule_precedent_id, reason, applied_by, applied_at, status, players:player_id(current_username), strike_types:strike_type_id(name)',
+                basic: 'id, player_id, strike_type_id, match_id, rule_section_id, rule_precedent_id, report_id, reason, applied_by, applied_at, status, is_active, expires_at',
+                withRelations: 'id, player_id, strike_type_id, match_id, rule_section_id, rule_precedent_id, report_id, reason, applied_by, applied_at, removed_by, removed_at, removal_reason, status, is_active, notes, evidence_urls, expires_at, players:player_id(current_username), strike_types:strike_type_id(name), rule_sections:rule_section_id(title), rule_precedents:rule_precedent_id(title)',
+                pending: 'id, player_id, strike_type_id, match_id, rule_section_id, rule_precedent_id, report_id, reason, applied_by, applied_at, status, expires_at, players:player_id(current_username), strike_types:strike_type_id(name)',
+                withType: 'id, player_id, strike_type_id, status, is_active, expires_at, strike_types:strike_type_id(id, name, legend, severity, nullifies_kills, is_ban, ban_duration_hours)',
+                all: '*'
+            }
+        },
+        strikeTypes: {
+            name: 'strike_types',
+            cols: {
+                id: 'id',
+                code: 'code',
+                name: 'name',
+                description: 'description',
+                severity: 'severity',
+                legend: 'legend',
+                nullifiesKills: 'nullifies_kills',
+                isActive: 'is_active',
+                createdAt: 'created_at',
+                createdBy: 'created_by',
+                isBan: 'is_ban',
+                banDurationHours: 'ban_duration_hours',
+                ruleSectionId: 'rule_section_id'
+            },
+            selectSets: {
+                basic: 'id, code, name, description, severity, legend, nullifies_kills, is_active, is_ban, ban_duration_hours, rule_section_id',
+                all: '*'
+            }
+        },
+        playerReports: {
+            name: 'player_reports',
+            cols: {
+                id: 'id',
+                matchId: 'match_id',
+                playerId: 'player_id',
+                playerName: 'player_name',
+                reportedPlayerId: 'reported_player_id',
+                reportedPlayerName: 'reported_player_name',
+                reportType: 'report_type',
+                description: 'description',
+                evidenceUrls: 'evidence_urls',
+                status: 'status',
+                adminResponse: 'admin_response',
+                strikeApplied: 'strike_applied',
+                strikeId: 'strike_id',
+                ruleSectionId: 'rule_section_id',
+                createdAt: 'created_at',
+                resolvedAt: 'resolved_at',
+                resolvedBy: 'resolved_by'
+            },
+            selectSets: {
+                basic: 'id, match_id, player_id, reported_player_id, report_type, status, rule_section_id, created_at',
+                withRelations: 'id, match_id, player_id, player_name, reported_player_id, reported_player_name, report_type, description, evidence_urls, status, admin_response, strike_applied, strike_id, rule_section_id, created_at, resolved_at, resolved_by, players:player_id(current_username), matches:match_id(name)',
                 all: '*'
             }
         },
@@ -85,16 +137,19 @@
                 currentUsername: 'current_username',
                 currentAllianceId: 'current_alliance_id',
                 status: 'status',
-                strikes: 'strikes',
                 totalKills: 'total_kills',
                 totalDeaths: 'total_deaths',
                 gamesPlayed: 'games_played',
                 lastSeen: 'last_seen',
-                createdAt: 'created_at'
+                createdAt: 'created_at',
+                reputationScore: 'reputation_score',
+                suspensionReason: 'suspension_reason',
+                bannedUntil: 'banned_until',
+                suspendedUntil: 'suspended_until'
             },
             selectSets: {
-                basic: 'id, current_username, current_alliance_id, status, strikes',
-                profile: 'id, current_username, current_alliance_id, status, strikes, total_kills, total_deaths, games_played, last_seen',
+                basic: 'id, current_username, current_alliance_id, status',
+                profile: 'id, current_username, current_alliance_id, status, total_kills, total_deaths, games_played, last_seen, reputation_score, suspension_reason, banned_until, suspended_until',
                 all: '*'
             }
         },
@@ -363,17 +418,21 @@
                 playerId: 'player_id',
                 strikeId: 'strike_id',
                 strikeTypeId: 'strike_type_id',
+                formulaId: 'formula_id',
                 killsBefore: 'kills_before',
                 killsAfter: 'kills_after',
                 pointsBefore: 'points_before',
                 pointsAfter: 'points_after',
+                statusBefore: 'status_before',
+                statusAfter: 'status_after',
                 penaltyPct: 'penalty_pct',
                 reputationDelta: 'reputation_delta',
                 formulaUsed: 'formula_used',
                 createdAt: 'created_at'
             },
             selectSets: {
-                basic: 'id, player_id, kills_after, penalty_pct, created_at',
+                basic: 'id, player_id, strike_id, strike_type_id, kills_after, penalty_pct, created_at',
+                withStrike: 'id, player_id, strike_id, strike_type_id, kills_before, kills_after, penalty_pct, status_before, status_after, formula_used, created_at',
                 all: '*'
             }
         },

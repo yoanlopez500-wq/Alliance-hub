@@ -41,9 +41,28 @@
         tbody.innerHTML = data.map(function(p) {
             var kd = p.total_deaths > 0 ? (p.total_kills / p.total_deaths).toFixed(2) : p.total_kills > 0 ? p.total_kills.toFixed(2) : '0.00';
             var alliance = window.getAllianceName(p.alliance_id);
-            return '<tr class="border-b border-indigo-900"><td class="p-3 font-medium">' + (p.current_username || 'Sin nombre') + '</td><td class="p-3 text-ah-muted">' + (alliance ? alliance.name + ' [' + alliance.tag + ']' : '-') + '</td><td class="p-3 text-right">' + (p.total_kills || 0) + '</td><td class="p-3 text-right">' + (p.total_deaths || 0) + '</td><td class="p-3 text-right">' + kd + '</td><td class="p-3">' + window.getStatusBadgePlayer(p.status) + '</td><td class="p-3"><a href="../player.html?id=' + p.id + '" class="text-xs font-bold text-orange-400">Ver</a></td></tr>';
+            var revokeBtn = '';
+            if (p.status === 'banned' || p.status === 'suspended') {
+                revokeBtn = '<button onclick="revokePlayerBan(' + p.id + ')" class="ml-2 text-xs font-bold text-green-400 hover:text-green-300">Revocar</button>';
+            }
+            return '<tr class="border-b border-indigo-900"><td class="p-3 font-medium">' + (p.current_username || 'Sin nombre') + '</td><td class="p-3 text-ah-muted">' + (alliance ? alliance.name + ' [' + alliance.tag + ']' : '-') + '</td><td class="p-3 text-right">' + (p.total_kills || 0) + '</td><td class="p-3 text-right">' + (p.total_deaths || 0) + '</td><td class="p-3 text-right">' + kd + '</td><td class="p-3">' + window.getStatusBadgePlayer(p.status) + revokeBtn + '</td><td class="p-3"><a href="../player.html?id=' + p.id + '" class="text-xs font-bold text-orange-400">Ver</a></td></tr>';
         }).join('');
     }
+
+    window.revokePlayerBan = async function(playerId) {
+        if (!confirm('Revocar la restriccion de este jugador?')) return;
+        try {
+            var { error } = await window.supabase.from('players').update({
+                status: 'active',
+                banned_until: null,
+                suspended_until: null,
+                suspension_reason: null
+            }).eq('id', playerId);
+            if (error) throw error;
+            window.showToast('Restriccion revocada', 'success');
+            loadPlayers();
+        } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
+    };
 
     window.filterPlayers = function(query) {
         var q = query.toLowerCase();

@@ -43,7 +43,7 @@
     localStorage.setItem('ah_sw_version', CURRENT_VERSION);
     
     // Register the new SW
-    navigator.serviceWorker.register('./service-worker.js?v=16.1')
+    navigator.serviceWorker.register(window.AHBuster ? window.AHBuster.url('./service-worker.js') : './service-worker.js')
         .then(function(reg) {
             console.log('[SW-Reg] Registered:', reg.scope);
             
