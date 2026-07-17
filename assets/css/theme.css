@@ -114,6 +114,19 @@ body {
 }
 .modal.active { display: flex; }
 
+/* Alias para modales que usan la clase .modal-overlay (legacy) */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+.modal-overlay.active { display: flex; }
+
 /* ===================== FORM INPUTS (tema oscuro) ===================== */
 input.ah-input,
 select.ah-input,

@@ -47,7 +47,13 @@ AHLoader.init({
 <div id="strike-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70">
 <div class="rounded-xl p-6 w-full max-w-lg mx-4 bg-slate-900 border border-indigo-900 text-slate-100 max-h-[90vh] overflow-y-auto">
 <h3 class="text-lg font-bold mb-4">&#9889; Aplicar Strike</h3>
-<div class="mb-3"><label class="block text-sm mb-1 text-slate-400">Jugador (ID de Supremacy) *</label><input type="number" id="s-player-id" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Ej: 24549130"></div>
+<div class="mb-3 relative">
+    <label class="block text-sm mb-1 text-slate-400">Jugador *</label>
+    <input type="hidden" id="s-player-id">
+    <input type="text" id="s-player-search" autocomplete="off" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Escribe nombre o ID de jugador...">
+    <div id="s-player-suggestions" class="hidden absolute z-10 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-lg bg-slate-950 border border-indigo-900 shadow-lg"></div>
+    <p id="s-player-selected" class="text-xs mt-1 text-amber-400 hidden"></p>
+</div>
 <div class="mb-3"><label class="block text-sm mb-1 text-slate-400">Partida</label><select id="s-match" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="">Seleccionar partida...</option></select></div>
 <div class="mb-3"><label class="block text-sm mb-1 text-slate-400">Tipo de Strike *</label><select id="s-type" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" onchange="showRuleHint()"><option value="">Seleccionar...</option></select></div>
 <div id="rule-hint" class="hidden mb-3 p-3 rounded-lg text-sm bg-amber-500/10 border border-amber-500/20 text-amber-400"></div>

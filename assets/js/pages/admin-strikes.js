@@ -342,6 +342,70 @@ function closeViewModal() {
     document.getElementById('view-modal').classList.add('hidden');
 }
 
+// --- Player search with autocomplete ---
+var playerSearchTimeout = null;
+
+function escapeAttr(str) {
+    if (!str) return '';
+    return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n').replace(/\r/g, '\\r');
+}
+
+function initPlayerSearch() {
+    var input = document.getElementById('s-player-search');
+    var suggestions = document.getElementById('s-player-suggestions');
+    if (!input) return;
+    input.addEventListener('input', function(e) {
+        var q = e.target.value.trim();
+        if (playerSearchTimeout) clearTimeout(playerSearchTimeout);
+        if (!q) { suggestions.classList.add('hidden'); return; }
+        playerSearchTimeout = setTimeout(function() { searchPlayers(q); }, 300);
+    });
+    input.addEventListener('focus', function() { if (input.value.trim()) suggestions.classList.remove('hidden'); });
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !suggestions.contains(e.target)) suggestions.classList.add('hidden');
+    });
+}
+
+async function searchPlayers(q) {
+    var suggestions = document.getElementById('s-player-suggestions');
+    try {
+        var isNumber = /^\d+$/.test(q);
+        var query = window.supabase.from('players').select('id, current_username').limit(10);
+        if (isNumber) {
+            query = query.or('id.eq.' + parseInt(q) + ',current_username.ilike.%' + q + '%');
+        } else {
+            query = query.ilike('current_username', '%' + q + '%');
+        }
+        var { data, error } = await query;
+        if (error) throw error;
+        renderPlayerSuggestions(data || []);
+    } catch(e) {
+        console.error('[PlayerSearch]', e);
+        suggestions.classList.add('hidden');
+    }
+}
+
+function renderPlayerSuggestions(players) {
+    var suggestions = document.getElementById('s-player-suggestions');
+    if (!players.length) { suggestions.classList.add('hidden'); return; }
+    suggestions.innerHTML = players.map(function(p) {
+        return '<div class="px-3 py-2 cursor-pointer hover:bg-indigo-900 text-sm text-slate-200" onclick="selectPlayer(' + p.id + ', \'' + escapeAttr(p.current_username) + '\')">' +
+            '<span class="font-bold">' + p.current_username + '</span>' +
+            '<span class="text-xs text-slate-500 ml-2 font-mono">ID: ' + p.id + '</span>' +
+            '</div>';
+    }).join('');
+    suggestions.classList.remove('hidden');
+}
+
+function selectPlayer(id, name) {
+    document.getElementById('s-player-id').value = id;
+    document.getElementById('s-player-search').value = name;
+    document.getElementById('s-player-suggestions').classList.add('hidden');
+    var selected = document.getElementById('s-player-selected');
+    selected.textContent = 'Seleccionado: ' + name + ' (ID: ' + id + ')';
+    selected.classList.remove('hidden');
+}
+
 // --- URL Prefill: open modal with prefill_player, prefill_match and prefill_report ---
 var urlParamsStrikes = new URLSearchParams(window.location.search);
 var prefillPlayer = urlParamsStrikes.get('prefill_player');
@@ -353,6 +417,15 @@ async function applyPrefill() {
     await loadDropdowns();
     if (prefillPlayer) {
         document.getElementById('s-player-id').value = prefillPlayer;
+        try {
+            var { data: p } = await window.supabase.from('players').select('current_username').eq('id', parseInt(prefillPlayer)).maybeSingle();
+            if (p) {
+                document.getElementById('s-player-search').value = p.current_username;
+                var selected = document.getElementById('s-player-selected');
+                selected.textContent = 'Seleccionado: ' + p.current_username + ' (ID: ' + prefillPlayer + ')';
+                selected.classList.remove('hidden');
+            }
+        } catch(e) { console.error('[Prefill]', e); }
     }
     if (prefillMatch) {
         document.getElementById('s-match').value = prefillMatch;
@@ -362,4 +435,5 @@ async function applyPrefill() {
 
 window.requireAdmin();
 loadStrikes();
+initPlayerSearch();
 applyPrefill();

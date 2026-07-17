@@ -16,11 +16,19 @@ function generateInviteCode() {
     return result;
 }
 
-// CRITICAL FIX: Properly escape strings for HTML onclick attributes
-// Handles: backslashes, single quotes, newlines, carriage returns
 function escapeAttr(str) {
     if (!str) return '';
     return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n').replace(/\r/g, '\\r');
+}
+
+function statusBadge(status) {
+    var badges = {
+        pending: '<span class="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/15 text-amber-400">PENDIENTE</span>',
+        under_review: '<span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-500/15 text-blue-500">EN REVISION</span>',
+        approved: '<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-500/15 text-green-500">APROBADO</span>',
+        rejected: '<span class="px-2 py-0.5 rounded text-xs font-bold bg-red-500/15 text-red-400">RECHAZADO</span>'
+    };
+    return badges[status] || '<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-500/15 text-slate-400">' + status + '</span>';
 }
 
 async function loadRequests() {
@@ -33,24 +41,45 @@ async function loadRequests() {
         var { data, error } = await q;
         if (error) throw error;
         if (!data || data.length === 0) { list.innerHTML = '<div class="text-center py-8 rounded-xl bg-slate-900 border border-indigo-900 text-slate-400">No hay solicitudes</div>'; return; }
-        list.innerHTML = '<div class="space-y-3">' + data.map(function(r) {
-            var statusBadge = r.status === 'pending' ? '<span class="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/15 text-amber-400">PENDIENTE</span>' : r.status === 'under_review' ? '<span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-500/15 text-blue-500">EN REVISION</span>' : r.status === 'approved' ? '<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-500/15 text-green-500">APROBADO</span>' : '<span class="px-2 py-0.5 rounded text-xs font-bold bg-red-500/15 text-red-400">RECHAZADO</span>';
+
+        list.innerHTML = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' + data.map(function(r) {
             var playerName = r.display_name || 'Jugador ' + r.player_id;
+            var displayDesc = (r.alliance_description || 'Sin descripcion');
+            if (displayDesc.length > 160) displayDesc = displayDesc.substring(0, 160) + '...';
+
             var actions = '';
             if (r.status === 'pending' || r.status === 'under_review') {
-                // CRITICAL FIX: Use escapeAttr() to properly handle newlines, quotes, and backslashes
                 var descEscaped = escapeAttr(r.alliance_description || '');
                 var nameEscaped = escapeAttr(r.alliance_name);
                 var tagEscaped = escapeAttr(r.alliance_tag);
                 var playerNameEscaped = escapeAttr(playerName);
-                actions = '<div class="flex gap-2 mt-3">' +
-                    '<button onclick="openApproveModal(' + r.player_id + ', \'' + nameEscaped + '\', \'' + tagEscaped + '\', \'' + r.id + '\', \'' + descEscaped + '\', \'' + playerNameEscaped + '\')" class="px-3 py-1.5 rounded-lg text-xs font-bold min-h-[32px] bg-green-700 text-white hover:bg-green-600 transition">&#10003; Aprobar</button>' +
-                    '<button onclick="openRejectModal(\'' + r.id + '\', \'' + playerNameEscaped + '\', \'' + nameEscaped + '\')" class="px-3 py-1.5 rounded-lg text-xs font-bold min-h-[32px] bg-red-600 text-white hover:bg-red-500 transition">&#10005; Rechazar</button>' +
+                actions = '<div class="flex flex-col sm:flex-row gap-2 mt-4">' +
+                    '<button onclick="openApproveModal(' + r.player_id + ', \'' + nameEscaped + '\', \'' + tagEscaped + '\', \'' + r.id + '\', \'' + descEscaped + '\', \'' + playerNameEscaped + '\')" class="flex-1 py-2 rounded-lg text-sm font-bold min-h-[44px] bg-green-700 text-white hover:bg-green-600 transition">&#10003; Aprobar</button>' +
+                    '<button onclick="openRejectModal(\'' + r.id + '\', \'' + playerNameEscaped + '\', \'' + nameEscaped + '\')" class="flex-1 py-2 rounded-lg text-sm font-bold min-h-[44px] bg-red-600 text-white hover:bg-red-500 transition">&#10005; Rechazar</button>' +
                     '</div>';
             }
-            // Truncate long descriptions for display
-            var displayDesc = (r.alliance_description || 'Sin descripcion').substring(0, 120) + ((r.alliance_description && r.alliance_description.length > 120) ? '...' : '');
-            return '<div class="rounded-xl p-5 bg-slate-900 border border-indigo-900"><div class="flex flex-col sm:flex-row sm:items-start justify-between gap-2"><div><h3 class="font-bold text-lg text-slate-100">' + r.alliance_name + ' [' + r.alliance_tag + ']</h3><p class="text-sm text-slate-400">Solicitante: ' + playerName + ' (ID: ' + r.player_id + ')</p><p class="text-xs mt-1 text-slate-400">' + displayDesc + '</p></div>' + statusBadge + '</div><p class="text-xs mt-2 text-slate-400">Miembros: ' + (r.member_count || '?') + ' | Discord: ' + (r.discord_handle || '-') + ' | ' + window.formatDate(r.created_at) + '</p>' + actions + '</div>';
+
+            return '<div class="rounded-xl p-5 bg-slate-900 border border-indigo-900 flex flex-col">' +
+                '<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">' +
+                    '<div class="min-w-0">' +
+                        '<h3 class="font-bold text-lg text-slate-100 truncate" title="' + escapeAttr(r.alliance_name) + '">' + r.alliance_name + '</h3>' +
+                        '<p class="text-sm text-amber-400 font-mono">[' + r.alliance_tag + ']</p>' +
+                    '</div>' +
+                    '<div class="shrink-0">' + statusBadge(r.status) + '</div>' +
+                '</div>' +
+                '<p class="text-sm text-slate-300 mb-3 line-clamp-3">' + displayDesc + '</p>' +
+                '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-400 mb-4">' +
+                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">Solicitante:</span> <span class="text-slate-200">' + playerName + '</span></div>' +
+                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">ID Jugador:</span> <span class="text-slate-200 font-mono">' + r.player_id + '</span></div>' +
+                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">Miembros:</span> <span class="text-slate-200">' + (r.member_count || '?') + '</span></div>' +
+                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">Discord:</span> <span class="text-slate-200 break-all">' + (r.discord_handle || '-') + '</span></div>' +
+                '</div>' +
+                '<div class="mt-auto pt-3 border-t border-indigo-900/50 flex items-center justify-between text-xs text-slate-500">' +
+                    '<span>Solicitado ' + window.formatDate(r.created_at) + '</span>' +
+                    (r.rejection_reason ? '<span class="text-red-400">Motivo: ' + r.rejection_reason + '</span>' : '') +
+                '</div>' +
+                actions +
+            '</div>';
         }).join('') + '</div>';
     } catch(e) { console.error('[Requests]', e); list.innerHTML = '<div class="text-center py-8 text-red-400">Error: ' + e.message + '</div>'; }
 }
@@ -76,14 +105,11 @@ async function confirmApprove() {
     var requestId = pendingApprove.requestId;
     var allianceDescription = pendingApprove.allianceDescription;
     var playerName = pendingApprove.playerName;
-    
-    // CRITICAL FIX: closeApproveModal + showToast inside try/catch
-    // so any error is properly reported instead of silently failing
+
     try {
         closeApproveModal();
         window.showToast('Procesando aprobacion...', 'info');
 
-        // 1. Check if alliance already exists
         var { data: existing } = await window.supabase.from('alliances').select('id').eq('name', allianceName).maybeSingle();
         var allianceId;
         if (existing) {
@@ -97,11 +123,9 @@ async function confirmApprove() {
             allianceId = newAlliance.id;
         }
 
-        // 2. Update player
         var { error: pe } = await window.supabase.from('players').update({ current_alliance_id: allianceId }).eq('id', playerId);
         if (pe) throw pe;
 
-        // 3. Create alliance_memberships (status='approved', requested_by='leader' per CHECK constraints)
         var { error: me } = await window.supabase.from('alliance_memberships').insert({
             player_id: playerId, alliance_id: allianceId,
             role: 'leader', status: 'approved', requested_by: 'leader'
@@ -114,14 +138,12 @@ async function confirmApprove() {
             }
         }
 
-        // 4. Mark request approved
         var { data: { session } } = await window.supabase.auth.getSession();
         var { error: re } = await window.supabase.from('alliance_leader_requests').update({
             status: 'approved', reviewed_by: session.user.id, reviewed_at: new Date().toISOString()
         }).eq('id', requestId);
         if (re) throw re;
 
-        // 5. Generate invite code for the new leader (vinculado a player_id y alliance_id)
         var inviteCode = generateInviteCode();
         lastGeneratedInviteCode = inviteCode;
         var { error: ie } = await window.supabase.from('admin_invites').insert({
@@ -140,7 +162,6 @@ async function confirmApprove() {
             return;
         }
 
-        // 6. SHOW invite code modal to admin
         document.getElementById('im-alliance-name').textContent = allianceName;
         document.getElementById('im-player-name').textContent = playerName;
         document.getElementById('im-code').textContent = inviteCode;
@@ -154,7 +175,6 @@ async function confirmApprove() {
     }
 }
 
-// ===== MODAL: Invite Code =====
 function closeInviteModal() {
     document.getElementById('invite-modal').classList.remove('active');
     lastGeneratedInviteCode = '';
@@ -175,7 +195,6 @@ function copyInviteCode() {
     });
 }
 
-// ===== MODAL: Rechazar =====
 function openRejectModal(requestId, playerName, allianceName) {
     pendingReject = { requestId: requestId };
     document.getElementById('reject-modal-text').innerHTML =
