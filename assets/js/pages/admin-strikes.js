@@ -267,8 +267,7 @@ async function removeStrike(id) {
             status: 'removed',
             removed_at: new Date().toISOString(),
             removed_by: session.user.id,
-            removal_reason: reason,
-            is_active: false
+            removal_reason: reason
         }).eq('id', id);
         if (error) throw error;
         window.showToast('Strike revocado', 'success');
