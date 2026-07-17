@@ -98,11 +98,10 @@
         };
     }
 
-    // Guard para showToast
+    // Guard para showToast (fallback sin alert nativo)
     if (typeof window.showToast !== 'function') {
         window.showToast = function(message, type) {
             console.log('[' + (type || 'info') + ']', message);
-            alert(message);
         };
     }
 

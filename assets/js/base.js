@@ -165,3 +165,6 @@ function logoutPlayer() {
     showToast('Sesion de jugador cerrada', 'success');
     setTimeout(function() { window.location.href = 'index.html'; }, 500);
 }
+
+// Expose shared helpers explicitly on window for pages that load guards/fallbacks
+window.showToast = showToast;

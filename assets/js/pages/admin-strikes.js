@@ -261,15 +261,21 @@ async function saveStrike() {
 async function removeStrike(id) {
     if (!confirm('Revocar este strike?')) return;
     var reason = prompt('Razon de la revocacion (opcional):') || '';
+    console.log('[removeStrike] id=', id, 'reason=', reason);
     try {
         var { data: { session } } = await window.supabase.auth.getSession();
-        var { error } = await window.supabase.from('player_strikes').update({
+        var { data, error, count } = await window.supabase.from('player_strikes').update({
             status: 'removed',
             removed_at: new Date().toISOString(),
             removed_by: session.user.id,
             removal_reason: reason
-        }).eq('id', id);
+        }).eq('id', id).select();
         if (error) throw error;
+        console.log('[removeStrike] updated data=', data, 'count=', count);
+        if (!data || data.length === 0) {
+            window.showToast('No se encontro el strike para revocar (id: ' + id + ')', 'error');
+            return;
+        }
         window.showToast('Strike revocado', 'success');
         loadStrikes();
     } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
