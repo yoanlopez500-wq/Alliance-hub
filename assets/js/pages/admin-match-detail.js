@@ -113,4 +113,255 @@ async function openWinnersModal(){try{var{data:results}=await window.supabase.fr
 function closeWinnersModal(){document.getElementById('winners-modal').classList.remove('active');}
 document.getElementById('winners-form').addEventListener('submit',async function(e){e.preventDefault();var checked=document.querySelectorAll('input[name="winner"]:checked');var winners=Array.from(checked).map(function(cb){return parseInt(cb.value);});if(winners.length===0){window.showToast('Selecciona al menos un ganador','warning');return;}try{for(var i=0;i<winners.length;i++){await window.supabase.from('match_winners').upsert({match_id:matchId,player_id:winners[i],position:i+1},{onConflict:'match_id,player_id'});}await window.supabase.from('matches').update({winners_declared:true}).eq('id',matchId);window.showToast(winners.length+' ganador(es)','success');closeWinnersModal();loadMatch();}catch(e){window.showToast('Error: '+e.message,'error');}});
 function copyShareLink(){var input=document.getElementById('share-link');input.select();navigator.clipboard.writeText(input.value);window.showToast('Copiado','success');}
+
+// ===================== IMPORTADOR API (EXCEL K/D) =====================
+// Flujo: openAPIImportModal -> fetchAPIKd -> (renderAPIPreview | mapeo manual)
+// -> confirmAPIImport. Usa el modulo global window.ApiKdImporter
+// (assets/js/api-importer.js, cargado via extraScripts del loader).
+var apiImportData=null;
+var apiRawRows=null;
+var apiHeaderRowIndex=-1;
+var apiRateLimitTimer=null;
+var apiFetchInProgress=false;
+
+function apiEscapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function openAPIImportModal(){
+    if(!currentMatch){window.showToast('Espera a que cargue la partida','warning');return;}
+    document.getElementById('api-import-modal').classList.add('active');
+    // Pre-rellenar con el game_id (ID Supremacy) de la partida actual
+    var gidInput=document.getElementById('api-game-id');
+    if(currentMatch.game_id)gidInput.value=currentMatch.game_id;
+    document.getElementById('api-import-error').classList.add('hidden');
+    document.getElementById('api-mapping-section').classList.add('hidden');
+    document.getElementById('api-preview-section').classList.add('hidden');
+    var confirmBtn=document.getElementById('api-confirm-btn');
+    confirmBtn.disabled=true;
+    confirmBtn.innerHTML='&#10003; Confirmar importacion';
+    apiImportData=null;apiRawRows=null;apiHeaderRowIndex=-1;
+    updateApiCacheNotice();
+    startApiRateLimitCountdown();
+}
+
+function closeAPIImportModal(){
+    document.getElementById('api-import-modal').classList.remove('active');
+    if(apiRateLimitTimer){clearInterval(apiRateLimitTimer);apiRateLimitTimer=null;}
+}
+
+function startApiRateLimitCountdown(){
+    if(apiRateLimitTimer)clearInterval(apiRateLimitTimer);
+    updateApiFetchButton();
+    apiRateLimitTimer=setInterval(updateApiFetchButton,1000);
+}
+
+// Estado del boton "Obtener datos": cuenta atras del rate limit (10s)
+function updateApiFetchButton(){
+    var btn=document.getElementById('api-fetch-btn');
+    if(!btn)return;
+    var modal=document.getElementById('api-import-modal');
+    if(!modal||!modal.classList.contains('active')){
+        if(apiRateLimitTimer){clearInterval(apiRateLimitTimer);apiRateLimitTimer=null;}
+        return;
+    }
+    var refresh=document.getElementById('api-refresh-btn');
+    if(apiFetchInProgress){btn.disabled=true;btn.textContent='Cargando...';if(refresh)refresh.disabled=true;return;}
+    var rem=window.ApiKdImporter?window.ApiKdImporter.getRateLimitRemaining():0;
+    if(rem>0){
+        btn.disabled=true;
+        btn.textContent='Espera '+rem+'s';
+        if(refresh)refresh.disabled=true;
+    }else{
+        btn.disabled=false;
+        btn.textContent='Obtener datos';
+        if(refresh)refresh.disabled=false;
+    }
+}
+
+// Aviso de cache ("datos en cache de hace X min" + forzar actualizacion)
+function updateApiCacheNotice(){
+    var notice=document.getElementById('api-cache-notice');
+    if(!notice)return;
+    var gid=document.getElementById('api-game-id').value.trim();
+    var info=(gid&&window.ApiKdImporter)?window.ApiKdImporter.getCacheInfo(gid):null;
+    if(info){
+        notice.classList.remove('hidden');
+        notice.classList.add('flex');
+        document.getElementById('api-cache-text').textContent='Datos en cache de hace '+info.ageMin+' min';
+    }else{
+        notice.classList.add('hidden');
+        notice.classList.remove('flex');
+    }
+}
+
+async function fetchAPIKd(force){
+    if(!window.ApiKdImporter){window.showToast('Modulo de importacion API no disponible','error');return;}
+    var gid=document.getElementById('api-game-id').value.trim();
+    if(!/^\d+$/.test(gid)){window.showToast('Introduce un ID de partida numerico','warning');return;}
+    var rem=window.ApiKdImporter.getRateLimitRemaining();
+    if(rem>0){window.showToast('Limite de peticiones: espera '+rem+'s','warning');startApiRateLimitCountdown();return;}
+    var errBox=document.getElementById('api-import-error');
+    errBox.classList.add('hidden');
+    apiFetchInProgress=true;
+    updateApiFetchButton();
+    try{
+        var result=await window.ApiKdImporter.fetchKdExcel(gid,{force:!!force});
+        apiImportData=result;
+        apiRawRows=result.rawRows;
+        apiHeaderRowIndex=result.headerRowIndex;
+        if(result.fromCache){updateApiCacheNotice();}
+        else{var notice=document.getElementById('api-cache-notice');notice.classList.add('hidden');notice.classList.remove('flex');}
+        if(result.needsManualMapping){
+            fillApiMappingSelects(result.headers);
+            renderApiMappingSample();
+            document.getElementById('api-mapping-section').classList.remove('hidden');
+            document.getElementById('api-preview-section').classList.add('hidden');
+            window.showToast('Estructura no reconocida: ajusta el mapeo de columnas','warning');
+        }else{
+            document.getElementById('api-mapping-section').classList.add('hidden');
+            renderAPIPreview();
+            window.showToast('Datos obtenidos: '+result.players.length+' jugadores','success');
+        }
+    }catch(e){
+        errBox.textContent=e.message||'Error desconocido';
+        errBox.classList.remove('hidden');
+        window.showToast('Error: '+(e.message||e),'error');
+    }finally{
+        apiFetchInProgress=false;
+        if(document.getElementById('api-import-modal').classList.contains('active'))startApiRateLimitCountdown();
+        else updateApiFetchButton();
+    }
+}
+
+// Rellena los <select> del mapeo manual con las cabeceras detectadas
+function fillApiMappingSelects(headers){
+    var fields={'api-map-id':'id','api-map-username':'username','api-map-kills':'kills','api-map-deaths':'deaths','api-map-nation':'nation','api-map-total':'total'};
+    Object.keys(fields).forEach(function(elId){
+        var el=document.getElementById(elId);
+        if(!el)return;
+        var html='<option value="">--</option>';
+        (headers||[]).forEach(function(h,i){html+='<option value="'+i+'">'+apiEscapeHtml(h)+'</option>';});
+        el.innerHTML=html;
+        var m=(apiImportData&&apiImportData.mapping)?apiImportData.mapping[fields[elId]]:null;
+        if(m!==null&&m!==undefined)el.value=String(m);
+    });
+}
+
+// Muestra las primeras filas crudas para ayudar al mapeo manual
+function renderApiMappingSample(){
+    var el=document.getElementById('api-mapping-sample');
+    if(!el)return;
+    if(!apiRawRows||!apiRawRows.length){el.innerHTML='';return;}
+    var html='<table class="w-full text-[11px]"><tbody>';
+    apiRawRows.slice(0,4).forEach(function(r){
+        html+='<tr class="border-b border-indigo-900">'+(r||[]).map(function(c,i){return '<td class="p-1 whitespace-nowrap"><span class="text-slate-500">['+i+']</span> '+apiEscapeHtml(c===null||c===undefined?'':String(c))+'</td>';}).join('')+'</tr>';
+    });
+    html+='</tbody></table>';
+    el.innerHTML=html;
+}
+
+function applyManualMapping(){
+    if(!window.ApiKdImporter||!apiRawRows){window.showToast('No hay datos para mapear','warning');return;}
+    function val(elId){var v=document.getElementById(elId).value;return v===''?null:parseInt(v,10);}
+    var mapping={id:val('api-map-id'),username:val('api-map-username'),kills:val('api-map-kills'),deaths:val('api-map-deaths'),nation:val('api-map-nation'),total:val('api-map-total')};
+    if(mapping.id===null){window.showToast('Selecciona la columna de ID de jugador','warning');return;}
+    if((mapping.kills===null||mapping.deaths===null)&&mapping.total===null){window.showToast('Selecciona Bajas + Muertes, o la columna Total','warning');return;}
+    try{
+        var gid=document.getElementById('api-game-id').value.trim();
+        var res=window.ApiKdImporter.reparse(apiRawRows,mapping,apiHeaderRowIndex,gid);
+        apiImportData=res;
+        if(res.players.length>0)document.getElementById('api-mapping-section').classList.add('hidden');
+        renderAPIPreview();
+        if(res.players.length===0)window.showToast('El mapeo no produjo jugadores validos','warning');
+    }catch(e){window.showToast('Error: '+e.message,'error');}
+}
+
+// Vista previa (max 20 filas) + contadores, estilo similar al preview CSV
+function renderAPIPreview(){
+    var sec=document.getElementById('api-preview-section');
+    var confirmBtn=document.getElementById('api-confirm-btn');
+    if(!apiImportData){sec.classList.add('hidden');confirmBtn.disabled=true;return;}
+    var players=apiImportData.players||[];
+    var skipped=apiImportData.skippedBots||0;
+    var errors=apiImportData.errors||[];
+    sec.classList.remove('hidden');
+    document.getElementById('api-preview-stats').innerHTML=
+        '<span class="px-2 py-1 rounded bg-green-500/15 text-green-500">'+players.length+' jugadores validos</span>'+
+        '<span class="px-2 py-1 rounded bg-slate-500/15 text-slate-400">'+skipped+' bots ignorados</span>'+
+        '<span class="px-2 py-1 rounded '+(errors.length?'bg-amber-500/15 text-amber-400':'bg-slate-500/15 text-slate-400')+'">'+errors.length+' errores</span>';
+    if(players.length===0){
+        document.getElementById('api-preview-content').innerHTML='<p class="text-center py-3 text-slate-400">No se encontraron jugadores validos</p>';
+        confirmBtn.disabled=true;
+        return;
+    }
+    var html='<table class="w-full text-sm"><thead><tr class="bg-slate-950"><th class="p-2 text-left">ID</th><th class="p-2 text-left">Jugador</th><th class="p-2 text-left">Nacion</th><th class="p-2 text-right">Bajas</th><th class="p-2 text-right">Muertes</th><th class="p-2 text-right">KD</th></tr></thead><tbody>';
+    players.slice(0,20).forEach(function(p){
+        html+='<tr class="border-b border-indigo-900"><td class="p-2 font-mono text-xs text-slate-500">'+p.player_id+'</td><td class="p-2 font-medium">'+apiEscapeHtml(p.username||('Jugador '+p.player_id))+'</td><td class="p-2 text-slate-400">'+apiEscapeHtml(p.nation||'-')+'</td><td class="p-2 text-right text-green-500">'+p.kills+'</td><td class="p-2 text-right text-red-400">'+p.deaths+'</td><td class="p-2 text-right font-bold">'+p.kd_ratio+'</td></tr>';
+    });
+    if(players.length>20)html+='<tr><td colspan="6" class="p-2 text-center text-slate-400">... y '+(players.length-20)+' mas</td></tr>';
+    html+='</tbody></table>';
+    if(errors.length){
+        html+='<div class="mt-2 text-amber-400">'+errors.slice(0,5).map(function(e){return 'Fila '+e.row+': '+apiEscapeHtml(e.reason);}).join('<br>')+(errors.length>5?'<br>... y '+(errors.length-5)+' errores mas':'')+'</div>';
+    }
+    document.getElementById('api-preview-content').innerHTML=html;
+    confirmBtn.disabled=false;
+}
+
+async function confirmAPIImport(){
+    if(!apiImportData||!apiImportData.players||apiImportData.players.length===0){window.showToast('No hay datos para importar','warning');return;}
+    if(!matchId){window.showToast('No hay partida seleccionada','error');return;}
+    var btn=document.getElementById('api-confirm-btn');
+    btn.disabled=true;btn.textContent='Importando...';
+    var createMissing=document.getElementById('api-create-players').checked;
+    var players=apiImportData.players;
+    try{
+        // 1) Comprobar que jugadores existen ya en el sistema (ids unicos, en bloques)
+        var ids=players.map(function(p){return p.player_id;}).filter(function(v,i,a){return a.indexOf(v)===i;});
+        var existing={};
+        for(var off=0;off<ids.length;off+=100){
+            var chunk=ids.slice(off,off+100);
+            var q=await window.supabase.from('players').select('id').in('id',chunk);
+            if(q.error)throw q.error;
+            (q.data||[]).forEach(function(p){existing[String(p.id)]=true;});
+        }
+        var missing=players.filter(function(p){return !existing[String(p.player_id)];});
+        // 2) Crear jugadores que no existan (opcional; el INSERT publico esta permitido por RLS).
+        //    NUNCA se tocan total_kills/total_deaths/games_played: los recalculan triggers SQL.
+        if(createMissing){
+            for(var mi=0;mi<missing.length;mi++){
+                var mp=missing[mi];
+                var ins=await window.supabase.from('players').insert({id:mp.player_id,current_username:mp.username||('Jugador '+mp.player_id),status:'active'});
+                if(ins.error&&ins.error.code!=='23505')throw ins.error; // 23505 = duplicado por condicion de carrera
+            }
+        }
+        // Si no se crean, se importan solo los que ya existen (evita errores de FK)
+        var toImport=createMissing?players:players.filter(function(p){return existing[String(p.player_id)];});
+        var fkSkipped=players.length-toImport.length;
+        if(toImport.length===0)throw new Error('Ninguno de los jugadores existe en el sistema. Marca "Crear jugadores que no existan" para importarlos.');
+        // 3) Upsert de resultados (mismo patron que confirmCSVImport)
+        for(var i=0;i<toImport.length;i++){
+            var r=toImport[i];
+            var kd=r.deaths>0?(r.kills/r.deaths):r.kills;
+            var row={match_id:matchId,player_id:r.player_id,kills:r.kills,deaths:r.deaths,kd_ratio:parseFloat(kd.toFixed(2))};
+            if(r.nation)row.nation=r.nation;
+            var up=await window.supabase.from('match_results').upsert(row,{onConflict:'match_id,player_id'});
+            if(up.error)throw up.error;
+        }
+        // 4) Marcar la partida como importada (igual que el flujo CSV)
+        var um=await window.supabase.from('matches').update({csv_imported:true}).eq('id',matchId);
+        if(um.error)throw um.error;
+        // 5) Resumen + refresco de la pagina
+        var summary='API importada: '+toImport.length+' jugadores · '+apiImportData.skippedBots+' bots ignorados · '+apiImportData.errors.length+' errores';
+        if(fkSkipped>0)summary+=' · '+fkSkipped+' sin ficha (no creados)';
+        window.showToast(summary,'success');
+        closeAPIImportModal();
+        loadResults();
+        loadMatch();
+    }catch(e){
+        window.showToast('Error: '+e.message,'error');
+    }finally{
+        btn.disabled=false;
+        btn.innerHTML='&#10003; Confirmar importacion';
+    }
+}
+
 loadMatch();
