@@ -54,6 +54,19 @@
         ]
     };
 
+    function resolveUrl(url) {
+        if (!url) return url;
+        // URLs absolutas o externas se dejan tal cual
+        if (url.indexOf('://') !== -1 || url.indexOf('//') === 0 || url.charAt(0) === '/') {
+            return url;
+        }
+        // Si ya es una ruta relativa a la carpeta del HTML (sube un nivel), no duplicar BASE
+        if (url.indexOf('../') === 0) {
+            return url;
+        }
+        return BASE + url;
+    }
+
     function loadScript(src) {
         return new Promise(function(resolve, reject) {
             var script = document.createElement('script');
@@ -70,10 +83,7 @@
 
     async function loadScripts(urls) {
         for (var i = 0; i < urls.length; i++) {
-            var url = urls[i];
-            if (url.indexOf('://') === -1 && url.indexOf('//') !== 0) {
-                url = BASE + url;
-            }
+            var url = resolveUrl(urls[i]);
             if (window.AHBuster) {
                 url = window.AHBuster.url(url);
             }
@@ -106,11 +116,15 @@
             }
 
             if (pageScript) {
-                var pageUrl = BASE + pageScript;
-                if (window.AHBuster) {
-                    pageUrl = window.AHBuster.url(pageUrl);
+                try {
+                    var pageUrl = resolveUrl(pageScript);
+                    if (window.AHBuster) {
+                        pageUrl = window.AHBuster.url(pageUrl);
+                    }
+                    await loadScript(pageUrl);
+                } catch(e) {
+                    console.warn('[AHLoader] Page script critico fallo:', pageScript);
                 }
-                await loadScript(pageUrl);
             }
 
             console.log('[AHLoader] Carga completada para:', role);
@@ -127,7 +141,7 @@
         },
 
         load: function(src) {
-            var url = BASE + src;
+            var url = resolveUrl(src);
             if (window.AHBuster) {
                 url = window.AHBuster.url(url);
             }
