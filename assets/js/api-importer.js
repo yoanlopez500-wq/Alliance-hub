@@ -29,7 +29,14 @@
 
     // ===================== CONSTANTES =====================
     var XLSX_CDN = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
-    var API_BASE = 'https://nekokeneko.org/api/game/excels/kd/sup/';
+    var API_BASE = (function(){
+      // Si hay Supabase configurado, usar Edge Function como proxy
+      if (typeof window !== 'undefined' && window.SUPABASE_URL) {
+        return window.SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/kd-excel-proxy?gameId=';
+      }
+      // Fallback directo (solo funciona sin CORS, ej. local server o si el dev arregla CORS)
+      return 'https://nekokoneko.org/api/game/excels/kd/sup/';
+    })();
     var RATE_LIMIT_SECONDS = 10;                // 1 peticion cada 10 segundos
     var RATE_LIMIT_KEY = 'ah_kd_api_last_fetch';
     var CACHE_PREFIX = 'ah_kd_api_cache_';
