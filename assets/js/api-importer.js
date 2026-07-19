@@ -419,8 +419,13 @@
         markFetch(); // la peticion consume el hueco aunque falle
         var resp;
         try {
+            var fetchHeaders = { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, */*' };
+            // Si usamos la Edge Function de Supabase, enviar el anon key por si la funcion requiere auth
+            if (API_BASE.indexOf('/functions/v1/') !== -1 && typeof window !== 'undefined' && window.SUPABASE_ANON_KEY) {
+                fetchHeaders['Authorization'] = 'Bearer ' + window.SUPABASE_ANON_KEY;
+            }
             resp = await fetch(API_BASE + encodeURIComponent(gid), {
-                headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, */*' }
+                headers: fetchHeaders
             });
         } catch (netErr) {
             throw mkError('NETWORK', 'Error de red o CORS al contactar con el servidor. Prueba el importador CSV como alternativa.');
