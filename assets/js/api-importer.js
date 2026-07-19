@@ -5,7 +5,7 @@
  *
  * Flujo:
  *   1) fetchKdExcel(gameId, {force}) descarga el .xlsx del endpoint
- *      https://nekokeneko.org/api/game/excels/kd/sup/{gameId}
+ *      https://nekokoneko.org/api/game/excels/kd/sup/{gameId}
  *      aplicando rate limit (1 peticion / 10s, persistente en localStorage)
  *      y cache local de resultados (TTL 1 hora).
  *   2) Auto-deteccion de columnas (id, username, kills, deaths, nation, total)
@@ -29,7 +29,7 @@
 
     // ===================== CONSTANTES =====================
     var XLSX_CDN = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
-    var API_BASE = 'https://nekokeneko.org/api/game/excels/kd/sup/';
+    var API_BASE = 'https://nekokoneko.org/api/game/excels/kd/sup/';
     var RATE_LIMIT_SECONDS = 10;                // 1 peticion cada 10 segundos
     var RATE_LIMIT_KEY = 'ah_kd_api_last_fetch';
     var CACHE_PREFIX = 'ah_kd_api_cache_';
