@@ -118,11 +118,13 @@ function copyShareLink(){var input=document.getElementById('share-link');input.s
 // Flujo: openAPIImportModal -> fetchAPIKd -> (renderAPIPreview | mapeo manual)
 // -> confirmAPIImport. Usa el modulo global window.ApiKdImporter
 // (assets/js/api-importer.js, cargado via extraScripts del loader).
-var apiImportData=null;
-var apiRawRows=null;
-var apiHeaderRowIndex=-1;
-var apiRateLimitTimer=null;
-var apiFetchInProgress=false;
+var apiImportState={
+    data:null,
+    rawRows:null,
+    headerRowIndex:-1,
+    rateLimitTimer:null,
+    fetchInProgress:false
+};
 
 function apiEscapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
@@ -138,20 +140,20 @@ function openAPIImportModal(){
     var confirmBtn=document.getElementById('api-confirm-btn');
     confirmBtn.disabled=true;
     confirmBtn.innerHTML='&#10003; Confirmar importacion';
-    apiImportData=null;apiRawRows=null;apiHeaderRowIndex=-1;
+    apiImportState.data=null;apiImportState.rawRows=null;apiImportState.headerRowIndex=-1;
     updateApiCacheNotice();
     startApiRateLimitCountdown();
 }
 
 function closeAPIImportModal(){
     document.getElementById('api-import-modal').classList.remove('active');
-    if(apiRateLimitTimer){clearInterval(apiRateLimitTimer);apiRateLimitTimer=null;}
+    if(apiImportState.rateLimitTimer){clearInterval(apiImportState.rateLimitTimer);apiImportState.rateLimitTimer=null;}
 }
 
 function startApiRateLimitCountdown(){
-    if(apiRateLimitTimer)clearInterval(apiRateLimitTimer);
+    if(apiImportState.rateLimitTimer)clearInterval(apiImportState.rateLimitTimer);
     updateApiFetchButton();
-    apiRateLimitTimer=setInterval(updateApiFetchButton,1000);
+    apiImportState.rateLimitTimer=setInterval(updateApiFetchButton,1000);
 }
 
 // Estado del boton "Obtener datos": cuenta atras del rate limit (10s)
@@ -160,11 +162,11 @@ function updateApiFetchButton(){
     if(!btn)return;
     var modal=document.getElementById('api-import-modal');
     if(!modal||!modal.classList.contains('active')){
-        if(apiRateLimitTimer){clearInterval(apiRateLimitTimer);apiRateLimitTimer=null;}
+        if(apiImportState.rateLimitTimer){clearInterval(apiImportState.rateLimitTimer);apiImportState.rateLimitTimer=null;}
         return;
     }
     var refresh=document.getElementById('api-refresh-btn');
-    if(apiFetchInProgress){btn.disabled=true;btn.textContent='Cargando...';if(refresh)refresh.disabled=true;return;}
+    if(apiImportState.fetchInProgress){btn.disabled=true;btn.textContent='Cargando...';if(refresh)refresh.disabled=true;return;}
     var rem=window.ApiKdImporter?window.ApiKdImporter.getRateLimitRemaining():0;
     if(rem>0){
         btn.disabled=true;
@@ -201,13 +203,13 @@ async function fetchAPIKd(force){
     if(rem>0){window.showToast('Limite de peticiones: espera '+rem+'s','warning');startApiRateLimitCountdown();return;}
     var errBox=document.getElementById('api-import-error');
     errBox.classList.add('hidden');
-    apiFetchInProgress=true;
+    apiImportState.fetchInProgress=true;
     updateApiFetchButton();
     try{
         var result=await window.ApiKdImporter.fetchKdExcel(gid,{force:!!force});
-        apiImportData=result;
-        apiRawRows=result.rawRows;
-        apiHeaderRowIndex=result.headerRowIndex;
+        apiImportState.data=result;
+        apiImportState.rawRows=result.rawRows;
+        apiImportState.headerRowIndex=result.headerRowIndex;
         if(result.fromCache){updateApiCacheNotice();}
         else{var notice=document.getElementById('api-cache-notice');notice.classList.add('hidden');notice.classList.remove('flex');}
         if(result.needsManualMapping){
@@ -226,7 +228,7 @@ async function fetchAPIKd(force){
         errBox.classList.remove('hidden');
         window.showToast('Error: '+(e.message||e),'error');
     }finally{
-        apiFetchInProgress=false;
+        apiImportState.fetchInProgress=false;
         if(document.getElementById('api-import-modal').classList.contains('active'))startApiRateLimitCountdown();
         else updateApiFetchButton();
     }
@@ -241,7 +243,7 @@ function fillApiMappingSelects(headers){
         var html='<option value="">--</option>';
         (headers||[]).forEach(function(h,i){html+='<option value="'+i+'">'+apiEscapeHtml(h)+'</option>';});
         el.innerHTML=html;
-        var m=(apiImportData&&apiImportData.mapping)?apiImportData.mapping[fields[elId]]:null;
+        var m=(apiImportState.data&&apiImportState.data.mapping)?apiImportState.data.mapping[fields[elId]]:null;
         if(m!==null&&m!==undefined)el.value=String(m);
     });
 }
@@ -250,9 +252,9 @@ function fillApiMappingSelects(headers){
 function renderApiMappingSample(){
     var el=document.getElementById('api-mapping-sample');
     if(!el)return;
-    if(!apiRawRows||!apiRawRows.length){el.innerHTML='';return;}
+    if(!apiImportState.rawRows||!apiImportState.rawRows.length){el.innerHTML='';return;}
     var html='<table class="w-full text-[11px]"><tbody>';
-    apiRawRows.slice(0,4).forEach(function(r){
+    apiImportState.rawRows.slice(0,4).forEach(function(r){
         html+='<tr class="border-b border-indigo-900">'+(r||[]).map(function(c,i){return '<td class="p-1 whitespace-nowrap"><span class="text-slate-500">['+i+']</span> '+apiEscapeHtml(c===null||c===undefined?'':String(c))+'</td>';}).join('')+'</tr>';
     });
     html+='</tbody></table>';
@@ -260,15 +262,15 @@ function renderApiMappingSample(){
 }
 
 function applyManualMapping(){
-    if(!window.ApiKdImporter||!apiRawRows){window.showToast('No hay datos para mapear','warning');return;}
+    if(!window.ApiKdImporter||!apiImportState.rawRows){window.showToast('No hay datos para mapear','warning');return;}
     function val(elId){var v=document.getElementById(elId).value;return v===''?null:parseInt(v,10);}
     var mapping={id:val('api-map-id'),username:val('api-map-username'),kills:val('api-map-kills'),deaths:val('api-map-deaths'),nation:val('api-map-nation'),total:val('api-map-total')};
     if(mapping.id===null){window.showToast('Selecciona la columna de ID de jugador','warning');return;}
     if((mapping.kills===null||mapping.deaths===null)&&mapping.total===null){window.showToast('Selecciona Bajas + Muertes, o la columna Total','warning');return;}
     try{
         var gid=document.getElementById('api-game-id').value.trim();
-        var res=window.ApiKdImporter.reparse(apiRawRows,mapping,apiHeaderRowIndex,gid);
-        apiImportData=res;
+        var res=window.ApiKdImporter.reparse(apiImportState.rawRows,mapping,apiImportState.headerRowIndex,gid);
+        apiImportState.data=res;
         if(res.players.length>0)document.getElementById('api-mapping-section').classList.add('hidden');
         renderAPIPreview();
         if(res.players.length===0)window.showToast('El mapeo no produjo jugadores validos','warning');
@@ -279,10 +281,10 @@ function applyManualMapping(){
 function renderAPIPreview(){
     var sec=document.getElementById('api-preview-section');
     var confirmBtn=document.getElementById('api-confirm-btn');
-    if(!apiImportData){sec.classList.add('hidden');confirmBtn.disabled=true;return;}
-    var players=apiImportData.players||[];
-    var skipped=apiImportData.skippedBots||0;
-    var errors=apiImportData.errors||[];
+    if(!apiImportState.data){sec.classList.add('hidden');confirmBtn.disabled=true;return;}
+    var players=apiImportState.data.players||[];
+    var skipped=apiImportState.data.skippedBots||0;
+    var errors=apiImportState.data.errors||[];
     sec.classList.remove('hidden');
     document.getElementById('api-preview-stats').innerHTML=
         '<span class="px-2 py-1 rounded bg-green-500/15 text-green-500">'+players.length+' jugadores validos</span>'+
@@ -307,12 +309,12 @@ function renderAPIPreview(){
 }
 
 async function confirmAPIImport(){
-    if(!apiImportData||!apiImportData.players||apiImportData.players.length===0){window.showToast('No hay datos para importar','warning');return;}
+    if(!apiImportState.data||!apiImportState.data.players||apiImportState.data.players.length===0){window.showToast('No hay datos para importar','warning');return;}
     if(!matchId){window.showToast('No hay partida seleccionada','error');return;}
     var btn=document.getElementById('api-confirm-btn');
     btn.disabled=true;btn.textContent='Importando...';
     var createMissing=document.getElementById('api-create-players').checked;
-    var players=apiImportData.players;
+    var players=apiImportState.data.players;
     try{
         // 1) Comprobar que jugadores existen ya en el sistema (ids unicos, en bloques)
         var ids=players.map(function(p){return p.player_id;}).filter(function(v,i,a){return a.indexOf(v)===i;});
@@ -350,7 +352,7 @@ async function confirmAPIImport(){
         var um=await window.supabase.from('matches').update({csv_imported:true}).eq('id',matchId);
         if(um.error)throw um.error;
         // 5) Resumen + refresco de la pagina
-        var summary='API importada: '+toImport.length+' jugadores · '+apiImportData.skippedBots+' bots ignorados · '+apiImportData.errors.length+' errores';
+        var summary='API importada: '+toImport.length+' jugadores · '+apiImportState.data.skippedBots+' bots ignorados · '+apiImportState.data.errors.length+' errores';
         if(fkSkipped>0)summary+=' · '+fkSkipped+' sin ficha (no creados)';
         window.showToast(summary,'success');
         closeAPIImportModal();

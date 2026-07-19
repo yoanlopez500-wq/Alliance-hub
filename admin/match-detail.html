@@ -131,8 +131,8 @@ AHLoader.init({
 <div id="api-import-error" class="hidden rounded-lg p-3 text-xs bg-red-500/10 text-red-400 border border-red-500/30"></div>
 <div id="api-mapping-section" class="hidden rounded-lg p-3 bg-slate-950 border border-amber-500/30 space-y-2">
 <p class="text-xs font-bold text-amber-400">&#9888; No se detecto la estructura automaticamente. Selecciona que columna corresponde a cada campo:</p>
-<div id="api-mapping-sample" class="max-h-24 overflow-y-auto rounded p-1 bg-slate-900 border border-indigo-900"></div>
-<div class="grid grid-cols-2 gap-2">
+<div id="api-mapping-sample" class="max-h-24 overflow-y-auto overflow-x-auto rounded p-1 bg-slate-900 border border-indigo-900"></div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
 <div><label class="block text-[11px] mb-1 text-slate-400">ID jugador *</label><select id="api-map-id" class="w-full px-2 py-1.5 rounded-lg border text-xs bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></select></div>
 <div><label class="block text-[11px] mb-1 text-slate-400">Nombre</label><select id="api-map-username" class="w-full px-2 py-1.5 rounded-lg border text-xs bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></select></div>
 <div><label class="block text-[11px] mb-1 text-slate-400">Bajas</label><select id="api-map-kills" class="w-full px-2 py-1.5 rounded-lg border text-xs bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></select></div>
@@ -146,7 +146,7 @@ AHLoader.init({
 <div id="api-preview-section" class="hidden">
 <h3 class="font-bold text-sm mb-2 text-slate-100">Vista previa:</h3>
 <div id="api-preview-stats" class="flex flex-wrap gap-2 mb-2 text-xs font-bold"></div>
-<div id="api-preview-content" class="max-h-60 overflow-y-auto rounded-lg p-3 text-xs bg-slate-950 border border-indigo-900"></div>
+<div id="api-preview-content" class="max-h-60 overflow-y-auto overflow-x-auto rounded-lg p-3 text-xs bg-slate-950 border border-indigo-900"></div>
 <label class="flex items-center gap-2 mt-3 text-xs text-slate-400 cursor-pointer">
 <input type="checkbox" id="api-create-players" checked class="w-4 h-4 rounded"> Crear jugadores que no existan en el sistema
 </label>

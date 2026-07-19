@@ -34,6 +34,7 @@
     var RATE_LIMIT_KEY = 'ah_kd_api_last_fetch';
     var CACHE_PREFIX = 'ah_kd_api_cache_';
     var CACHE_TTL_MS = 60 * 60 * 1000;          // 1 hora
+    var MAX_CACHE_ENTRIES = 50;                 // limite LRU para no llenar localStorage
     var HEADER_SCAN_ROWS = 10;                  // filas iniciales donde buscar cabeceras
     var TOTAL_REGEX = /^(\d+)\s*[/|]\s*(\d+)/;  // celda combinada "kills/deaths"
 
@@ -121,8 +122,39 @@
     }
 
     function writeCache(gameId, entry) {
-        try { localStorage.setItem(CACHE_PREFIX + gameId, JSON.stringify(entry)); }
+        try {
+            localStorage.setItem(CACHE_PREFIX + gameId, JSON.stringify(entry));
+            pruneCache();
+        }
         catch (e) { console.warn('[ApiKdImporter] No se pudo guardar la cache:', e); }
+    }
+
+    /** Limpia entradas antiguas si se excede MAX_CACHE_ENTRIES (LRU simple). */
+    function pruneCache() {
+        try {
+            var entries = [];
+            for (var i = 0; i < localStorage.length; i++) {
+                var key = localStorage.key(i);
+                if (!key || key.indexOf(CACHE_PREFIX) !== 0) continue;
+                var raw = localStorage.getItem(key);
+                var obj = raw ? JSON.parse(raw) : null;
+                if (!obj || !obj.ts) {
+                    localStorage.removeItem(key);
+                    continue;
+                }
+                if (Date.now() - obj.ts > CACHE_TTL_MS) {
+                    localStorage.removeItem(key);
+                    continue;
+                }
+                entries.push({ key: key, ts: obj.ts });
+            }
+            if (entries.length <= MAX_CACHE_ENTRIES) return;
+            entries.sort(function (a, b) { return a.ts - b.ts; });
+            var toRemove = entries.length - MAX_CACHE_ENTRIES;
+            for (var j = 0; j < toRemove; j++) {
+                localStorage.removeItem(entries[j].key);
+            }
+        } catch (e) { console.warn('[ApiKdImporter] No se pudo podar la cache:', e); }
     }
 
     /** Info de cache para la UI ("hace X min") o null si no hay o expiro. */
@@ -134,6 +166,18 @@
 
     function clearCache(gameId) {
         try { localStorage.removeItem(CACHE_PREFIX + String(gameId).trim()); } catch (e) {}
+    }
+
+    /** Elimina todas las caches de importaciones API. */
+    function clearAllCache() {
+        try {
+            var keys = [];
+            for (var i = 0; i < localStorage.length; i++) {
+                var key = localStorage.key(i);
+                if (key && key.indexOf(CACHE_PREFIX) === 0) keys.push(key);
+            }
+            keys.forEach(function (k) { localStorage.removeItem(k); });
+        } catch (e) { console.warn('[ApiKdImporter] No se pudo limpiar toda la cache:', e); }
     }
 
     // ---------- Normalizacion y deteccion de columnas ----------
@@ -470,7 +514,15 @@
         getRateLimitRemaining: getRateLimitRemaining,
         getCacheInfo: getCacheInfo,
         clearCache: clearCache,
+        clearAllCache: clearAllCache,
         calcKd: calcKd,
+        parseIntSafe: parseIntSafe,
+        detectHeaderRow: detectHeaderRow,
+        buildHeaders: buildHeaders,
+        parseRows: parseRows,
+        autoParse: autoParse,
+        normHeader: normHeader,
+        findColumn: findColumn,
         loadXLSX: loadXLSX,
         RATE_LIMIT_SECONDS: RATE_LIMIT_SECONDS,
         CACHE_TTL_MS: CACHE_TTL_MS
