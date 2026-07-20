@@ -207,11 +207,32 @@ async function saveStrike() {
 
         // Insert sanction snapshot
         try {
-            var { data: playerBefore } = await window.supabase.from('players').select('total_kills, total_deaths, status').eq('id', playerId).single();
+            // Calcular kills validas del jugador (partidas publicas con registro)
+            var { data: results } = await window.supabase.from('match_results')
+                .select('kills, match_id, matches!inner(match_type)')
+                .eq('player_id', playerId)
+                .neq('matches.match_type', 'internal');
+            var matchIds = [];
+            (results || []).forEach(function(r) {
+                if (r.match_id && matchIds.indexOf(r.match_id) === -1) matchIds.push(r.match_id);
+            });
+            var validMatches = {};
+            if (matchIds.length > 0) {
+                var { data: regs } = await window.supabase.from('match_registrations')
+                    .select('match_id')
+                    .eq('player_id', playerId)
+                    .in('match_id', matchIds);
+                (regs || []).forEach(function(r) { validMatches[r.match_id] = true; });
+            }
+            var killsBefore = 0;
+            (results || []).forEach(function(r) {
+                if (validMatches[r.match_id]) killsBefore += (r.kills || 0);
+            });
+
             var formula = parseStrikeFormula(typeInfo.legend);
-            var killsBefore = playerBefore ? (playerBefore.total_kills || 0) : 0;
             var penaltyPct = formula.penalty_pct || 0;
             var killsAfter = typeInfo.nullifies_kills ? 0 : Math.round(killsBefore * (1 - penaltyPct / 100));
+            var { data: playerBefore } = await window.supabase.from('players').select('status').eq('id', playerId).single();
             await window.supabase.from('player_sanctions').insert({
                 player_id: playerId,
                 strike_id: newStrike ? newStrike.id : null,

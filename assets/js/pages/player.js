@@ -52,11 +52,38 @@
             if (error) throw error;
             if (!player) { renderEmpty('Jugador no encontrado'); return; }
 
+            // Calcular stats validas: solo partidas donde el jugador esta registrado
+            var { data: results, error: rErr } = await window.supabase.from('match_results')
+                .select('kills, deaths, match_id, matches!inner(match_type)')
+                .eq('player_id', playerId)
+                .neq('matches.match_type', 'internal');
+            if (rErr) throw rErr;
+
+            var matchIds = [];
+            (results || []).forEach(function(r) {
+                if (r.match_id && matchIds.indexOf(r.match_id) === -1) matchIds.push(r.match_id);
+            });
+            var validMatches = {};
+            if (matchIds.length > 0) {
+                var { data: regs, error: regErr } = await window.supabase.from('match_registrations')
+                    .select('match_id')
+                    .eq('player_id', playerId)
+                    .in('match_id', matchIds);
+                if (regErr) throw regErr;
+                (regs || []).forEach(function(r) { validMatches[r.match_id] = true; });
+            }
+
+            var totalKills = 0, totalDeaths = 0, games = 0;
+            (results || []).forEach(function(r) {
+                if (!validMatches[r.match_id]) return;
+                totalKills += (r.kills || 0);
+                totalDeaths += (r.deaths || 0);
+                games++;
+            });
+
             var strikesRes = await window.supabase.from('player_strikes').select('*, strike_types(*)').eq('player_id', playerId).eq('status', 'active');
             var strikes = strikesRes.data || [];
             var strikeCount = strikes.length;
-            var totalKills = player.total_kills || 0;
-            var totalDeaths = player.total_deaths || 0;
             var eff = window.computeEffectiveKills(totalKills, strikes, 0);
             var effKills = eff.effKills;
             var penaltyPct = eff.penaltyPct;
@@ -65,7 +92,7 @@
             var strikeBadge = strikeCount > 0 ? '<span class="text-[10px] px-2 py-0.5 rounded font-bold ml-2" style="background:rgba(255,143,0,0.2);color:#ff8f00">' + strikeCount + ' strike' + (strikeCount > 1 ? 's' : '') + '</span>' : '';
             var alliance = getAllianceName(player.alliance_id);
 
-            document.getElementById('player-profile').innerHTML = '<div class="rounded-xl p-6" style="background:#11183a;border:1px solid #1a237e;"><div class="flex items-center gap-4 mb-4"><div class="text-4xl">&#128100;</div><div><h1 class="text-2xl font-bold">' + player.current_username + strikeBadge + '</h1><p class="text-sm" style="color:#9fa8da;">' + (alliance ? alliance.name + ' [' + alliance.tag + ']' : 'Sin alianza') + '</p></div></div><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold" style="color:#ff8f00;">' + effKills + penaltyBadge + '</div><div class="text-xs" style="color:#9fa8da;">Bajas Efectivas</div></div><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold">' + totalDeaths + '</div><div class="text-xs" style="color:#9fa8da;">Muertes</div></div><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold">' + kd + '</div><div class="text-xs" style="color:#9fa8da;">K/D</div></div><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold">' + (player.games_played || 0) + '</div><div class="text-xs" style="color:#9fa8da;">Partidas</div></div></div></div>';
+            document.getElementById('player-profile').innerHTML = '<div class="rounded-xl p-6" style="background:#11183a;border:1px solid #1a237e;"><div class="flex items-center gap-4 mb-4"><div class="text-4xl">&#128100;</div><div><h1 class="text-2xl font-bold">' + player.current_username + strikeBadge + '</h1><p class="text-sm" style="color:#9fa8da;">' + (alliance ? alliance.name + ' [' + alliance.tag + ']' : 'Sin alianza') + '</p></div></div><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold" style="color:#ff8f00;">' + effKills + penaltyBadge + '</div><div class="text-xs" style="color:#9fa8da;">Bajas Efectivas</div></div><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold">' + totalDeaths + '</div><div class="text-xs" style="color:#9fa8da;">Muertes</div></div><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold">' + kd + '</div><div class="text-xs" style="color:#9fa8da;">K/D</div></div><div class="rounded-lg p-3 text-center" style="background:#0a0e27;border:1px solid #1a237e;"><div class="text-2xl font-bold">' + games + '</div><div class="text-xs" style="color:#9fa8da;">Partidas Validas</div></div></div></div>';
         } catch(e) {
             console.error('[Profile]', e);
             renderError('Error: ' + e.message);

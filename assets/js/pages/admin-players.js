@@ -16,14 +16,32 @@
 
     async function loadPlayers() {
         try {
+            var pc = window.DB.tableCols('players');
             var status = document.getElementById('filter-status');
             var statusVal = status ? status.value : '';
-            var q = window.supabase.from('players').select('*').order('total_kills', { ascending: false }).limit(100);
+            var q = window.DB.from('players').select('*');
             if (statusVal) q = q.eq('status', statusVal);
             var { data, error } = await q;
             if (error) throw error;
-            allPlayers = data || [];
-            renderPlayers(allPlayers);
+
+            var players = data || [];
+            var playerIds = players.map(function(p) { return p[pc.id]; });
+            var stats = {};
+            if (playerIds.length > 0) {
+                stats = await window.RankingUtils.getValidPlayerStats({ playerIds: playerIds });
+            }
+
+            allPlayers = players.map(function(p) {
+                var s = stats[p[pc.id]] || { kills: 0, deaths: 0, games: 0 };
+                p[pc.kills] = s.kills;
+                p[pc.deaths] = s.deaths;
+                p[pc.gamesPlayed] = s.games;
+                return p;
+            }).sort(function(a, b) {
+                return (b[pc.kills] || 0) - (a[pc.kills] || 0);
+            });
+
+            renderPlayers(allPlayers.slice(0, 100));
         } catch(e) {
             console.error('[Players]', e);
             var container = document.getElementById('players-table-container');

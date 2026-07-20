@@ -1,5 +1,5 @@
 /**
- * api-importer.js - Importador de estadisticas K/D desde API externa (Excel .xlsx)
+ * api-importer.js - Importador de estadisticas K/D desde Excel 42-columnas
  *
  * Expone el modulo global window.ApiKdImporter (script clasico, sin ES modules).
  *
@@ -8,21 +8,21 @@
  *      https://nekokoneko.org/api/game/excels/kd/sup/{gameId}
  *      aplicando rate limit (1 peticion / 10s, persistente en localStorage)
  *      y cache local de resultados (TTL 1 hora).
- *   2) Auto-deteccion de columnas (id, username, kills, deaths, nation, total)
- *      localizando la fila de cabeceras entre las ~10 primeras filas.
- *      Si no se detecta, devuelve needsManualMapping=true y las cabeceras
- *      para que la UI ofrezca selectores manuales de respaldo.
+ *   2) Auto-deteccion de columnas:
+ *      - Columnas de metadata: Nation, UID, Username, Total
+ *      - Columnas de stats (unidades/comandantes): cualquier columna entre
+ *        metadata y Total cuyas celdas tengan formato "kills/deaths".
+ *      Se suman kills y deaths de todas las columnas de stats para obtener
+ *      los totales del jugador. El ratio entre parentesis del Total se ignora.
  *   3) reparse(rawRows, mapping, headerRowIndex, gameId) reprocesa las filas
  *      crudas con el mapeo manual elegido por el usuario.
  *
  * SheetJS (XLSX) se carga de forma perezosa desde CDN solo cuando se usa;
  * no bloquea la carga de la pagina.
  *
- * Filtro de bots: filas con id = -1 (o cualquier id numerico negativo) se
- * ignoran y se cuentan en skippedBots. IDs no numericos van a errors.
- *
- * kd_ratio: replica exacta del importador CSV -> deaths>0 ? kills/deaths : kills
- * con 2 decimales.
+ * Filtro de bots: filas con UID <= 0 se descartan como bots.
+ * Los jugadores con UID > 0 se tratan como jugadores del juego; su validez
+ * para rankings depende de si estan registrados en la partida (match_registrations).
  */
 (function () {
     'use strict';
@@ -43,17 +43,17 @@
     var CACHE_TTL_MS = 60 * 60 * 1000;          // 1 hora
     var MAX_CACHE_ENTRIES = 50;                 // limite LRU para no llenar localStorage
     var HEADER_SCAN_ROWS = 10;                  // filas iniciales donde buscar cabeceras
-    var TOTAL_REGEX = /^(\d+)\s*[/|]\s*(\d+)/;  // celda combinada "kills/deaths"
+    var TOTAL_REGEX = /^(\d+)\s*[/|]\s*(\d+)(?:\s*\(.*\))?$/; // "kills/deaths" o "kills/deaths (ratio)"
 
     // Conjuntos de cabeceras candidatas (comparacion case-insensitive,
     // con espacios normalizados)
     var HEADER_CANDIDATES = {
-        id: ['id', 'player id', 'player_id', 'id jugador', 'userid', 'user id'],
-        username: ['username', 'name', 'player', 'jugador', 'nick', 'nickname'],
+        id: ['id', 'uid', 'player id', 'player_id', 'id jugador', 'userid', 'user id', 'player'],
+        username: ['username', 'name', 'player', 'jugador', 'nick', 'nickname', 'player name'],
         kills: ['kills', 'bajas', 'kill'],
         deaths: ['deaths', 'muertes', 'death'],
-        nation: ['nation', 'country', 'pais', 'país'],
-        total: ['total', 'k/d', 'kd']
+        nation: ['nation', 'country', 'pais', 'país', 'nacionalidad'],
+        total: ['total', 'k/d', 'kd', 'kd ratio', 'total k/d']
     };
 
     // ===================== HELPERS INTERNOS =====================
@@ -211,7 +211,7 @@
      * Devuelve el indice de fila o -1 si no se detecta.
      */
     function detectHeaderRow(rows) {
-        var fields = ['id', 'username', 'kills', 'deaths', 'nation', 'total'];
+        var fields = ['id', 'username', 'nation', 'total'];
         var best = -1, bestScore = 0;
         var limit = Math.min(rows.length, HEADER_SCAN_ROWS);
         for (var r = 0; r < limit; r++) {
@@ -221,9 +221,55 @@
             for (var f = 0; f < fields.length; f++) {
                 if (findColumn(row, fields[f]) !== -1) score++;
             }
+            // Bonus si tambien hay columnas con formato de stats en las filas siguientes
+            if (score > 0 && r + 1 < rows.length) {
+                var dataRow = rows[r + 1];
+                if (dataRow) {
+                    var statCells = 0;
+                    for (var c = 0; c < dataRow.length; c++) {
+                        if (TOTAL_REGEX.test(String(dataRow[c] || ''))) statCells++;
+                    }
+                    if (statCells >= 2) score += 1;
+                }
+            }
             if (score > bestScore) { bestScore = score; best = r; }
         }
         return bestScore >= 2 ? best : -1;
+    }
+
+    /**
+     * Detecta que columnas contienen stats (kills/deaths) de unidades/comandantes.
+     * Excluye las columnas de metadata. Si no hay columna Total, usa todas las
+     * columnas de datos con formato kills/deaths.
+     */
+    function detectStatColumns(rows, headerRowIndex, mapping) {
+        var statColumns = [];
+        if (headerRowIndex < 0 || !rows[headerRowIndex]) return statColumns;
+        var headerRow = rows[headerRowIndex];
+        var exclude = {};
+        ['id', 'username', 'nation', 'total'].forEach(function (field) {
+            var idx = mapping[field];
+            if (idx !== null && idx !== undefined) exclude[idx] = true;
+        });
+
+        for (var c = 0; c < headerRow.length; c++) {
+            if (exclude[c]) continue;
+            // Heuristica: contar celdas de datos con formato kills/deaths
+            var matches = 0, checked = 0;
+            for (var r = headerRowIndex + 1; r < rows.length && checked < 5; r++) {
+                var row = rows[r];
+                if (!row || row.length <= c) continue;
+                var cell = row[c];
+                if (cell === null || cell === undefined || String(cell).trim() === '') continue;
+                checked++;
+                if (TOTAL_REGEX.test(String(cell))) matches++;
+            }
+            // Si al menos 2 de las primeras celdas no vacias coinciden, es columna de stats
+            if (checked > 0 && matches >= Math.min(2, checked)) {
+                statColumns.push(c);
+            }
+        }
+        return statColumns;
     }
 
     /**
@@ -258,20 +304,31 @@
         return parseInt(cleaned, 10);
     }
 
-    /** KD exacto del importador CSV: deaths>0 ? kills/deaths : kills (2 decimales). */
+    /** KD exacto: deaths>0 ? kills/deaths : kills (2 decimales). */
     function calcKd(kills, deaths) {
         var kd = deaths > 0 ? (kills / deaths) : kills;
         return parseFloat(kd.toFixed(2));
     }
 
+    /** Parsea una celda "kills/deaths" o "kills/deaths (ratio)". */
+    function parseKdCell(cell) {
+        var m = String(cell === null || cell === undefined ? '' : cell).trim().match(TOTAL_REGEX);
+        if (!m) return null;
+        return { kills: parseInt(m[1], 10), deaths: parseInt(m[2], 10) };
+    }
+
     /**
      * Parsea las filas crudas con un mapeo concreto de columnas.
-     * mapping = { id, username, kills, deaths, nation, total } (indices o null).
-     * Requiere id y (kills+deaths o total); el llamador debe validarlo.
+     * mapping = { id, username, nation, total, statColumns: [...] }
+     * Requiere id y (statColumns o total); el llamador debe validarlo.
+     *
+     * Filas con UID <= 0 se descartan como bots (skippedBots).
      */
     function parseRows(rows, mapping, headerRowIndex) {
         var players = [], errors = [], skippedBots = 0;
         var start = (typeof headerRowIndex === 'number' && headerRowIndex >= 0) ? headerRowIndex + 1 : 0;
+        var statColumns = mapping.statColumns || [];
+
         for (var i = start; i < rows.length; i++) {
             var row = rows[i];
             if (!row || !row.length) continue;
@@ -288,27 +345,36 @@
                 errors.push({ row: i + 1, reason: 'ID no numerico: "' + (rawId === null || rawId === undefined ? '' : String(rawId)) + '"' });
                 continue;
             }
-            // Bots: id = -1 (o cualquier id numerico negativo) se ignora
-            if (pid < 0) { skippedBots++; continue; }
+            // Bots: UID <= 0 se descartan
+            if (pid <= 0) { skippedBots++; continue; }
 
-            var kills = 0, deaths = 0;
-            if (mapping.kills !== null && mapping.kills !== undefined &&
-                mapping.deaths !== null && mapping.deaths !== undefined) {
-                kills = parseIntSafe(row[mapping.kills]);
-                deaths = parseIntSafe(row[mapping.deaths]);
-                if (kills === null || deaths === null) {
-                    errors.push({ row: i + 1, reason: 'Bajas/Muertes no numericas' });
-                    continue;
+            var kills = 0, deaths = 0, parseSource = 'stats';
+
+            if (statColumns.length > 0) {
+                for (var s = 0; s < statColumns.length; s++) {
+                    var colIdx = statColumns[s];
+                    var cell = row[colIdx];
+                    if (cell === null || cell === undefined || String(cell).trim() === '') continue;
+                    var parsed = parseKdCell(cell);
+                    if (!parsed) {
+                        errors.push({ row: i + 1, reason: 'Formato invalido en columna de stats [' + colIdx + ']: "' + String(cell) + '"' });
+                        parseSource = null;
+                        break;
+                    }
+                    kills += parsed.kills;
+                    deaths += parsed.deaths;
                 }
+                if (parseSource === null) continue;
             } else if (mapping.total !== null && mapping.total !== undefined) {
-                var cell = row[mapping.total];
-                var m = String(cell === null || cell === undefined ? '' : cell).trim().match(TOTAL_REGEX);
-                if (!m) {
-                    errors.push({ row: i + 1, reason: 'Formato Total invalido: "' + (cell === null || cell === undefined ? '' : String(cell)) + '"' });
+                var totalCell = row[mapping.total];
+                var totalMatch = String(totalCell === null || totalCell === undefined ? '' : totalCell).trim().match(TOTAL_REGEX);
+                if (!totalMatch) {
+                    errors.push({ row: i + 1, reason: 'Formato Total invalido: "' + (totalCell === null || totalCell === undefined ? '' : String(totalCell)) + '"' });
                     continue;
                 }
-                kills = parseInt(m[1], 10);
-                deaths = parseInt(m[2], 10);
+                kills = parseInt(totalMatch[1], 10);
+                deaths = parseInt(totalMatch[2], 10);
+                parseSource = 'total';
             } else {
                 errors.push({ row: i + 1, reason: 'Sin columna de bajas/muertes mapeada' });
                 continue;
@@ -337,7 +403,7 @@
     function autoParse(rows) {
         var hIdx = detectHeaderRow(rows);
         var headers = buildHeaders(rows, hIdx);
-        var mapping = { id: null, username: null, kills: null, deaths: null, nation: null, total: null };
+        var mapping = { id: null, username: null, nation: null, total: null, statColumns: [] };
         var needsManual = false;
 
         if (hIdx === -1) {
@@ -347,14 +413,14 @@
             mapping = {
                 id: orNull(findColumn(rows[hIdx], 'id')),
                 username: orNull(findColumn(rows[hIdx], 'username')),
-                kills: orNull(findColumn(rows[hIdx], 'kills')),
-                deaths: orNull(findColumn(rows[hIdx], 'deaths')),
                 nation: orNull(findColumn(rows[hIdx], 'nation')),
-                total: orNull(findColumn(rows[hIdx], 'total'))
+                total: orNull(findColumn(rows[hIdx], 'total')),
+                statColumns: []
             };
-            // Imprescindible: id y (kills+deaths o total)
+            mapping.statColumns = detectStatColumns(rows, hIdx, mapping);
+            // Imprescindible: id y (statColumns o total)
             if (mapping.id === null ||
-                ((mapping.kills === null || mapping.deaths === null) && mapping.total === null)) {
+                (mapping.statColumns.length === 0 && mapping.total === null)) {
                 needsManual = true;
             }
         }
@@ -479,7 +545,7 @@
     /**
      * Reprocesa las filas crudas con un mapeo manual de columnas.
      * @param {Array} rawRows Filas crudas (array de arrays) del ultimo fetch.
-     * @param {Object} mapping { id, username, kills, deaths, nation, total } indices o null.
+     * @param {Object} mapping { id, username, nation, total, statColumns: [...] }
      * @param {number} headerRowIndex Indice de la fila de cabeceras (-1 si no hay).
      * @param {string|number} [gameId] Si existe cache de ese gameId, actualiza
      *        el parseo cacheado con el resultado del mapeo manual.
@@ -530,6 +596,7 @@
         calcKd: calcKd,
         parseIntSafe: parseIntSafe,
         detectHeaderRow: detectHeaderRow,
+        detectStatColumns: detectStatColumns,
         buildHeaders: buildHeaders,
         parseRows: parseRows,
         autoParse: autoParse,

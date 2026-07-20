@@ -24,10 +24,14 @@
     function effectiveKills(player) {
         var pc = window.DB.tableCols('players');
         var sanc = sanctionsCache[player[pc.id]];
-        if (sanc && sanc.kills_after != null) return Math.round(sanc.kills_after);
-        var total = player[pc.kills] || 0;
+        var total = player[pc.kills] || 0; // en loadRankings se sobreescribe con kills validas
         var nullified = nullifiedCache[player[pc.id]] || 0;
         var strikes = strikesCache[player[pc.id]] || [];
+        // Si hay sancion activa, recalculamos sobre el total VALIDO usando el penalty_pct guardado.
+        if (sanc && sanc.kills_after != null) {
+            var penalty = sanc.penalty_pct || 0;
+            return Math.max(0, Math.round(total * (1 - penalty / 100) - nullified));
+        }
         return computeEffectiveKills(total, strikes, nullified).effKills;
     }
 
@@ -104,14 +108,32 @@
             var pc = window.DB.tableCols('players');
 
             var q = window.supabase.from('match_results')
-                .select('player_id, kills, deaths, matches!inner(match_type, alliance_id)')
+                .select('player_id, kills, deaths, match_id, matches!inner(match_type, alliance_id)')
                 .neq('matches.match_type', 'internal');
 
             var res = await q;
             if (res.error) throw res.error;
 
+            // Solo cuentan resultados de jugadores registrados en la partida (match_registrations).
+            var matchIds = [];
+            (res.data || []).forEach(function(r) {
+                if (r.match_id && matchIds.indexOf(r.match_id) === -1) matchIds.push(r.match_id);
+            });
+            var validRegistrations = {};
+            if (matchIds.length > 0) {
+                var mrc = window.DB.tableCols('matchRegistrations');
+                var regRes = await window.DB.from('matchRegistrations')
+                    .select([mrc.matchId, mrc.playerId].join(', '))
+                    .in(mrc.matchId, matchIds);
+                if (regRes.error) throw regRes.error;
+                (regRes.data || []).forEach(function(r) {
+                    validRegistrations[r[mrc.matchId] + ':' + r[mrc.playerId]] = true;
+                });
+            }
+
             var playerStats = {};
             (res.data || []).forEach(function(r) {
+                if (!validRegistrations[r.match_id + ':' + r.player_id]) return;
                 var pid = r.player_id;
                 if (!playerStats[pid]) playerStats[pid] = { kills: 0, deaths: 0, games: 0 };
                 playerStats[pid].kills += (r.kills || 0);
@@ -162,18 +184,50 @@
         try {
             var ac = window.DB.tableCols('alliances');
             var pc = window.DB.tableCols('players');
+            var mrc = window.DB.tableCols('matchRegistrations');
             var res = await window.DB.from('alliances').select(window.DB.select('alliances', 'basic'));
             if (res.error) throw res.error;
 
-            var playersRes = await window.DB.from('players').select([pc.currentAllianceId, pc.kills].join(', '));
-            var playerStats = {};
-            if (!playersRes.error && playersRes.data) {
-                playersRes.data.forEach(function(p) {
-                    if (!p[pc.currentAllianceId]) return;
-                    if (!playerStats[p[pc.currentAllianceId]]) playerStats[p[pc.currentAllianceId]] = { count: 0, kills: 0 };
-                    playerStats[p[pc.currentAllianceId]].count++;
-                    playerStats[p[pc.currentAllianceId]].kills += (p[pc.kills] || 0);
+            // Bajas validas = resultados de partidas publicas donde el jugador esta registrado en la partida.
+            var resultsRes = await window.supabase.from('match_results')
+                .select('player_id, kills, match_id, matches!inner(match_type)')
+                .neq('matches.match_type', 'internal');
+            if (resultsRes.error) throw resultsRes.error;
+
+            var matchIds = [];
+            (resultsRes.data || []).forEach(function(r) {
+                if (r.match_id && matchIds.indexOf(r.match_id) === -1) matchIds.push(r.match_id);
+            });
+            var validRegistrations = {};
+            if (matchIds.length > 0) {
+                var regRes = await window.DB.from('matchRegistrations')
+                    .select([mrc.matchId, mrc.playerId].join(', '))
+                    .in(mrc.matchId, matchIds);
+                if (regRes.error) throw regRes.error;
+                (regRes.data || []).forEach(function(r) {
+                    validRegistrations[r[mrc.matchId] + ':' + r[mrc.playerId]] = true;
                 });
+            }
+
+            var killsByPlayer = {};
+            (resultsRes.data || []).forEach(function(r) {
+                if (!validRegistrations[r.match_id + ':' + r.player_id]) return;
+                if (!killsByPlayer[r.player_id]) killsByPlayer[r.player_id] = 0;
+                killsByPlayer[r.player_id] += (r.kills || 0);
+            });
+
+            var playerStats = {};
+            var playerIds = Object.keys(killsByPlayer).map(Number);
+            if (playerIds.length > 0) {
+                var playersRes = await window.DB.from('players').select([pc.id, pc.currentAllianceId].join(', ')).in(pc.id, playerIds);
+                if (!playersRes.error && playersRes.data) {
+                    playersRes.data.forEach(function(p) {
+                        if (!p[pc.currentAllianceId]) return;
+                        if (!playerStats[p[pc.currentAllianceId]]) playerStats[p[pc.currentAllianceId]] = { count: 0, kills: 0 };
+                        playerStats[p[pc.currentAllianceId]].count++;
+                        playerStats[p[pc.currentAllianceId]].kills += (killsByPlayer[p[pc.id]] || 0);
+                    });
+                }
             }
 
             var c = document.getElementById('alliances-list');
