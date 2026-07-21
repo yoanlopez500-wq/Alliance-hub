@@ -4,6 +4,9 @@
  * Un resultado solo cuenta para rankings si el jugador esta registrado en la partida
  * (existe fila en match_registrations con match_id + player_id).
  * No modifica la base de datos ni agrega columnas; solo encapsula el calculo comun.
+ *
+ * v2: con excludeInternal=true (por defecto) lee de la vista public_rankings_view,
+ * que ya agrega solo resultados validos de partidas no internas.
  */
 (function() {
     'use strict';
@@ -23,6 +26,25 @@
         var excludeInternal = opts.excludeInternal !== false;
         var excludeMatchType = opts.excludeMatchType || 'internal';
 
+        // Camino rapido: la vista publica ya filtra 'internal' y solo resultados validos.
+        if (excludeInternal) {
+            var vq = window.DB.from('publicRankings')
+                .select('player_id, total_kills, total_deaths, games_played');
+            if (playerIds && playerIds.length > 0) vq = vq.in('player_id', playerIds);
+            var vres = await vq;
+            if (vres.error) throw vres.error;
+            var vstats = {};
+            (vres.data || []).forEach(function(r) {
+                vstats[r.player_id] = {
+                    kills: (r.total_kills || 0),
+                    deaths: (r.total_deaths || 0),
+                    games: (r.games_played || 0)
+                };
+            });
+            return vstats;
+        }
+
+        // Fallback (excludeInternal=false): logica original sobre tablas base.
         var q = window.supabase.from('match_results')
             .select('player_id, kills, deaths, match_id, matches!inner(match_type, alliance_id)');
         if (excludeInternal) q = q.neq('matches.match_type', excludeMatchType);

@@ -3,6 +3,8 @@
  *
  * Extraido de dashboard.html como parte de la refactorizacion.
  * Funciones: carga de partidas, mapa de alianzas.
+ *
+ * v2: lista de partidas leida desde public_matches_view (game_id no se renderiza).
  */
 (function() {
     'use strict';
@@ -29,9 +31,9 @@
         try {
             await loadAlliancesMap();
             var mc = window.DB.tableCols('matches');
-            var { data, error } = await window.DB.from('matches')
-                .select(window.DB.select('matches', 'basic'))
-                .order(window.DB.col('matches', 'createdAt'), { ascending: false })
+            var { data, error } = await window.DB.from('publicMatches')
+                .select(window.DB.select('publicMatches', 'basic'))
+                .order(window.DB.col('publicMatches', 'createdAt'), { ascending: false })
                 .limit(50);
             if (error) throw error;
 
