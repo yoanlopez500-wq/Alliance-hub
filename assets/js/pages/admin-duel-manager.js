@@ -65,10 +65,9 @@
         if (!myAllianceId) return;
         try {
             var { data, error } = await window.supabase.from('players')
-                .select('id, current_username, total_kills, total_deaths')
+                .select('id, current_username')
                 .eq('current_alliance_id', myAllianceId)
-                .eq('status', 'active')
-                .order('total_kills', { ascending: false });
+                .eq('status', 'active');
             if (error) throw error;
 
             var list = document.getElementById('my-players');
@@ -78,13 +77,22 @@
                 return;
             }
 
-            list.innerHTML = data.map(function(p) {
-                var isSelected = selectedPlayers.indexOf(p.id) !== -1;
+            var playerIds = data.map(function(p) { return p.id; });
+            var stats = await window.RankingUtils.getValidPlayerStats({ playerIds: playerIds });
+
+            var sorted = data.map(function(p) {
+                var s = stats[p.id] || { kills: 0, deaths: 0, games: 0 };
+                return { player: p, kills: s.kills, deaths: s.deaths, games: s.games };
+            }).sort(function(a, b) { return b.kills - a.kills; });
+
+            list.innerHTML = sorted.map(function(item) {
+                var p = item.player;
+                var isSelected = selectedPlayers.findIndex(function(x) { return x.id === p.id; }) !== -1;
                 var borderClass = isSelected ? 'border-ah-accent' : 'border-ah-border';
                 var bgClass = isSelected ? 'bg-ah-accent/10' : 'bg-ah-card';
                 return '<div class="rounded-lg border p-3 cursor-pointer transition hover:opacity-90 ' + borderClass + ' ' + bgClass + '" data-player-id="' + p.id + '" data-player-name="' + (p.current_username || '').replace(/"/g, '&quot;') + '">' +
                     '<div class="font-medium text-ah-text">' + p.current_username + '</div>' +
-                    '<div class="text-xs text-ah-muted">Kills: ' + (p.total_kills || 0) + ' | Muertes: ' + (p.total_deaths || 0) + '</div>' +
+                    '<div class="text-xs text-ah-muted">Kills: ' + (item.kills || 0) + ' | Muertes: ' + (item.deaths || 0) + ' | ' + (item.games || 0) + ' partidas validas</div>' +
                     '</div>';
             }).join('');
 

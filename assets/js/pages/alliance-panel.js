@@ -2,6 +2,8 @@
  * alliance-panel.js - Panel de alianza para jugadores (alliance-panel.html)
  *
  * Extraido de alliance-panel.html como parte de la refactorizacion al sistema de loader/cache-buster.
+ *
+ * v2: partidas de la alianza via public_matches_view y miembros via public_players_view.
  */
 (function() {
     'use strict';
@@ -83,7 +85,8 @@
         if (!myAllianceId) return;
         try {
             var mc = window.DB.tableCols('matches');
-            var { data: matches } = await window.DB.from('matches').select(window.DB.select('matches', 'basic')).eq(mc.allianceId, myAllianceId).eq(mc.isPrivate, false).order(mc.createdAt, { ascending: false }).limit(10);
+            var pmc = window.DB.tableCols('publicMatches');
+            var { data: matches } = await window.DB.from('publicMatches').select(window.DB.select('publicMatches', 'basic')).eq(pmc.allianceId, myAllianceId).eq(pmc.isPrivate, false).order(pmc.createdAt, { ascending: false }).limit(10);
             var container = document.getElementById('alliance-matches');
             if (!matches || matches.length === 0) { container.innerHTML = '<div class="text-center py-8" style="color:#9fa8da;">Sin partidas aun</div>'; return; }
             container.innerHTML = matches.map(function(m) {
@@ -100,7 +103,7 @@
             if (!memberships || memberships.length === 0) { document.getElementById('alliance-members').innerHTML = '<div class="text-center py-4 col-span-full" style="color:#9fa8da;">Sin miembros</div>'; return; }
             var playerIds = memberships.map(function(m){ return m[ac.playerId]; });
             var pc = window.DB.tableCols('players');
-            var { data: players } = await window.DB.from('players').select([pc.id, pc.currentUsername, pc.lastSeen, pc.status].join(', ')).in(pc.id, playerIds);
+            var { data: players } = await window.DB.from('publicPlayers').select([pc.id, pc.currentUsername, pc.lastSeen, pc.status].join(', ')).in(pc.id, playerIds);
             var container = document.getElementById('alliance-members');
             if (!players || players.length === 0) { container.innerHTML = '<div class="text-center py-4 col-span-full" style="color:#9fa8da;">Sin miembros</div>'; return; }
             container.innerHTML = players.map(function(p) {

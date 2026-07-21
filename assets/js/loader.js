@@ -23,6 +23,7 @@
             'assets/js/config.js',
             'assets/js/db-schema.js',
             'assets/js/base.js',
+            'assets/js/ranking-utils.js',
             'assets/js/roles-data.js',
             'assets/js/auth-core.js'
         ],

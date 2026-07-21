@@ -455,6 +455,109 @@
                 basic: 'id, code, role, player_id, alliance_id, used, created_at',
                 all: '*'
             }
+        },
+        // ---- PUBLIC VIEWS (read-only) ----
+        publicRankings: {
+            name: 'public_rankings_view',
+            cols: {
+                playerId: 'player_id',
+                currentUsername: 'current_username',
+                currentAllianceId: 'current_alliance_id',
+                allianceName: 'alliance_name',
+                allianceTag: 'alliance_tag',
+                totalKills: 'total_kills',
+                totalDeaths: 'total_deaths',
+                gamesPlayed: 'games_played'
+            },
+            selectSets: {
+                basic: 'player_id, current_username, current_alliance_id, alliance_name, alliance_tag, total_kills, total_deaths, games_played',
+                all: '*'
+            }
+        },
+        publicAllianceRankings: {
+            name: 'public_alliance_rankings_view',
+            cols: {
+                allianceId: 'alliance_id',
+                name: 'name',
+                tag: 'tag',
+                memberCount: 'member_count',
+                totalKills: 'total_kills'
+            },
+            selectSets: {
+                basic: 'alliance_id, name, tag, member_count, total_kills',
+                all: '*'
+            }
+        },
+        publicMatches: {
+            name: 'public_matches_view',
+            cols: {
+                id: 'id',
+                name: 'name',
+                matchType: 'match_type',
+                status: 'status',
+                allianceId: 'alliance_id',
+                allianceAId: 'alliance_a_id',
+                allianceBId: 'alliance_b_id',
+                leagueId: 'league_id',
+                maxPlayers: 'max_players',
+                winnersDeclared: 'winners_declared',
+                requiresApproval: 'requires_approval',
+                isPrivate: 'is_private',
+                createdAt: 'created_at'
+            },
+            selectSets: {
+                basic: 'id, name, match_type, status, alliance_id, alliance_a_id, alliance_b_id, league_id, max_players, winners_declared, requires_approval, is_private, created_at',
+                all: '*'
+            }
+        },
+        publicPlayers: {
+            name: 'public_players_view',
+            cols: {
+                id: 'id',
+                currentUsername: 'current_username',
+                currentAllianceId: 'current_alliance_id',
+                status: 'status',
+                totalKills: 'total_kills',
+                totalDeaths: 'total_deaths',
+                gamesPlayed: 'games_played',
+                lastSeen: 'last_seen',
+                reputationScore: 'reputation_score'
+            },
+            selectSets: {
+                basic: 'id, current_username, current_alliance_id, status, total_kills, total_deaths, games_played, last_seen, reputation_score',
+                all: '*'
+            }
+        },
+        publicMatchWinners: {
+            name: 'public_match_winners_view',
+            cols: {
+                id: 'id',
+                matchId: 'match_id',
+                playerId: 'player_id',
+                position: 'position',
+                currentUsername: 'current_username'
+            },
+            selectSets: {
+                basic: 'id, match_id, player_id, position, current_username',
+                all: '*'
+            }
+        },
+        publicMatchResults: {
+            name: 'public_match_results_view',
+            cols: {
+                id: 'id',
+                matchId: 'match_id',
+                playerId: 'player_id',
+                nation: 'nation',
+                kills: 'kills',
+                deaths: 'deaths',
+                kdRatio: 'kd_ratio',
+                importedAt: 'imported_at'
+            },
+            selectSets: {
+                basic: 'id, match_id, player_id, nation, kills, deaths, kd_ratio, imported_at',
+                all: '*'
+            }
         }
     };
 

@@ -150,6 +150,40 @@
         }
     }
 
+    async function loadValidStats(playerIds) {
+        if (!playerIds || playerIds.length === 0) return {};
+        var { data: results, error } = await window.supabase.from('match_results')
+            .select('player_id, kills, deaths, match_id, matches!inner(match_type)')
+            .in('player_id', playerIds)
+            .neq('matches.match_type', 'internal');
+        if (error) throw error;
+
+        var matchIds = [];
+        (results || []).forEach(function(r) {
+            if (r.match_id && matchIds.indexOf(r.match_id) === -1) matchIds.push(r.match_id);
+        });
+        var validRegistrations = {};
+        if (matchIds.length > 0) {
+            var { data: regs, error: regErr } = await window.supabase.from('match_registrations')
+                .select('match_id, player_id')
+                .in('match_id', matchIds);
+            if (regErr) throw regErr;
+            (regs || []).forEach(function(r) {
+                validRegistrations[r.match_id + ':' + r.player_id] = true;
+            });
+        }
+
+        var stats = {};
+        (results || []).forEach(function(r) {
+            if (!validRegistrations[r.match_id + ':' + r.player_id]) return;
+            if (!stats[r.player_id]) stats[r.player_id] = { kills: 0, deaths: 0, games: 0 };
+            stats[r.player_id].kills += (r.kills || 0);
+            stats[r.player_id].deaths += (r.deaths || 0);
+            stats[r.player_id].games += 1;
+        });
+        return stats;
+    }
+
     async function loadMembers() {
         try {
             var { data: memberships, error } = await window.DB.from('allianceMemberships')
@@ -167,18 +201,20 @@
             var playerIds = memberships.map(function(m) { return m.player_id; });
             var { data: players, error: pErr } = await window.DB.from('players').select('*').in('id', playerIds).order('current_username');
             if (pErr) throw pErr;
+            var stats = await loadValidStats(playerIds);
 
             container.innerHTML = (players || []).map(function(p) {
-                var kd = p.total_deaths > 0 ? (p.total_kills / p.total_deaths).toFixed(2) : p.total_kills || 0;
+                var s = stats[p.id] || { kills: 0, deaths: 0, games: 0 };
+                var kd = s.deaths > 0 ? (s.kills / s.deaths).toFixed(2) : s.kills || 0;
                 return '<div class="rounded-xl p-4 flex items-center gap-4 transition hover:opacity-90 bg-ah-card border border-ah-border">' +
                     '<div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold bg-indigo-900 text-white">' + (p.current_username ? p.current_username.charAt(0).toUpperCase() : '?') + '</div>' +
                     '<div class="flex-1">' +
                         '<p class="font-bold text-white text-sm">' + p.current_username + '</p>' +
-                        '<p class="text-xs text-ah-muted">' + (p.games_played || 0) + ' partidas</p>' +
+                        '<p class="text-xs text-ah-muted">' + (s.games || 0) + ' partidas validas</p>' +
                     '</div>' +
                     '<div class="text-right">' +
                         '<p class="text-sm font-bold text-ah-accent">' + kd + ' K/D</p>' +
-                        '<p class="text-xs text-ah-muted">' + (p.total_kills || 0) + 'K / ' + (p.total_deaths || 0) + 'D</p>' +
+                        '<p class="text-xs text-ah-muted">' + (s.kills || 0) + 'K / ' + (s.deaths || 0) + 'D</p>' +
                     '</div>' +
                 '</div>';
             }).join('');
@@ -203,16 +239,18 @@
             }
 
             var playerIds = memberships.map(function(m) { return m.player_id; });
-            var { data: players, error } = await window.DB.from('players').select('*').in('id', playerIds);
+            var { data: players, error } = await window.DB.from('players').select('id, current_username').in('id', playerIds);
             if (error) throw error;
             if (!players || players.length === 0) {
                 container.innerHTML = '<div class="text-center py-8 text-ah-muted">Sin datos.</div>';
                 return;
             }
 
+            var stats = await loadValidStats(playerIds);
             var ranked = players.map(function(p) {
-                var kd = p.total_deaths > 0 ? (p.total_kills / p.total_deaths) : (p.total_kills || 0);
-                return { player: p, kd: kd, kills: p.total_kills || 0, deaths: p.total_deaths || 0, games: p.games_played || 0 };
+                var s = stats[p.id] || { kills: 0, deaths: 0, games: 0 };
+                var kd = s.deaths > 0 ? (s.kills / s.deaths) : (s.kills || 0);
+                return { player: p, kd: kd, kills: s.kills, deaths: s.deaths, games: s.games };
             }).sort(function(a, b) { return b.kd - a.kd; });
 
             container.innerHTML = '<div class="space-y-2">' + ranked.map(function(r, i) {
@@ -222,7 +260,7 @@
                     '<span class="text-lg font-bold w-8 ' + medalColor + '">' + medal + '</span>' +
                     '<div class="flex-1">' +
                         '<p class="font-bold text-sm text-ah-text">' + r.player.current_username + '</p>' +
-                        '<p class="text-xs text-ah-muted">' + r.games + ' partidas</p>' +
+                        '<p class="text-xs text-ah-muted">' + r.games + ' partidas validas</p>' +
                     '</div>' +
                     '<div class="text-right">' +
                         '<p class="text-sm font-bold text-ah-accent">' + r.kd.toFixed(2) + ' K/D</p>' +

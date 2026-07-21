@@ -3,6 +3,10 @@
  *
  * Extraido de game.html como parte de la refactorizacion.
  * Funciones: carga de partida, ganadores, chat, registros, resultados.
+ *
+ * v2: ganadores via public_match_winners_view y lookup de usernames via
+ * public_players_view. La partida (loadMatch), el gate csv_imported, los
+ * resultados (badge "no registrado") y el chat siguen leyendo tablas base.
  */
 (function() {
     'use strict';
@@ -181,12 +185,16 @@
     // ============================================================
     async function loadWinners(matchId) {
         try {
-            var { data: winners } = await window.supabase.from('match_winners').select('*').eq('match_id', matchId).order('position', { ascending: true });
+            var [{ data: winners }, { data: regs }] = await Promise.all([
+                window.supabase.from('public_match_winners_view').select('*').eq('match_id', matchId).order('position', { ascending: true }),
+                window.supabase.from('match_registrations').select('player_id').eq('match_id', matchId)
+            ]);
             if (!winners || winners.length === 0) return;
-            var playerIds = winners.map(function(w) { return w.player_id; }).filter(function(v, i, a) { return a.indexOf(v) === i; });
-            var { data: players } = await window.supabase.from('players').select('id, current_username').in('id', playerIds);
-            var playersMap = {};
-            (players || []).forEach(function(p) { playersMap[p.id] = p; });
+            // La vista no filtra por registro: conservar la validacion por match_registrations.
+            var validPlayerIds = {};
+            (regs || []).forEach(function(r) { validPlayerIds[r.player_id] = true; });
+            winners = winners.filter(function(w) { return validPlayerIds[w.player_id]; });
+            if (winners.length === 0) return;
             var display = document.getElementById('winners-display');
             var podium = document.getElementById('winners-podium');
             if (display) display.classList.remove('hidden');
@@ -194,8 +202,7 @@
                 var medals = ['&#129351;', '&#129352;', '&#129353;'];
                 var styles = ['bg-yellow-400/10 border border-yellow-400/20', 'bg-white/[0.03] border border-indigo-900', 'bg-orange-500/10 border border-orange-500/15'];
                 podium.innerHTML = winners.map(function(w, i) {
-                    var p = playersMap[w.player_id] || {};
-                    return '<div class="rounded-lg p-4 text-center ' + styles[i] + '"><div class="text-3xl mb-2">' + medals[i] + '</div><p class="text-xs uppercase font-bold text-slate-400">' + (i+1) + ' Lugar</p><p class="font-bold text-slate-100">' + (p.current_username || 'Jugador ' + w.player_id) + '</p></div>';
+                    return '<div class="rounded-lg p-4 text-center ' + styles[i] + '"><div class="text-3xl mb-2">' + medals[i] + '</div><p class="text-xs uppercase font-bold text-slate-400">' + (i+1) + ' Lugar</p><p class="font-bold text-slate-100">' + (w.current_username || 'Jugador ' + w.player_id) + '</p></div>';
                 }).join('');
             }
         } catch(e) { console.error('[Winners]', e); }
@@ -279,14 +286,19 @@
                 if (noResults) noResults.classList.remove('hidden');
                 return;
             }
-            var { data: results } = await window.supabase.from('match_results').select('*').eq('match_id', matchId).order('kd_ratio', { ascending: false });
+            var [{ data: results }, { data: regs }] = await Promise.all([
+                window.supabase.from('match_results').select('*').eq('match_id', matchId).order('kd_ratio', { ascending: false }),
+                window.supabase.from('match_registrations').select('player_id').eq('match_id', matchId)
+            ]);
             if (!results || results.length === 0) {
                 var noResults = document.getElementById('no-results');
                 if (noResults) noResults.classList.remove('hidden');
                 return;
             }
+            var validPlayerIds = {};
+            (regs || []).forEach(function(r) { validPlayerIds[r.player_id] = true; });
             var playerIds = results.map(function(r) { return r.player_id; }).filter(function(v, i, a) { return a.indexOf(v) === i; });
-            var { data: players } = await window.supabase.from('players').select('id, current_username').in('id', playerIds);
+            var { data: players } = await window.supabase.from('public_players_view').select('id, current_username').in('id', playerIds);
             var playersMap = {};
             (players || []).forEach(function(p) { playersMap[p.id] = p; });
             var resultsSection = document.getElementById('results-section');
@@ -294,8 +306,11 @@
             if (resultsSection) resultsSection.classList.remove('hidden');
             if (resultsTbody) {
                 resultsTbody.innerHTML = results.map(function(r, i) {
+                    var isValid = validPlayerIds[r.player_id];
                     var p = playersMap[r.player_id] || {};
-                    return '<tr class="border-b border-indigo-900"><td class="p-3 font-bold ' + (i < 3 ? 'text-yellow-400' : 'text-slate-400') + ';">' + (i + 1) + '</td><td class="p-3 text-slate-100">' + (r.nation || '-') + '</td><td class="p-3 font-medium"><a href="player.html?id=' + r.player_id + '" class="text-amber-400">' + (p.current_username || '?') + '</a></td><td class="p-3 text-right font-bold text-green-500">' + (r.kills || 0).toLocaleString() + '</td><td class="p-3 text-right text-red-400">' + (r.deaths || 0).toLocaleString() + '</td><td class="p-3 text-right font-bold ' + ((r.kd_ratio || 0) >= 1 ? 'text-green-500' : 'text-amber-400') + ';">' + (r.kd_ratio || 0) + '</td></tr>';
+                    var rowClass = isValid ? '' : 'opacity-60 bg-slate-950/30';
+                    var badge = isValid ? '' : '<span class="ml-2 text-[10px] px-1 py-0.5 rounded font-bold bg-slate-500/20 text-slate-400">no registrado</span>';
+                    return '<tr class="border-b border-indigo-900 ' + rowClass + '"><td class="p-3 font-bold ' + (i < 3 ? 'text-yellow-400' : 'text-slate-400') + ';">' + (i + 1) + '</td><td class="p-3 text-slate-100">' + (r.nation || '-') + '</td><td class="p-3 font-medium"><a href="player.html?id=' + r.player_id + '" class="text-amber-400">' + (p.current_username || '?') + '</a>' + badge + '</td><td class="p-3 text-right font-bold text-green-500">' + (r.kills || 0).toLocaleString() + '</td><td class="p-3 text-right text-red-400">' + (r.deaths || 0).toLocaleString() + '</td><td class="p-3 text-right font-bold ' + ((r.kd_ratio || 0) >= 1 ? 'text-green-500' : 'text-amber-400') + ';">' + (r.kd_ratio || 0) + '</td></tr>';
                 }).join('');
             }
         } catch(e) {

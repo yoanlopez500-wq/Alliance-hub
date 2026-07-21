@@ -18,7 +18,7 @@
 <script>
 AHLoader.init({
     role: 'admin',
-    extraScripts: ['../assets/js/admin-base.js'],
+    extraScripts: ['../assets/js/admin-base.js', '../assets/js/api-importer.js'],
     pageScript: '../assets/js/pages/admin-match-detail.js'
 });
 </script>
@@ -57,6 +57,7 @@ AHLoader.init({
 <button onclick="updateStatus('archived')" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-white/5 text-slate-400 border border-white/10 min-h-[32px]">Archivar</button>
 <button onclick="openWinnersModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-amber-500/20 text-amber-400 border border-amber-500/30 min-h-[32px]">&#127942; Ganadores</button>
 <button onclick="openCSVModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-teal-500/20 text-teal-400 border border-teal-500/30 min-h-[32px]">&#128229; Importar CSV</button>
+<button onclick="openAPIImportModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 min-h-[32px]">&#128640; Importar desde API (Excel)</button>
 <button onclick="openEditModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-blue-500/20 text-blue-500 border border-blue-500/30 min-h-[32px]">&#9881; Editar</button>
 <button onclick="deleteMatch()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-red-500/20 text-red-400 border border-red-500/30 min-h-[32px]">&#128465; Eliminar</button>
 </div></div></div>
@@ -107,6 +108,49 @@ AHLoader.init({
 <div class="flex gap-3 mt-4">
 <button onclick="confirmCSVImport()" class="flex-1 font-bold py-2 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-teal-600 to-teal-800 text-white">&#10003; Confirmar</button>
 <button onclick="document.getElementById('csv-preview-section').classList.add('hidden')" class="px-4 py-2 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
+</div></div>
+</div></div></div>
+
+<!-- API Import Modal -->
+<div id="api-import-modal" class="modal">
+<div class="rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-900 border border-indigo-900">
+<div class="p-5 border-b flex items-center justify-between rounded-t-2xl bg-gradient-to-br from-cyan-600 to-cyan-800 border-indigo-900">
+<h2 class="text-lg font-bold text-white">&#128640; Importar desde API (Excel)</h2>
+<button onclick="closeAPIImportModal()" class="text-white hover:opacity-70 text-xl">&#10005;</button>
+</div>
+<div class="p-5 space-y-4">
+<p class="text-xs text-slate-400">Descarga las estadisticas K/D de la partida desde el servidor de Supremacy. El Excel de 42 columnas se parsea automaticamente: se suman las bajas/muertes de todas las columnas de unidades y comandantes. Limite del servidor: 1 peticion cada 10 segundos.</p>
+<div class="flex flex-col sm:flex-row gap-2">
+<input type="text" id="api-game-id" inputmode="numeric" oninput="updateApiCacheNotice()" class="flex-1 px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="ID de partida (Supremacy)">
+<button id="api-fetch-btn" onclick="fetchAPIKd(false)" class="px-4 py-2 rounded-lg font-bold text-sm min-h-[44px] bg-gradient-to-r from-cyan-600 to-cyan-800 text-white hover:opacity-80 transition disabled:opacity-50 disabled:cursor-not-allowed">Obtener datos</button>
+</div>
+<div id="api-cache-notice" class="hidden items-center justify-between gap-2 rounded-lg p-2 text-xs bg-slate-950 border border-indigo-900">
+<span id="api-cache-text" class="text-slate-400">Datos en cache</span>
+<button id="api-refresh-btn" onclick="fetchAPIKd(true)" class="px-2 py-1 rounded font-bold text-xs hover:opacity-80 transition bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 min-h-[32px] disabled:opacity-50">Forzar actualizacion</button>
+</div>
+<div id="api-import-error" class="hidden rounded-lg p-3 text-xs bg-red-500/10 text-red-400 border border-red-500/30"></div>
+<div id="api-mapping-section" class="hidden rounded-lg p-3 bg-slate-950 border border-amber-500/30 space-y-2">
+<p class="text-xs font-bold text-amber-400">&#9888; No se detecto la estructura automaticamente. Selecciona las columnas de metadata. Las columnas de unidades/comandantes se detectan solas por formato "bajas/muertes".</p>
+<div id="api-mapping-sample" class="max-h-24 overflow-y-auto overflow-x-auto rounded p-1 bg-slate-900 border border-indigo-900"></div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+<div><label class="block text-[11px] mb-1 text-slate-400">ID jugador *</label><select id="api-map-id" class="w-full px-2 py-1.5 rounded-lg border text-xs bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></select></div>
+<div><label class="block text-[11px] mb-1 text-slate-400">Nombre</label><select id="api-map-username" class="w-full px-2 py-1.5 rounded-lg border text-xs bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></select></div>
+<div><label class="block text-[11px] mb-1 text-slate-400">Nacion</label><select id="api-map-nation" class="w-full px-2 py-1.5 rounded-lg border text-xs bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></select></div>
+<div><label class="block text-[11px] mb-1 text-slate-400">Total (bajas/muertes)</label><select id="api-map-total" class="w-full px-2 py-1.5 rounded-lg border text-xs bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></select></div>
+</div>
+<p class="text-[11px] text-slate-500">El Total es opcional; si hay columnas de unidades/comandantes con formato bajas/muertes, se usaran para sumar.</p>
+<button onclick="applyManualMapping()" class="w-full font-bold py-2 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-amber-600 to-amber-800 text-white">Aplicar mapeo</button>
+</div>
+<div id="api-preview-section" class="hidden">
+<h3 class="font-bold text-sm mb-2 text-slate-100">Vista previa:</h3>
+<div id="api-preview-stats" class="flex flex-wrap gap-2 mb-2 text-xs font-bold"></div>
+<div id="api-preview-content" class="max-h-60 overflow-y-auto overflow-x-auto rounded-lg p-3 text-xs bg-slate-950 border border-indigo-900"></div>
+<label class="flex items-center gap-2 mt-3 text-xs text-slate-400 cursor-pointer">
+<input type="checkbox" id="api-create-players" checked class="w-4 h-4 rounded"> Crear jugadores que no existan en el sistema
+</label>
+<div class="flex gap-3 mt-4">
+<button id="api-confirm-btn" onclick="confirmAPIImport()" disabled class="flex-1 font-bold py-2 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-cyan-600 to-cyan-800 text-white disabled:opacity-50 disabled:cursor-not-allowed">&#10003; Confirmar importacion</button>
+<button onclick="closeAPIImportModal()" class="px-4 py-2 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
 </div></div>
 </div></div></div>
 
