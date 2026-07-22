@@ -139,7 +139,18 @@ function showRuleHint() {
     var option = select.options[select.selectedIndex];
     var legend = option.dataset.legend;
     var hint = document.getElementById('rule-hint');
-    if (legend) { hint.textContent = legend; hint.classList.remove('hidden'); } else { hint.classList.add('hidden'); }
+    if (!legend) { hint.classList.add('hidden'); return; }
+    var formula = parseStrikeFormula(legend);
+    var parts = [];
+    if (formula.nullifies_kills) parts.push('Anula todas las bajas del jugador');
+    else if (formula.penalty_pct > 0) parts.push('Penaliza el ' + formula.penalty_pct + '% de las bajas');
+    if (formula.is_ban) {
+        if (formula.ban_duration_hours) parts.push('Ban temporal de ' + formula.ban_duration_hours + ' horas');
+        else parts.push('Ban permanente');
+    }
+    if (parts.length === 0) { hint.classList.add('hidden'); return; }
+    hint.textContent = parts.join(' | ');
+    hint.classList.remove('hidden');
 }
 
 function openModal() { document.getElementById('strike-modal').classList.remove('hidden'); loadDropdowns(); }
