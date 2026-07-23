@@ -71,7 +71,7 @@ AHLoader.init({
 <div class="mb-3"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Visibilidad</label><select id="section-visibility" class="w-full px-3 py-2 rounded-lg border text-sm"><option value="public">Publica (todos)</option><option value="training">Capacitacion</option><option value="officials_only">Solo Oficiales</option></select></div>
 <div class="mb-3"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Numero de Seccion *</label><input type="text" id="section-number" class="w-full px-3 py-2 rounded-lg border text-sm" placeholder="Ej: 1, 1.1, 2.3.4" pattern="^\d+(\.\d+)*$" required><p class="text-xs mt-1" style="color:#64748b;">Formato: 1, 1.1, 1.2, 2.3.4</p></div>
 <div class="mb-4"><label class="block text-sm font-medium mb-1" style="color:#0f172a;">Seccion Padre (opcional)</label><select id="section-parent" class="w-full px-3 py-2 rounded-lg border text-sm"><option value="">-- Sin padre (seccion principal) --</option></select><p class="text-xs mt-1" style="color:#64748b;">Selecciona una seccion principal si esta es una subseccion</p></div>
-<div class="flex gap-2 justify-end"><button onclick="closeSectionModal()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:#e2e8f0;color:#0f172a;">Cancelar</button><button onclick="saveSection()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">Guardar</button></div>
+<div class="flex gap-2 justify-end"><button onclick="closeSectionModal()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:#e2e8f0;color:#0f172a;">Cancelar</button><button onclick="saveSection()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:linear-gradient(135deg,#ff6f00,#ff8f00);color:#fff;">Guardar</button><button id="section-history-btn" onclick="showSectionHistory(document.getElementById('section-id').value)" class="hidden px-4 py-2 rounded-lg text-sm font-bold" style="background:#1a237e;color:#fff;">Historial</button></div>
 </div></div>
 
 <!-- ===== PRECEDENT MODAL ===== -->
@@ -105,6 +105,15 @@ AHLoader.init({
 <p class="text-sm mb-4" style="color:#475569;">Esta accion no se puede deshacer. El precedente sera eliminado permanentemente.</p>
 <input type="hidden" id="delete-precedent-id">
 <div class="flex gap-2 justify-end"><button onclick="closeDeleteModal()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:#e2e8f0;color:#0f172a;">Cancelar</button><button onclick="confirmDeletePrecedent()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:#c62828;color:#fff;">Eliminar</button></div>
+</div></div>
+
+<!-- ===== HISTORY MODAL ===== -->
+<div id="history-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.7);">
+<div class="modal-content rounded-xl p-6 w-full max-w-2xl mx-4" style="background:#fff;color:#0f172a;">
+<h3 id="history-modal-title" class="text-lg font-bold mb-4" style="color:#0f172a;">Historial de Versiones</h3>
+<div id="history-list" class="space-y-2 max-h-60 overflow-y-auto mb-4"></div>
+<div id="history-diff" class="hidden rounded-lg p-3 text-sm border" style="background:#f8fafc;border-color:#e2e8f0;max-height:240px;overflow-y:auto;"></div>
+<div class="flex gap-2 justify-end mt-4"><button onclick="closeHistoryModal()" class="px-4 py-2 rounded-lg text-sm font-bold" style="background:#e2e8f0;color:#0f172a;">Cerrar</button></div>
 </div></div>
 
 </body>

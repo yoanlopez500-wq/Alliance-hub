@@ -49,9 +49,16 @@
     }
 
     // Cargar reglas en la landing
+    var landingSectionsCache = [];
     async function loadLandingRules() {
         try {
-            var { data, error } = await window.supabase.from('rule_sections').select('*').order('order_index').limit(6);
+            var { data, error } = await window.supabase
+                .from('rule_sections')
+                .select('*')
+                .eq('is_active', true)
+                .is('parent_id', null)
+                .order('order_index')
+                .limit(6);
             if (error) throw error;
             var container = document.getElementById('landing-rules');
             if (!container) return;
@@ -59,10 +66,11 @@
                 container.innerHTML = '<div class="text-center py-8" style="color:#9fa8da;">No hay reglas configuradas.</div>';
                 return;
             }
+            landingSectionsCache = data || [];
             container.innerHTML = data.map(function(s) {
-                return '<div class="rounded-xl p-4 fade-in" style="background:#0a0e27;border:1px solid #1a237e;"><h3 class="font-bold text-sm mb-1" style="color:#ff8f00;">' + (s.order_index + 1) + '. ' + s.title + '</h3><p class="text-sm" style="color:#9fa8da;">' + (s.content || '').substring(0, 150) + ((s.content || '').length > 150 ? '...' : '') + '</p></div>';
+                var num = s.section_number || String(s.order_index + 1);
+                return '<div class="rounded-xl p-4 fade-in" style="background:#0a0e27;border:1px solid #1a237e;"><h3 class="font-bold text-sm mb-1" style="color:#ff8f00;">' + num + '. ' + s.title + '</h3><p class="text-sm" style="color:#9fa8da;">' + (s.content || '').substring(0, 150) + ((s.content || '').length > 150 ? '...' : '') + '</p></div>';
             }).join('');
-            loadLandingPrecedents();
         } catch(e) {
             console.error('[LandingRules]', e);
             var container = document.getElementById('landing-rules');
@@ -70,24 +78,45 @@
         }
     }
 
-    // Cargar precedentes en la landing
+    // Cargar precedentes en la landing (lazy, colapsable)
+    function renderPrecedentSeverity(severity) {
+        var map = { high: ['#ef5350', 'ALTO'], medium: ['#ff8f00', 'MEDIO'], low: ['#66bb6a', 'LEVE'], minor: ['#66bb6a', 'LEVE'] };
+        var pair = map[severity] || ['#9fa8da', 'LEVE'];
+        return '<span class="text-[10px] px-1.5 py-0.5 rounded font-bold" style="background:' + pair[0] + '20;color:' + pair[0] + ';">' + pair[1] + '</span>';
+    }
+    function findSectionName(sectionId) {
+        var sec = landingSectionsCache.find(function(s) { return s.id === sectionId; });
+        return sec ? (sec.section_number || '') + ' ' + sec.title : null;
+    }
     async function loadLandingPrecedents() {
         try {
-            var { data, error } = await window.supabase.from('rule_precedents').select('*').order('created_at', { ascending: false }).limit(4);
-            if (error) throw error;
             var container = document.getElementById('landing-precedents');
             if (!container) return;
-            if (!data || data.length === 0) {
-                container.innerHTML = '<div class="text-center py-4 text-sm" style="color:#9fa8da;">No hay precedentes registrados aun.</div>';
-                return;
-            }
-            container.innerHTML = data.map(function(p) {
-                return '<div class="rounded-lg p-3 fade-in" style="background:#0a0e27;border:1px solid #1a237e;"><div class="flex items-start gap-2"><span class="text-lg">&#9878;&#65039;</span><div><h4 class="font-bold text-sm" style="color:#ff8f00;">' + p.title + '</h4><p class="text-xs" style="color:#e8eaf6;">' + p.description + '</p></div></div></div>';
-            }).join('');
+            container.innerHTML = '<button id="landing-precedents-toggle" class="w-full flex items-center justify-between rounded-lg p-3 text-left" style="background:#0a0e27;border:1px solid #1a237e;"><span class="font-bold text-sm" style="color:#ff8f00;">&#9878;&#65039; Ver precedentes y jurisprudencia</span><span class="text-xs" style="color:#9fa8da;">&#9660;</span></button><div id="landing-precedents-content" class="hidden grid md:grid-cols-2 gap-3 mt-3"></div>';
+            document.getElementById('landing-precedents-toggle').addEventListener('click', async function() {
+                var content = document.getElementById('landing-precedents-content');
+                if (!content.classList.contains('hidden')) { content.classList.add('hidden'); return; }
+                content.innerHTML = '<div class="col-span-2 text-center py-4 text-sm" style="color:#9fa8da;">Cargando...</div>';
+                content.classList.remove('hidden');
+                try {
+                    var { data, error } = await window.supabase.from('rule_precedents').select('*').order('created_at', { ascending: false }).limit(8);
+                    if (error) throw error;
+                    if (!data || data.length === 0) {
+                        content.innerHTML = '<div class="col-span-2 text-center py-4 text-sm" style="color:#9fa8da;">No hay precedentes registrados aun.</div>';
+                        return;
+                    }
+                    content.innerHTML = data.map(function(p) {
+                        var sectionName = findSectionName(p.rule_section_id);
+                        var sectionLink = sectionName ? '<a href="rules.html#section-' + p.rule_section_id + '" class="text-[10px] underline" style="color:#ff8f00;">' + sectionName + '</a>' : '<span class="text-[10px]" style="color:#64748b;">Sin seccion asignada</span>';
+                        return '<div class="rounded-lg p-3 fade-in" style="background:#0a0e27;border:1px solid #1a237e;"><div class="flex items-start justify-between gap-2 mb-1"><h4 class="font-bold text-sm" style="color:#ff8f00;">' + p.title + '</h4>' + renderPrecedentSeverity(p.severity) + '</div><p class="text-xs mb-2" style="color:#e8eaf6;">' + (p.description || '').substring(0, 120) + ((p.description || '').length > 120 ? '...' : '') + '</p><div class="flex items-center justify-between">' + sectionLink + '<a href="rules.html#precedent-' + p.id + '" class="text-[10px]" style="color:#9fa8da;">Ver mas &#8594;</a></div></div>';
+                    }).join('');
+                } catch(e) {
+                    console.error('[LandingPrecedents]', e);
+                    content.innerHTML = '<div class="col-span-2 text-center py-4 text-red-400">Error cargando precedentes: ' + e.message + '</div>';
+                }
+            });
         } catch(e) {
             console.error('[LandingPrecedents]', e);
-            var container = document.getElementById('landing-precedents');
-            if (container) container.innerHTML = '<div class="text-center py-4 text-red-400">Error cargando precedentes: ' + e.message + '</div>';
         }
     }
 
