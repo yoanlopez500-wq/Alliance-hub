@@ -126,12 +126,14 @@
             waitForSupabase(function() {
                 loadStats();
                 loadLandingRules();
+                loadLandingPrecedents();
             });
         });
     } else {
         waitForSupabase(function() {
             loadStats();
             loadLandingRules();
+            loadLandingPrecedents();
         });
     }
 })();
