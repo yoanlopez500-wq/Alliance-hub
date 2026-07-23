@@ -22,6 +22,7 @@
             'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
             'assets/js/config.js',
             'assets/js/db-schema.js',
+            'assets/js/modules/sanctions.js',
             'assets/js/base.js',
             'assets/js/ranking-utils.js',
             'assets/js/roles-data.js',
