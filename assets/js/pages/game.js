@@ -111,13 +111,22 @@
                 if (isRegistered) showCredentials = true;
             }
 
+            var sanctionSummary = null;
             if (showCredentials) {
-                var creds = document.getElementById('match-credentials');
-                var credGameId = document.getElementById('cred-game-id');
-                var credPassword = document.getElementById('cred-password');
-                if (creds) creds.classList.remove('hidden');
-                if (credGameId) credGameId.textContent = match.game_id || '---';
-                if (credPassword) credPassword.textContent = match.game_password || match.password || '---';
+                var sanctionCheck = await window.AHSanctions.assertNoSanction(parseInt(playerData.playerId));
+                if (!sanctionCheck.ok) {
+                    showBan = true;
+                    sanctionSummary = sanctionCheck.summary;
+                } else {
+                    window.AHRuleGate.requireConsent(playerData.playerId, matchId, function() {
+                        var creds = document.getElementById('match-credentials');
+                        var credGameId = document.getElementById('cred-game-id');
+                        var credPassword = document.getElementById('cred-password');
+                        if (creds) creds.classList.remove('hidden');
+                        if (credGameId) credGameId.textContent = match.game_id || '---';
+                        if (credPassword) credPassword.textContent = match.game_password || match.password || '---';
+                    });
+                }
             }
             if (showWaiting) {
                 var waitingBanner = document.getElementById('waiting-approval-banner');
@@ -126,12 +135,14 @@
             if (showBan) {
                 var banBanner = document.getElementById('ban-banner');
                 if (banBanner) {
+                    var reason = sanctionSummary ? sanctionSummary.reason : (currentPlayer ? currentPlayer.suspension_reason : 'Has recibido una sancion.');
+                    var remaining = sanctionSummary ? sanctionSummary.remainingText : (currentPlayer ? getBanRemainingText(currentPlayer) : '');
                     banBanner.classList.remove('hidden');
                     banBanner.innerHTML =
                         '<div class="text-4xl mb-3">&#128683;</div>' +
                         '<h2 class="font-bold text-red-400">Cuenta restringida</h2>' +
-                        '<p class="text-sm mt-2 text-ah-muted">' + (currentPlayer.suspension_reason || 'Has recibido una sancion.') + '</p>' +
-                        '<p class="text-sm mt-1 text-amber-400">Tiempo restante: ' + getBanRemainingText(currentPlayer) + '</p>';
+                        '<p class="text-sm mt-2 text-ah-muted">' + (reason || 'Has recibido una sancion.') + '</p>' +
+                        '<p class="text-sm mt-1 text-amber-400">Tiempo restante: ' + (remaining || 'permanente') + '</p>';
                 }
             }
 

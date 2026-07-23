@@ -57,30 +57,15 @@ function openSuspendModal(playerId, playerName) { if (!confirm('Suspender a ' + 
 async function suspendPlayer(playerId) { try { var { error } = await window.supabase.from('players').update({ status: 'suspended' }).eq('id', playerId); if (error) { showToast('Error: ' + error.message, 'error'); return; } showToast('Jugador suspendido', 'success'); setTimeout(function(){location.reload()},500); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
 async function reactivatePlayer(playerId) { try { var { error } = await window.supabase.from('players').update({ status: 'active', suspension_reason: null }).eq('id', playerId); if (error) { showToast('Error: ' + error.message, 'error'); return; } showToast('Jugador reactivado', 'success'); setTimeout(function(){location.reload()},500); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
 
-// Ban / suspension helpers
+// Ban / suspension helpers (wrappers hacia AHSanctions para compatibilidad)
 function isPlayerBanned(player) {
-    if (!player) return false;
-    if (player.status === 'banned') {
-        if (!player.banned_until) return true; // permanent ban
-        return new Date(player.banned_until) > new Date();
-    }
-    if (player.status === 'suspended' && player.suspended_until) {
-        return new Date(player.suspended_until) > new Date();
-    }
-    return false;
+    return window.AHSanctions ? window.AHSanctions.isPlayerSanctioned(player) : false;
 }
 
 function getBanRemainingText(player) {
-    if (!player || player.status !== 'banned') return '';
-    if (!player.banned_until) return 'Ban permanente';
-    var diff = new Date(player.banned_until) - new Date();
-    if (diff <= 0) return 'Ban expirado';
-    var days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    var hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    var minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    if (days > 0) return days + ' dia(s) y ' + hours + ' hora(s)';
-    if (hours > 0) return hours + ' hora(s) y ' + minutes + ' minuto(s)';
-    return minutes + ' minuto(s)';
+    if (!window.AHSanctions || !player) return '';
+    var summary = window.AHSanctions.getSanctionSummary(player);
+    return summary.remainingText || '';
 }
 
 function parseStrikeFormulaLegend(legend) {
@@ -126,18 +111,7 @@ function computeEffectiveKills(totalKills, strikes, nullifiedKills) {
 }
 
 async function checkAndClearExpiredBan(playerId) {
-    if (!playerId) return;
-    try {
-        var { data: player } = await window.supabase.from('players').select('status, banned_until, suspended_until').eq('id', parseInt(playerId)).single();
-        if (!player) return;
-        var now = new Date();
-        if (player.status === 'banned' && player.banned_until && new Date(player.banned_until) <= now) {
-            await window.supabase.from('players').update({ status: 'active', banned_until: null, suspension_reason: null }).eq('id', parseInt(playerId));
-        }
-        if (player.status === 'suspended' && player.suspended_until && new Date(player.suspended_until) <= now) {
-            await window.supabase.from('players').update({ status: 'active', suspended_until: null, suspension_reason: null }).eq('id', parseInt(playerId));
-        }
-    } catch(e) { console.error('[BanHelper] Error clearing expired ban:', e); }
+    if (window.AHSanctions) await window.AHSanctions.checkAndClearExpiredSanctions(playerId);
 }
 
 // Player session helpers

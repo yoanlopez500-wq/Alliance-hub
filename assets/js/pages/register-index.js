@@ -32,31 +32,17 @@
         document.getElementById('display-username').textContent = playerData.displayName || 'Jugador ' + playerData.playerId;
         document.getElementById('display-player-id').textContent = 'ID: ' + playerData.playerId;
 
-        var { data: currentPlayer } = await window.supabase.from('players').select('status, banned_until, suspended_until, suspension_reason').eq('id', parseInt(playerData.playerId)).maybeSingle();
-        if (currentPlayer) {
-            var now = new Date();
-            if (currentPlayer.status === 'banned' && currentPlayer.banned_until && new Date(currentPlayer.banned_until) <= now) {
-                await window.supabase.from('players').update({ status: 'active', banned_until: null, suspension_reason: null }).eq('id', parseInt(playerData.playerId));
-                currentPlayer.status = 'active';
-            }
-            if (currentPlayer.status === 'suspended' && currentPlayer.suspended_until && new Date(currentPlayer.suspended_until) <= now) {
-                await window.supabase.from('players').update({ status: 'active', suspended_until: null, suspension_reason: null }).eq('id', parseInt(playerData.playerId));
-                currentPlayer.status = 'active';
-            }
-            if (currentPlayer.status === 'banned' || (currentPlayer.status === 'suspended' && currentPlayer.suspended_until && new Date(currentPlayer.suspended_until) > now)) {
-                var remaining = currentPlayer.status === 'banned'
-                    ? (currentPlayer.banned_until ? calcRemainingText(new Date(currentPlayer.banned_until)) : 'permanente')
-                    : calcRemainingText(new Date(currentPlayer.suspended_until));
-                document.getElementById('ban-banner').innerHTML =
-                    '<div class="text-4xl mb-3">&#128683;</div>' +
-                    '<h2 class="font-bold text-red-400">Cuenta restringida</h2>' +
-                    '<p class="text-sm mt-2 text-slate-400">' + (currentPlayer.suspension_reason || 'Has recibido una sancion.') + '</p>' +
-                    '<p class="text-sm mt-1 text-amber-400">Tiempo restante: ' + remaining + '</p>';
-                document.getElementById('ban-banner').classList.remove('hidden');
-                document.getElementById('register-form').classList.add('hidden');
-                document.getElementById('player-info-display').classList.add('hidden');
-                return;
-            }
+        var sanctionCheck = await window.AHSanctions.assertNoSanction(parseInt(playerData.playerId));
+        if (!sanctionCheck.ok) {
+            document.getElementById('ban-banner').innerHTML =
+                '<div class="text-4xl mb-3">&#128683;</div>' +
+                '<h2 class="font-bold text-red-400">Cuenta restringida</h2>' +
+                '<p class="text-sm mt-2 text-slate-400">' + (sanctionCheck.summary.reason || 'Has recibido una sancion.') + '</p>' +
+                '<p class="text-sm mt-1 text-amber-400">Tiempo restante: ' + sanctionCheck.summary.remainingText + '</p>';
+            document.getElementById('ban-banner').classList.remove('hidden');
+            document.getElementById('register-form').classList.add('hidden');
+            document.getElementById('player-info-display').classList.add('hidden');
+            return;
         }
 
         var { data: reg, error: regError } = await window.supabase
@@ -129,13 +115,13 @@
         if (match) {
             currentMatch = match;
             if (!match.requires_approval || (myRegistration && myRegistration.status === 'approved')) {
-                var { data: pCheck } = await window.supabase.from('players').select('status, banned_until, suspended_until').eq('id', parseInt(playerData.playerId)).maybeSingle();
-                if (pCheck && (pCheck.status === 'banned' || (pCheck.status === 'suspended' && pCheck.suspended_until && new Date(pCheck.suspended_until) > new Date()))) {
-                    return;
-                }
-                document.getElementById('match-credentials').classList.remove('hidden');
-                document.getElementById('cred-game-id').textContent = match.game_id || '---';
-                document.getElementById('cred-password').textContent = match.password || '---';
+                var sanctionCheck = await window.AHSanctions.assertNoSanction(parseInt(playerData.playerId));
+                if (!sanctionCheck.ok) return;
+                window.AHRuleGate.requireConsent(playerData.playerId, matchId, function() {
+                    document.getElementById('match-credentials').classList.remove('hidden');
+                    document.getElementById('cred-game-id').textContent = match.game_id || '---';
+                    document.getElementById('cred-password').textContent = match.password || '---';
+                });
             }
             if (match.requires_approval && myRegistration && myRegistration.status === 'pending') {
                 document.getElementById('waiting-approval-banner').classList.remove('hidden');
@@ -151,26 +137,43 @@
         errorMsg.classList.add('hidden');
         successMsg.classList.add('hidden');
 
-        var { error } = await window.supabase.from('match_registrations').upsert({
-            match_id: matchId,
-            player_id: parseInt(playerData.playerId),
-            status: currentMatch && currentMatch.requires_approval ? 'pending' : 'confirmed'
-        }, { onConflict: 'match_id,player_id' });
-
-        if (error) { errorMsg.textContent = '\u2716 Error: ' + error.message; errorMsg.classList.remove('hidden'); }
-        else {
-            window.saveLastRegisteredMatch(matchId);
-            if (currentMatch && currentMatch.requires_approval) {
-                successMsg.textContent = '\u2713 Solicitud enviada. Espera aprobacion del admin.';
-                successMsg.classList.remove('hidden');
-                document.getElementById('register-form').classList.add('hidden');
-                document.getElementById('waiting-approval-banner').classList.remove('hidden');
-            } else {
-                successMsg.textContent = '\u2713 Registrado! Redirigiendo...';
-                successMsg.classList.remove('hidden');
-                setTimeout(function() { window.location.href = '../game.html?id=' + matchId; }, 1500);
-            }
+        var sanctionCheck = await window.AHSanctions.assertNoSanction(parseInt(playerData.playerId));
+        if (!sanctionCheck.ok) {
+            errorMsg.textContent = '\u2716 ' + sanctionCheck.message;
+            errorMsg.classList.remove('hidden');
+            return;
         }
+
+        if (!currentMatch) {
+            errorMsg.textContent = '\u2716 La informacion de la partida no esta lista.';
+            errorMsg.classList.remove('hidden');
+            return;
+        }
+
+        window.AHRuleGate.requireConsent(playerData.playerId, matchId, async function() {
+            var { error } = await window.supabase.from('match_registrations').upsert({
+                match_id: matchId,
+                player_id: parseInt(playerData.playerId),
+                status: currentMatch.requires_approval ? 'pending' : 'confirmed'
+            }, { onConflict: 'match_id,player_id' });
+
+            if (error) {
+                errorMsg.textContent = '\u2716 Error: ' + error.message;
+                errorMsg.classList.remove('hidden');
+            } else {
+                window.saveLastRegisteredMatch(matchId);
+                if (currentMatch.requires_approval) {
+                    successMsg.textContent = '\u2713 Solicitud enviada. Espera aprobacion del admin.';
+                    successMsg.classList.remove('hidden');
+                    document.getElementById('register-form').classList.add('hidden');
+                    document.getElementById('waiting-approval-banner').classList.remove('hidden');
+                } else {
+                    successMsg.textContent = '\u2713 Registrado! Redirigiendo...';
+                    successMsg.classList.remove('hidden');
+                    setTimeout(function() { window.location.href = '../game.html?id=' + matchId; }, 1500);
+                }
+            }
+        });
     });
 
     init();
