@@ -6,6 +6,8 @@
  *
  * v2: lecturas publicas via vistas (public_rankings_view, public_alliance_rankings_view,
  * public_matches_view). Strikes/sanciones/kills anulados siguen leyendo tablas base.
+ * v3: tab Duelos muestra ademas la tabla de standings por alianza
+ * (public_duel_standings_view) ordenada por puntos de duelo.
  */
 (function() {
     'use strict';
@@ -183,6 +185,9 @@
     }
 
     async function loadDuels() {
+        var c = document.getElementById('duels-list');
+        if (!c) return;
+        var listHtml = '';
         try {
             var pmc = window.DB.tableCols('publicMatches');
             var ac = window.DB.tableCols('alliances');
@@ -192,27 +197,70 @@
                 .order(pmc.createdAt, { ascending: false })
                 .limit(20);
             if (res.error) throw res.error;
-            var c = document.getElementById('duels-list');
-            if (!c) return;
-            if (!res.data || res.data.length === 0) { c.innerHTML = '<div class="text-center py-8 text-ah-muted bg-slate-900 border border-indigo-900 rounded-xl">Sin duelos finalizados</div>'; return; }
 
-            var allianceIds = res.data.map(function(d) { return d[pmc.allianceId]; }).filter(function(v) { return !!v; });
-            var alliancesData = {};
-            if (allianceIds.length > 0) {
-                try {
-                    var aRes = await window.DB.from('alliances').select([ac.id, ac.name, ac.tag].join(', ')).in(ac.id, allianceIds);
-                    if (aRes.data) aRes.data.forEach(function(a) { alliancesData[a[ac.id]] = a; });
-                } catch(e) {}
+            if (!res.data || res.data.length === 0) {
+                listHtml = '<div class="text-center py-8 text-ah-muted bg-slate-900 border border-indigo-900 rounded-xl">Sin duelos registrados</div>';
+            } else {
+                var allianceIds = res.data.map(function(d) { return d[pmc.allianceId]; }).filter(function(v) { return !!v; });
+                var alliancesData = {};
+                if (allianceIds.length > 0) {
+                    try {
+                        var aRes = await window.DB.from('alliances').select([ac.id, ac.name, ac.tag].join(', ')).in(ac.id, allianceIds);
+                        if (aRes.data) aRes.data.forEach(function(a) { alliancesData[a[ac.id]] = a; });
+                    } catch(e) {}
+                }
+
+                listHtml = res.data.map(function(d) {
+                    var alli = alliancesData[d[pmc.allianceId]] || {};
+                    var statusBadge = d[pmc.status] === 'finished' ? '<span class="text-[10px] px-2 py-0.5 rounded font-bold bg-green-500/20 text-green-500">FINALIZADO</span>' :
+                                      d[pmc.status] === 'in_progress' ? '<span class="text-[10px] px-2 py-0.5 rounded font-bold bg-blue-500/20 text-blue-500">EN CURSO</span>' :
+                                      '<span class="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-400">' + (d[pmc.status] || 'ABIERTO') + '</span>';
+                    return '<div class="rounded-xl p-5 mb-3 bg-slate-900 border border-indigo-900"><div class="flex items-center justify-between mb-2"><div class="font-bold">' + (d[pmc.name] || 'Duelo') + '</div>' + statusBadge + '</div><div class="text-xs text-ah-muted">Alianza: ' + (alli[ac.name] || 'N/A') + (alli[ac.tag] ? ' [' + alli[ac.tag] + ']' : '') + ' | ' + window.formatDate(d[pmc.createdAt]) + '</div></div>';
+                }).join('');
             }
+        } catch(e) {
+            console.error('[Rankings] duelos:', e);
+            listHtml = '<div class="text-center py-8 text-red-400">Error cargando duelos: ' + (e.message || e) + '</div>';
+        }
 
-            c.innerHTML = res.data.map(function(d) {
-                var alli = alliancesData[d[pmc.allianceId]] || {};
-                var statusBadge = d[pmc.status] === 'finished' ? '<span class="text-[10px] px-2 py-0.5 rounded font-bold bg-green-500/20 text-green-500">FINALIZADO</span>' :
-                                  d[pmc.status] === 'in_progress' ? '<span class="text-[10px] px-2 py-0.5 rounded font-bold bg-blue-500/20 text-blue-500">EN CURSO</span>' :
-                                  '<span class="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-400">' + (d[pmc.status] || 'ABIERTO') + '</span>';
-                return '<div class="rounded-xl p-5 mb-3 bg-slate-900 border border-indigo-900"><div class="flex items-center justify-between mb-2"><div class="font-bold">' + (d[pmc.name] || 'Duelo') + '</div>' + statusBadge + '</div><div class="text-xs text-ah-muted">Alianza: ' + (alli[ac.name] || 'N/A') + (alli[ac.tag] ? ' [' + alli[ac.tag] + ']' : '') + ' | ' + window.formatDate(d[pmc.createdAt]) + '</div></div>';
-            }).join('');
-        } catch(e) { console.error('[Rankings] duelos:', e); var c = document.getElementById('duels-list'); if (c) c.innerHTML = '<div class="text-center py-8 text-red-400">Error cargando duelos: ' + (e.message || e) + '</div>'; }
+        // Tabla de standings de duelos por alianza (public_duel_standings_view, acceso directo)
+        var standingsHtml = '';
+        try {
+            var sRes = await window.supabase.from('public_duel_standings_view')
+                .select('alliance_id, name, tag, duels_played, duels_won, duels_lost, duels_drawn, duel_points');
+            if (sRes.error) throw sRes.error;
+            var rows = (sRes.data || []).sort(function(a, b) { return (b.duel_points || 0) - (a.duel_points || 0); });
+            if (rows.length === 0) {
+                standingsHtml = '<div class="text-center py-6 text-ah-muted bg-slate-900 border border-indigo-900 rounded-xl">Aun no hay duelos finalizados</div>';
+            } else {
+                standingsHtml = '<div class="rounded-xl bg-slate-900 border border-indigo-900 overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm">' +
+                    '<thead><tr class="border-b border-indigo-900 text-ah-muted text-xs">' +
+                    '<th class="p-3 text-left">#</th><th class="p-3 text-left">Alianza</th><th class="p-3 text-left">Tag</th>' +
+                    '<th class="p-3 text-right">Jugados</th><th class="p-3 text-right">Ganados</th><th class="p-3 text-right">Perdidos</th>' +
+                    '<th class="p-3 text-right">Empatados</th><th class="p-3 text-right">Puntos</th>' +
+                    '</tr></thead><tbody>' +
+                    rows.map(function(r, i) {
+                        return '<tr class="border-b border-indigo-900">' +
+                            '<td class="p-3 font-bold text-ah-muted">' + (i + 1) + '</td>' +
+                            '<td class="p-3 font-medium">' + (r.name || '?') + '</td>' +
+                            '<td class="p-3 text-ah-muted">[' + (r.tag || '-') + ']</td>' +
+                            '<td class="p-3 text-right text-ah-muted">' + (r.duels_played || 0) + '</td>' +
+                            '<td class="p-3 text-right font-bold text-green-500">' + (r.duels_won || 0) + '</td>' +
+                            '<td class="p-3 text-right font-bold text-red-400">' + (r.duels_lost || 0) + '</td>' +
+                            '<td class="p-3 text-right text-amber-400">' + (r.duels_drawn || 0) + '</td>' +
+                            '<td class="p-3 text-right font-bold text-amber-400">' + (r.duel_points || 0) + '</td>' +
+                            '</tr>';
+                    }).join('') +
+                    '</tbody></table></div></div>';
+            }
+        } catch(e) {
+            console.error('[Rankings] standings duelos:', e);
+            standingsHtml = '<div class="text-center py-6 text-red-400">Error cargando standings: ' + (e.message || e) + '</div>';
+        }
+
+        c.innerHTML = listHtml +
+            '<h3 class="text-lg font-bold mt-6 mb-3">Clasificacion de Duelos</h3>' +
+            standingsHtml;
     }
 
     async function loadStrikes() {
