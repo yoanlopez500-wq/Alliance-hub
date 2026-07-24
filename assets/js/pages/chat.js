@@ -1,47 +1,45 @@
 /**
- * chat.js - Sistema completo de chat (chat.html)
+ * chat.js - Sistema completo de chat consolidado (chat.html)
  *
- * Extraido de chat.html como parte de la refactorizacion.
- * ~400 lineas de logica de chat en tiempo real.
+ * Cambios respecto a la version anterior:
+ *  - Canales cargados desde chat_channels via window.ChatChannels (no hardcodeados).
+ *  - Jerarquia unificada con roles-data.js (incluye co_leader y officer).
+ *  - Envio con sender_name / sender_role reales del admin autenticado.
+ *  - Reporte con reported_message_id (FK al mensaje), NO message_preview.
+ *  - DMs reales usando la tabla direct_messages (conversaciones admin<->admin):
+ *    listar conversaciones, enviar y marcar como leido. Se eliminan los
+ *    pseudo-DMs 'dm:*' almacenados en chat_messages.
+ *  - Realtime via postgres_changes (habilitado en BD) + broadcast para typing.
  */
 (function() {
     'use strict';
 
-    var ROLE_H = { moderator: 1, alliance_leader: 2, event_admin: 3, superadmin: 4 };
-    var CHANS = {
-        admin_global:    { name: '&#127760; Global Admin',   desc: 'Todos los admins',      minRole: 'moderator' },
-        alliance_global: { name: '&#127988; Global Lideres', desc: 'Lideres de alianzas',   minRole: 'alliance_leader' }
-    };
-    var LS_DM = 'ah_chat_dms_v2';
+    var LS_DM = 'ah_chat_dms_v3';
     var MAX_LOCAL = 200;
 
-    var me = null, curChan = null, rtSub = null, pgSub = null;
-    var admins = [], dms = [], reportMsg = null, typingTimer;
+    var me = null, curChan = null, rtSub = null, pgSub = null, dmSub = null;
+    var channels = [], admins = [], dms = [], reportMsg = null, typingTimer;
     var msgCache = new Map();
 
-    function hasRole(r, minR) { return (ROLE_H[r] || 0) >= (ROLE_H[minR] || 0); }
-    function fmtRole(r) { var n = { superadmin: 'Super Admin', event_admin: 'Admin Eventos', alliance_leader: 'Lider', moderator: 'Moderador' }; return n[r] || r; }
+    function roleLevel(r) { return window.ChatChannels ? window.ChatChannels.roleLevel(r) : 0; }
+    function fmtRole(r) {
+        var n = { superadmin: 'Super Admin', event_admin: 'Admin Eventos', alliance_leader: 'Lider', co_leader: 'Co-Lider', officer: 'Oficial', moderator: 'Moderador' };
+        return n[r] || r;
+    }
     function esc(t) { if (!t) return ''; var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
     function fmtTime(ts) { return ts ? new Date(ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''; }
     function fmtDate(ts) { var d = new Date(ts), n = new Date(); if (d.toDateString() === n.toDateString()) return 'Hoy'; var y = new Date(); y.setDate(y.getDate() - 1); if (d.toDateString() === y.toDateString()) return 'Ayer'; return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }); }
 
-    function dbChan(ch) {
-        if (ch.startsWith('dm-')) {
-            var oid = ch.replace('dm-', '');
-            var ids = [me.id, oid].sort();
-            return 'dm:' + ids[0].slice(0, 8) + ':' + ids[1].slice(0, 8);
-        }
-        return ch;
-    }
-    function broadcastChan(ch) { return 'rt_' + dbChan(ch).replace(/[^a-zA-Z0-9_-]/g, '_'); }
-    function getCache(ch) { return msgCache.get(dbChan(ch)) || []; }
-    function setCache(ch, msgs) { msgCache.set(dbChan(ch), msgs.slice(-MAX_LOCAL)); }
+    function isDM(ch) { return ch && ch.indexOf('dm-') === 0; }
+    function dmOtherId(ch) { return ch.replace('dm-', ''); }
+    function broadcastChan(ch) { return 'rt_' + ch.replace(/[^a-zA-Z0-9_-]/g, '_'); }
+    function getCache(ch) { return msgCache.get(ch) || []; }
+    function setCache(ch, msgs) { msgCache.set(ch, msgs.slice(-MAX_LOCAL)); }
     function addToCache(ch, msg) {
-        var dbc = dbChan(ch);
-        var msgs = msgCache.get(dbc) || [];
+        var msgs = msgCache.get(ch) || [];
         if (msgs.some(function(m) { return m.id === msg.id; })) return false;
         msgs.push(msg);
-        msgCache.set(dbc, msgs.slice(-MAX_LOCAL));
+        msgCache.set(ch, msgs.slice(-MAX_LOCAL));
         return true;
     }
 
@@ -54,7 +52,8 @@
         var session = sessionRes.data.session;
 
         var { data: adm, error } = await window.supabase.from('admin_users').select('*').eq('id', session.user.id).eq('status', 'active').maybeSingle();
-        if (error || !adm || (!hasRole(adm.role, 'moderator') && !hasRole(adm.role, 'alliance_leader'))) { showDeny(); return; }
+        // Acceso: cualquier rol administrativo conocido (nivel >= 1).
+        if (error || !adm || roleLevel(adm.role) < 1) { showDeny(); return; }
 
         var allianceName = '';
         if (adm.alliance_id) {
@@ -72,12 +71,17 @@
         if (loadingScreen) loadingScreen.classList.add('hidden');
         if (chatInterface) chatInterface.classList.remove('hidden');
 
+        // Canales visibles para mi rol desde chat_channels
+        channels = await window.ChatChannels.loadForRole(me.role);
+
         await loadAdmins();
-        loadDMs();
+        await loadDMConversations();
         renderChans();
         renderDMList();
-        var defaultChan = hasRole(me.role, 'moderator') ? 'admin_global' : 'alliance_global';
-        switchChan(defaultChan);
+        subscribeDMs();
+
+        var defaultChan = channels.length ? channels[0].id : null;
+        if (defaultChan) switchChan(defaultChan);
     }
 
     function showDeny() {
@@ -108,10 +112,89 @@
     }
 
     // ============================================================
-    // DMs (Direct Messages)
+    // DMs (tabla direct_messages, conversaciones admin<->admin)
     // ============================================================
-    function loadDMs() { try { var r = localStorage.getItem(LS_DM); if (r) dms = JSON.parse(r) || []; } catch(e) { dms = []; } }
-    function saveDMs() { try { localStorage.setItem(LS_DM, JSON.stringify(dms)); } catch(e) {} }
+    async function loadDMConversations() {
+        try {
+            // Mensajes donde participo (la RLS ya limita a sender/recipient/admin).
+            var { data, error } = await window.supabase
+                .from('direct_messages')
+                .select('*')
+                .or('sender_admin_id.eq.' + me.id + ',recipient_admin_id.eq.' + me.id)
+                .order('created_at', { ascending: false })
+                .limit(500);
+            if (error) throw error;
+            var map = {};
+            (data || []).forEach(function(row) {
+                var other = row.sender_admin_id === me.id ? row.recipient_admin_id : row.sender_admin_id;
+                if (!map[other]) map[other] = { id: other, lastTs: row.created_at, unread: 0 };
+                if (row.created_at > map[other].lastTs) map[other].lastTs = row.created_at;
+                if (row.recipient_admin_id === me.id && !row.read_at) map[other].unread++;
+            });
+            dms = Object.keys(map).map(function(k) { return map[k]; })
+                .sort(function(a, b) { return a.lastTs < b.lastTs ? 1 : -1; });
+            saveDMsLocal();
+        } catch(e) {
+            console.error('[Chat] Error cargando conversaciones:', e);
+            loadDMsLocal();
+        }
+    }
+
+    // Respaldo local solo para recordar conversaciones abiertas manualmente.
+    function loadDMsLocal() { try { var r = localStorage.getItem(LS_DM); if (r) dms = JSON.parse(r) || []; } catch(e) { dms = []; } }
+    function saveDMsLocal() { try { localStorage.setItem(LS_DM, JSON.stringify(dms.map(function(d) { return { id: d.id }; }))); } catch(e) {} }
+
+    async function markDMRead(otherId) {
+        try {
+            await window.supabase
+                .from('direct_messages')
+                .update({ read_at: new Date().toISOString() })
+                .eq('sender_admin_id', otherId)
+                .eq('recipient_admin_id', me.id)
+                .is('read_at', null);
+            var conv = dms.find(function(d) { return d.id === otherId; });
+            if (conv) { conv.unread = 0; renderDMList(); }
+        } catch(e) { console.error('[Chat] Error marcando leido:', e); }
+    }
+
+    // Realtime de DMs entrantes dirigidos a mi.
+    function subscribeDMs() {
+        if (dmSub) { try { dmSub.unsubscribe(); } catch(e) {} dmSub = null; }
+        dmSub = window.supabase.channel('dm_inbox_' + me.id)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: 'recipient_admin_id=eq.' + me.id }, function(payload) {
+                var row = payload.new;
+                var other = row.sender_admin_id;
+                var conv = dms.find(function(d) { return d.id === other; });
+                if (!conv) { conv = { id: other, lastTs: row.created_at, unread: 0 }; dms.unshift(conv); }
+                conv.lastTs = row.created_at;
+                if (curChan === 'dm-' + other) {
+                    var msg = dmRowToMsg(row);
+                    if (addToCache(curChan, msg)) appendMsg(msg);
+                    markDMRead(other);
+                } else {
+                    conv.unread++;
+                }
+                renderDMList();
+            })
+            .subscribe();
+    }
+
+    function dmRowToMsg(row) {
+        return {
+            id: 'dm_' + row.id,
+            dmId: row.id,
+            sid: row.sender_admin_id,
+            name: row.sender_admin_id === me.id ? me.name : adminName(row.sender_admin_id),
+            role: row.sender_admin_id === me.id ? me.role : adminRole(row.sender_admin_id),
+            text: row.message || row.body || row.content || '',
+            type: 'text',
+            ts: row.created_at,
+            persisted: true
+        };
+    }
+
+    function adminName(id) { var a = admins.find(function(x) { return x.id === id; }); return a ? (a.display_name || 'Admin') : 'Admin'; }
+    function adminRole(id) { var a = admins.find(function(x) { return x.id === id; }); return a ? a.role : null; }
 
     // ============================================================
     // SIDEBAR
@@ -133,9 +216,11 @@
         var el = document.getElementById('global-channels');
         if (!el) return;
         var h = '';
-        Object.keys(CHANS).forEach(function(k) {
-            var c = CHANS[k]; if (!hasRole(me.role, c.minRole)) return;
-            h += '<button id="ch-' + k + '" onclick="switchChan(\'' + k + '\');closeSidebar();" class="w-full text-left px-3 py-2.5 rounded-lg text-sm hover:bg-slate-700 transition flex items-center gap-2 ' + (curChan === k ? 'chan-active' : '') + '"><span class="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-sm shrink-0">' + c.name.charAt(0) + '</span><div class="min-w-0"><div class="font-medium truncate">' + c.name + '</div><div class="text-[10px] text-slate-400 truncate">' + c.desc + '</div></div></button>';
+        channels.forEach(function(c) {
+            var k = c.id;
+            var name = c.name || k;
+            var desc = c.type || '';
+            h += '<button id="ch-' + k + '" onclick="switchChan(\'' + k + '\');closeSidebar();" class="w-full text-left px-3 py-2.5 rounded-lg text-sm hover:bg-slate-700 transition flex items-center gap-2 ' + (curChan === k ? 'chan-active' : '') + '"><span class="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-sm shrink-0">' + esc(name.charAt(0).toUpperCase()) + '</span><div class="min-w-0"><div class="font-medium truncate">' + esc(name) + '</div><div class="text-[10px] text-slate-400 truncate">' + esc(desc) + '</div></div></button>';
         });
         el.innerHTML = h || '<p class="text-xs text-slate-500 px-3">Sin canales</p>';
     }
@@ -149,7 +234,8 @@
             var n = a ? (a.display_name || 'Admin') : 'Desconocido';
             var t = a && a.alliances ? ' [' + a.alliances.tag + ']' : '';
             var cid = 'dm-' + dm.id;
-            return '<button id="ch-' + cid + '" onclick="switchChan(\'' + cid + '\');closeSidebar();" class="w-full text-left px-3 py-2.5 rounded-lg text-sm hover:bg-slate-700 transition flex items-center gap-2 ' + (curChan === cid ? 'chan-active' : '') + '"><span class="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-xs shrink-0">&#128172;</span><div class="min-w-0"><div class="font-medium truncate">' + n + t + '</div><div class="text-[10px] text-slate-400">' + (a ? fmtRole(a.role) : '') + '</div></div></button>';
+            var badge = dm.unread > 0 ? '<span class="ml-auto text-[10px] bg-amber-500 text-slate-900 font-bold rounded-full px-1.5 py-0.5 shrink-0">' + dm.unread + '</span>' : '';
+            return '<button id="ch-' + cid + '" onclick="switchChan(\'' + cid + '\');closeSidebar();" class="w-full text-left px-3 py-2.5 rounded-lg text-sm hover:bg-slate-700 transition flex items-center gap-2 ' + (curChan === cid ? 'chan-active' : '') + '"><span class="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-xs shrink-0">&#128172;</span><div class="min-w-0"><div class="font-medium truncate">' + esc(n) + esc(t) + '</div><div class="text-[10px] text-slate-400">' + (a ? fmtRole(a.role) : '') + '</div></div>' + badge + '</button>';
         }).join('');
     }
 
@@ -174,11 +260,11 @@
         if (!q || !el) { if (el) el.innerHTML = ''; return; }
         var f = admins.filter(function(a) { return (a.display_name || '').toLowerCase().includes(q) || (a.alliances && a.alliances.name || '').toLowerCase().includes(q); });
         el.innerHTML = f.length ? f.map(function(a) {
-            return '<button onclick="startDM(\'' + a.id + '\')" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-50 transition flex items-center gap-3"><span class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">&#128100;</span><div><div class="font-medium text-sm">' + (a.display_name || 'Admin') + (a.alliances ? ' [' + a.alliances.tag + ']' : '') + '</div><div class="text-[11px] text-slate-500">' + fmtRole(a.role) + '</div></div></button>';
+            return '<button onclick="startDM(\'' + a.id + '\')" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-50 transition flex items-center gap-3"><span class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">&#128100;</span><div><div class="font-medium text-sm">' + esc(a.display_name || 'Admin') + (a.alliances ? ' [' + esc(a.alliances.tag) + ']' : '') + '</div><div class="text-[11px] text-slate-500">' + fmtRole(a.role) + '</div></div></button>';
         }).join('') : '<p class="text-sm text-slate-400 text-center py-4">Sin resultados</p>';
     };
     window.startDM = function(aid) {
-        if (!dms.some(function(d) { return d.id === aid; })) { dms.push({ id: aid }); saveDMs(); renderDMList(); }
+        if (!dms.some(function(d) { return d.id === aid; })) { dms.unshift({ id: aid, unread: 0, lastTs: null }); saveDMsLocal(); renderDMList(); }
         closeDMSearch();
         switchChan('dm-' + aid);
     };
@@ -193,34 +279,48 @@
         curChan = ch;
         var title = document.getElementById('channel-title');
         var desc = document.getElementById('channel-status');
-        if (ch.startsWith('dm-')) {
-            var oid = ch.replace('dm-', '');
+        if (isDM(ch)) {
+            var oid = dmOtherId(ch);
             var a = admins.find(function(x) { return x.id === oid; });
             if (title) title.textContent = '\u{1F4AC} ' + (a ? a.display_name : 'Directo');
-            if (desc) desc.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-500 dot-online"></span><span>' + (a ? fmtRole(a.role) + (a.alliances ? ' - ' + a.alliances.name : '') : 'Privado') + '</span>';
+            if (desc) desc.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-500 dot-online"></span><span>' + (a ? fmtRole(a.role) + (a.alliances ? ' - ' + esc(a.alliances.name) : '') : 'Privado') + '</span>';
+            markDMRead(oid);
         } else {
-            var c = CHANS[ch];
-            if (title) title.textContent = c ? c.name : ch;
-            if (desc) desc.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-500 dot-online"></span><span>' + (c ? c.desc : '') + '</span>';
+            var c = channels.find(function(x) { return x.id === ch; });
+            if (title) title.textContent = c ? (c.name || c.id) : ch;
+            if (desc) desc.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-500 dot-online"></span><span>' + (c && c.type ? esc(c.type) : '') + '</span>';
         }
         document.querySelectorAll('.chan-active').forEach(function(el) { el.classList.remove('chan-active'); });
         var btn = document.getElementById('ch-' + ch); if (btn) btn.classList.add('chan-active');
         await loadHistory(ch);
-        connectRT(ch);
+        if (!isDM(ch)) connectRT(ch);
     };
 
     // ============================================================
     // HISTORY & RENDER
     // ============================================================
     async function loadHistory(ch) {
-        var dbc = dbChan(ch);
         var el = document.getElementById('chat-scroll');
         if (el) el.innerHTML = '<div class="text-center py-8 text-slate-400"><div class="animate-spin text-2xl mb-2 inline-block">&#9203;</div><p class="text-xs">Cargando historial...</p></div>';
         try {
-            var { data, error } = await window.supabase.from('chat_messages').select('*').eq('channel', dbc).order('created_at', { ascending: true }).limit(30);
+            if (isDM(ch)) {
+                var oid = dmOtherId(ch);
+                var { data: dmRows, error: dmErr } = await window.supabase
+                    .from('direct_messages')
+                    .select('*')
+                    .or('and(sender_admin_id.eq.' + me.id + ',recipient_admin_id.eq.' + oid + '),and(sender_admin_id.eq.' + oid + ',recipient_admin_id.eq.' + me.id + ')')
+                    .order('created_at', { ascending: true })
+                    .limit(50);
+                if (dmErr) throw dmErr;
+                var dmMsgs = (dmRows || []).map(dmRowToMsg);
+                setCache(ch, dmMsgs);
+                renderMsgs(dmMsgs);
+                return;
+            }
+            var { data, error } = await window.supabase.from('chat_messages').select('*').eq('channel', ch).order('created_at', { ascending: true }).limit(30);
             if (error) throw error;
             var msgs = (data || []).map(function(row) {
-                return { id: 'db_' + row.id, sid: row.sender_admin_id, name: row.sender_name, role: row.sender_role, text: row.message, type: row.message_type || 'text', ts: row.created_at, persisted: true };
+                return { id: 'db_' + row.id, dbId: row.id, sid: row.sender_admin_id, name: row.sender_name, role: row.sender_role, text: row.message, type: row.message_type || 'text', ts: row.created_at, persisted: true };
             });
             setCache(ch, msgs);
             renderMsgs(msgs);
@@ -250,7 +350,8 @@
         if (m.type === 'sys') return '<div class="flex justify-center my-2"><span class="text-[11px] text-slate-400 bg-slate-100 px-3 py-1 rounded-full">' + esc(m.text) + '</span></div>';
         var isMe = m.sid === me.id;
         var t = fmtTime(m.ts);
-        var rep = (!isMe && m.sid) ? '<button onclick="openReport(\'' + esc(m.text) + '\',\'' + esc(m.name) + '\')" class="ml-1 text-[10px] text-red-400 opacity-0 group-hover:opacity-100 transition">&#128681;</button>' : '';
+        // El reporte usa el id real del mensaje (reported_message_id).
+        var rep = (!isMe && m.sid && m.dbId) ? '<button onclick="openReport(' + m.dbId + ',\'' + esc(m.name) + '\')" class="ml-1 text-[10px] text-red-400 opacity-0 group-hover:opacity-100 transition">&#128681;</button>' : '';
         var del = !m.persisted ? '<span class="text-[10px] opacity-40 ml-1">&#9203;</span>' : '';
         var fail = m.failed ? '<span class="retry-btn ml-1" onclick="retrySend(this)">Reintentar</span>' : '';
         var cls = isMe ? 'bubble-mine' : 'bubble-other';
@@ -291,8 +392,8 @@
         } else if (status === 'failed') {
             bubble.classList.add('msg-failed');
             bubble.classList.remove('msg-delivered');
-            var pending = bubble.querySelector('.opacity-40');
-            if (pending) pending.remove();
+            var pending2 = bubble.querySelector('.opacity-40');
+            if (pending2) pending2.remove();
             var actions = bubble.querySelector('.flex.items-center.gap-1');
             if (actions && !actions.querySelector('.retry-btn')) {
                 var rb = document.createElement('span');
@@ -328,11 +429,10 @@
     }
 
     // ============================================================
-    // REALTIME
+    // REALTIME (solo canales publicos; los DMs usan subscribeDMs)
     // ============================================================
     function connectRT(ch) {
         var bc = broadcastChan(ch);
-        var dbc = dbChan(ch);
         var dot = document.getElementById('status-dot');
         var txt = document.getElementById('status-text');
         if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-yellow-400 dot-online';
@@ -340,11 +440,6 @@
 
         rtSub = window.supabase.channel(bc, { config: { broadcast: { self: false } } });
         rtSub
-            .on('broadcast', { event: 'msg' }, function(p) {
-                var m = p.payload;
-                if (m.sid === me.id) return;
-                if (addToCache(ch, m)) appendMsg(m);
-            })
             .on('broadcast', { event: 'typing' }, function(p) {
                 var ind = document.getElementById('typing-indicator');
                 if (p.payload.sid !== me.id && ind) {
@@ -355,21 +450,21 @@
                 }
             })
             .subscribe(function(st) {
-                var dot = document.getElementById('status-dot');
-                var txt = document.getElementById('status-text');
-                if (st === 'SUBSCRIBED') { if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-green-500 dot-online'; if (txt) txt.textContent = 'En linea'; }
-                else if (st === 'CLOSED' || st === 'CHANNEL_ERROR') { if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-red-400 dot-online'; if (txt) txt.textContent = 'Desconectado'; }
-                else { if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-yellow-400 dot-online'; if (txt) txt.textContent = 'Conectando...'; }
+                var dot2 = document.getElementById('status-dot');
+                var txt2 = document.getElementById('status-text');
+                if (st === 'SUBSCRIBED') { if (dot2) dot2.className = 'w-1.5 h-1.5 rounded-full bg-green-500 dot-online'; if (txt2) txt2.textContent = 'En linea'; }
+                else if (st === 'CLOSED' || st === 'CHANNEL_ERROR') { if (dot2) dot2.className = 'w-1.5 h-1.5 rounded-full bg-red-400 dot-online'; if (txt2) txt2.textContent = 'Desconectado'; }
+                else { if (dot2) dot2.className = 'w-1.5 h-1.5 rounded-full bg-yellow-400 dot-online'; if (txt2) txt2.textContent = 'Conectando...'; }
             });
 
         pgSub = window.supabase.channel('pg_' + bc)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'channel=eq.' + dbc }, function(payload) {
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'channel=eq.' + ch }, function(payload) {
                 var row = payload.new;
-                var msg = { id: 'db_' + row.id, sid: row.sender_admin_id, name: row.sender_name, role: row.sender_role, text: row.message, type: row.message_type || 'text', ts: row.created_at, persisted: true };
+                var msg = { id: 'db_' + row.id, dbId: row.id, sid: row.sender_admin_id, name: row.sender_name, role: row.sender_role, text: row.message, type: row.message_type || 'text', ts: row.created_at, persisted: true };
                 if (msg.sid === me.id) {
                     var cached = getCache(ch);
                     var pending = cached.find(function(m) { return m.sid === me.id && !m.persisted && m.text === msg.text; });
-                    if (pending) { pending.id = msg.id; pending.persisted = true; updateMsgStatus(pending.id, 'persisted'); }
+                    if (pending) { pending.id = msg.id; pending.dbId = msg.dbId; pending.persisted = true; updateMsgStatus(pending.id, 'persisted'); }
                     else if (addToCache(ch, msg)) appendMsg(msg);
                 } else {
                     if (addToCache(ch, msg)) appendMsg(msg);
@@ -387,30 +482,61 @@
         var txt = inp.value.trim();
         if (!txt || !curChan) return;
         inp.value = '';
-        var dbc = dbChan(curChan);
+
+        // DM: insert directo en direct_messages (RLS exige is_admin()).
+        if (isDM(curChan)) {
+            var oid = dmOtherId(curChan);
+            var tempDmId = 'pending_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+            var dmMsg = { id: tempDmId, sid: me.id, name: me.name, role: me.role, text: txt, type: 'text', ts: new Date().toISOString(), persisted: false };
+            addToCache(curChan, dmMsg);
+            appendMsg(dmMsg);
+            try {
+                var { data: dmInserted, error: dmError } = await window.supabase
+                    .from('direct_messages')
+                    .insert({ sender_admin_id: me.id, sender_name: me.name, recipient_admin_id: oid, message: txt })
+                    .select().single();
+                if (dmError) throw dmError;
+                dmMsg.id = 'dm_' + dmInserted.id;
+                dmMsg.dmId = dmInserted.id;
+                dmMsg.persisted = true;
+                updateMsgStatus(tempDmId, 'persisted');
+            } catch(e) {
+                console.error('Error enviando DM:', e);
+                dmMsg.failed = true;
+                updateMsgStatus(tempDmId, 'failed');
+            }
+            return;
+        }
+
+        // Canal: no escribir si el rol no tiene permiso (defensivo; la RLS tambien bloquea).
+        var chan = channels.find(function(x) { return x.id === curChan; });
+        if (chan && !window.ChatChannels.canPost(chan, me.role)) {
+            window.showToast('No tienes permiso para escribir en este canal', 'warning');
+            return;
+        }
+
         var tempId = 'pending_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         var msg = { id: tempId, sid: me.id, name: me.name, role: me.role, text: txt, type: 'text', ts: new Date().toISOString(), persisted: false };
         addToCache(curChan, msg);
         appendMsg(msg);
         try {
-            var { data: inserted, error } = await window.supabase.from('chat_messages').insert({ channel: dbc, sender_admin_id: me.id, sender_name: me.name, sender_role: me.role, message: txt, message_type: 'text' }).select().single();
+            var { data: inserted, error } = await window.supabase.from('chat_messages').insert({ channel: curChan, sender_admin_id: me.id, sender_name: me.name, sender_role: me.role, message: txt, message_type: 'text' }).select().single();
             if (error) throw error;
             msg.id = 'db_' + inserted.id;
+            msg.dbId = inserted.id;
             msg.persisted = true;
             updateMsgStatus(tempId, 'persisted');
-            if (rtSub) await rtSub.send({ type: 'broadcast', event: 'msg', payload: msg });
         } catch(e) {
             console.error('Error persisting message:', e);
             msg.failed = true;
             updateMsgStatus(tempId, 'failed');
-            if (rtSub) await rtSub.send({ type: 'broadcast', event: 'msg', payload: msg });
         }
     };
 
     var chatInput = document.getElementById('chat-input');
     if (chatInput) {
         chatInput.addEventListener('input', function() {
-            if (rtSub && me) rtSub.send({ type: 'broadcast', event: 'typing', payload: { sid: me.id, name: me.name } });
+            if (rtSub && me && curChan && !isDM(curChan)) rtSub.send({ type: 'broadcast', event: 'typing', payload: { sid: me.id, name: me.name } });
         });
     }
 
@@ -422,8 +548,7 @@
         if (!msgEl) return;
         var text = msgEl.getAttribute('data-msg-text');
         if (!text) return;
-        var dbc = dbChan(curChan);
-        var cached = msgCache.get(dbc) || [];
+        var cached = msgCache.get(curChan) || [];
         var idx = cached.findIndex(function(m) { return m.id === msgEl.getAttribute('data-msg-id'); });
         if (idx > -1) cached.splice(idx, 1);
         msgEl.remove();
@@ -431,13 +556,15 @@
         sendMessage();
     };
 
-    window.openReport = function(text, sender) {
-        reportMsg = { text: text, sender: sender };
+    window.openReport = function(dbId, sender) {
+        reportMsg = { id: dbId, sender: sender };
         var msgText = document.getElementById('report-msg-text');
         var msgSender = document.getElementById('report-msg-sender');
         var modal = document.getElementById('report-modal');
         var reason = document.getElementById('report-reason');
-        if (msgText) msgText.textContent = text;
+        var cached = getCache(curChan);
+        var m = cached.find(function(x) { return x.dbId === dbId; });
+        if (msgText) msgText.textContent = m ? m.text : '';
         if (msgSender) msgSender.textContent = sender;
         if (reason) reason.value = 'spam';
         if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
@@ -451,10 +578,21 @@
         if (!reportMsg) return;
         try {
             var reasonEl = document.getElementById('report-reason');
-            await window.supabase.from('chat_reports').insert({ channel: dbChan(curChan), reporter_id: me.id, reporter_name: me.name, reason: reasonEl ? reasonEl.value : 'spam', message_preview: reportMsg.text });
+            // reported_message_id referencia el mensaje real (NO message_preview).
+            var { error } = await window.supabase.from('chat_reports').insert({
+                channel: curChan,
+                reporter_id: me.id,
+                reporter_name: me.name,
+                reason: reasonEl ? reasonEl.value : 'spam',
+                reported_message_id: reportMsg.id
+            });
+            if (error) throw error;
             window.showToast('Reporte enviado', 'success');
             closeReportModal();
-        } catch(e) { window.showToast('Error al reportar', 'error'); }
+        } catch(e) {
+            console.error('Error al reportar:', e);
+            window.showToast('Error al reportar', 'error');
+        }
     };
 
     // Close modals on backdrop click

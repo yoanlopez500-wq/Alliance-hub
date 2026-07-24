@@ -2,11 +2,12 @@
  * game.js - Logica de la pagina de partida (game.html)
  *
  * Extraido de game.html como parte de la refactorizacion.
- * Funciones: carga de partida, ganadores, chat, registros, resultados.
+ * Funciones: carga de partida, ganadores, registros, resultados.
  *
  * v2: ganadores via public_match_winners_view y lookup de usernames via
- * public_players_view. La partida (loadMatch), el gate csv_imported, los
- * resultados (badge "no registrado") y el chat siguen leyendo tablas base.
+ * public_players_view. La partida (loadMatch), el gate csv_imported y los
+ * resultados (badge "no registrado") siguen leyendo tablas base.
+ * v3: eliminado el chat de jugadores (chat solo auth) y fix match.password.
  */
 (function() {
     'use strict';
@@ -124,7 +125,8 @@
                         var credPassword = document.getElementById('cred-password');
                         if (creds) creds.classList.remove('hidden');
                         if (credGameId) credGameId.textContent = match.game_id || '---';
-                        if (credPassword) credPassword.textContent = match.game_password || match.password || '---';
+                        // FIX: la columna real es 'password'; se conserva game_password como fallback.
+                        if (credPassword) credPassword.textContent = match.password || match.game_password || '---';
                     });
                 }
             }
@@ -176,11 +178,8 @@
             var rulesLink = document.getElementById('rules-link-section');
             if (rulesLink) rulesLink.classList.remove('hidden');
 
-            if (match.match_type === 'duel') {
-                var chatSection = document.getElementById('chat-section');
-                if (chatSection) chatSection.classList.remove('hidden');
-                loadChat();
-            }
+            // Chat de jugadores eliminado (decision aprobada: chat solo auth).
+            // La seccion HTML y las funciones loadChat/sendChatMessage fueron removidas.
 
             loadRegistrations();
             loadResults();
@@ -218,47 +217,6 @@
             }
         } catch(e) { console.error('[Winners]', e); }
     }
-
-    // ============================================================
-    // CHAT
-    // ============================================================
-    async function loadChat() {
-        try {
-            var { data: messages } = await window.supabase.from('chat_messages').select('*').eq('channel', matchId).order('created_at', { ascending: true }).limit(50);
-            var container = document.getElementById('chat-messages');
-            if (!container) return;
-            if (!messages || messages.length === 0) {
-                container.innerHTML = '<div class="text-center text-sm text-slate-400">Sin mensajes. Se el primero!</div>';
-                return;
-            }
-            container.innerHTML = messages.map(function(m) {
-                var isMine = m.sender_name === (playerData ? playerData.displayName : '');
-                return '<div class="mb-2 ' + (isMine ? 'text-right' : 'text-left') + '"><div class="inline-block px-3 py-2 rounded-lg ' + (isMine ? 'bg-indigo-900' : 'bg-white/5') + '"><div class="text-xs font-bold ' + (isMine ? 'text-amber-400' : 'text-slate-400') + ';">' + (m.sender_name || 'Admin') + '</div><div class="text-sm text-slate-100">' + m.message + '</div></div></div>';
-            }).join('');
-            container.scrollTop = container.scrollHeight;
-        } catch(e) { console.error('[Chat]', e); }
-    }
-
-    window.sendChatMessage = async function() {
-        var input = document.getElementById('chat-input');
-        var message = input.value.trim();
-        if (!message) return;
-        if (!playerData || (!playerData.playerId && !playerData.displayName)) {
-            window.showToast('Debes entrar como jugador para usar el chat', 'warning');
-            return;
-        }
-        try {
-            var { error } = await window.supabase.from('chat_messages').insert({
-                channel: matchId,
-                sender_admin_id: null,
-                sender_name: playerData.displayName || 'Jugador ' + playerData.playerId,
-                sender_role: 'player',
-                message: message
-            });
-            if (error) window.showToast('Error: ' + error.message, 'error');
-            else { input.value = ''; loadChat(); }
-        } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
-    };
 
     // ============================================================
     // REGISTRADOS

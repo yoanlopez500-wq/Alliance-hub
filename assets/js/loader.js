@@ -5,6 +5,11 @@
  * usando el cache-buster automatico (AHBuster).
  *
  * Elimina las 8-12 etiquetas <script> duplicadas en cada HTML.
+ *
+ * FIX (chat consolidado): el rol 'chat' ahora carga SCRIPTS.core igual que
+ * el resto de roles (antes lo omitia, dejando window.supabase undefined y
+ * rompiendo el chat). Se elimina el shim assets/js/auth.js (document.write,
+ * deprecated) y se carga el modulo de canales assets/js/chat-channels.js.
  */
 (function() {
     'use strict';
@@ -50,9 +55,10 @@
             'assets/js/components.js',
             'assets/js/pwa-utils.js'
         ],
+        // Chat consolidado: core (con supabase, roles-data y auth-core) +
+        // el modulo de canales. Sin el shim auth.js (document.write deprecated).
         chat: [
-            'assets/js/auth.js',
-            'assets/js/base.js'
+            'assets/js/chat-channels.js'
         ]
     };
 
@@ -106,9 +112,9 @@
 
             console.log('[AHLoader] Iniciando carga para rol:', role);
 
-            if (role !== 'chat') {
-                await loadScripts(SCRIPTS.core);
-            }
+            // Todos los roles (incluido 'chat') cargan el core: supabase,
+            // config, db-schema, base, roles-data y auth-core.
+            await loadScripts(SCRIPTS.core);
 
             var roleScripts = SCRIPTS[role] || SCRIPTS.public;
             await loadScripts(roleScripts);
