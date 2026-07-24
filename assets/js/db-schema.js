@@ -346,6 +346,23 @@
                 all: '*'
             }
         },
+        // Canales del chat consolidado (ver assets/js/chat-channels.js)
+        chatChannels: {
+            name: 'chat_channels',
+            cols: {
+                id: 'id',
+                name: 'name',
+                type: 'type',
+                allowedRoles: 'allowed_roles',
+                minLevel: 'min_level',
+                allianceId: 'alliance_id',
+                isActive: 'is_active'
+            },
+            selectSets: {
+                basic: 'id, name, type, allowed_roles, min_level, alliance_id, is_active',
+                all: '*'
+            }
+        },
         chatReports: {
             name: 'chat_reports',
             cols: {
