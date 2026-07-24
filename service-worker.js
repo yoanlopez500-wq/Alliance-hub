@@ -1,6 +1,7 @@
 // Alliance Hub Service Worker - v16.1
 // Workbox-powered with automatic cache cleanup
-// This SW auto-detects file changes via content hashes in precache manifest
+// v16.1: JS/CSS a NetworkFirst para evitar versiones stale (especialmente chat).
+//        sw-register.js se encarga de forzar reload cuando cambia el timestamp de deploy.
 
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.1.0/workbox-sw.js');
 
@@ -20,7 +21,7 @@ workbox.routing.registerRoute(
            url.pathname.endsWith('.html');
   },
   new workbox.strategies.NetworkFirst({
-    cacheName: 'ah-pages-v16',
+    cacheName: 'ah-pages-v16.1',
     plugins: [
       new workbox.expiration.ExpirationPlugin({
         maxEntries: 50,
@@ -33,17 +34,18 @@ workbox.routing.registerRoute(
   })
 );
 
-// ===== JS/CSS - Stale While Revalidate =====
+// ===== JS/CSS - Network First (evita quedarse con versiones rotas/stale) =====
 workbox.routing.registerRoute(
   ({ request }) => 
     request.destination === 'script' || 
     request.destination === 'style',
-  new workbox.strategies.StaleWhileRevalidate({
-    cacheName: 'ah-static-v16',
+  new workbox.strategies.NetworkFirst({
+    cacheName: 'ah-static-v16.1',
+    networkTimeoutSeconds: 3,
     plugins: [
       new workbox.expiration.ExpirationPlugin({
         maxEntries: 100,
-        maxAgeSeconds: 30 * 24 * 60 * 60
+        maxAgeSeconds: 24 * 60 * 60
       }),
       new workbox.cacheableResponse.CacheableResponsePlugin({
         statuses: [0, 200]
@@ -56,7 +58,7 @@ workbox.routing.registerRoute(
 workbox.routing.registerRoute(
   ({ request }) => request.destination === 'image',
   new workbox.strategies.CacheFirst({
-    cacheName: 'ah-images-v16',
+    cacheName: 'ah-images-v16.1',
     plugins: [
       new workbox.expiration.ExpirationPlugin({
         maxEntries: 100,
@@ -70,7 +72,7 @@ workbox.routing.registerRoute(
 workbox.routing.registerRoute(
   ({ request }) => request.destination === 'font',
   new workbox.strategies.CacheFirst({
-    cacheName: 'ah-fonts-v16',
+    cacheName: 'ah-fonts-v16.1',
     plugins: [
       new workbox.expiration.ExpirationPlugin({
         maxEntries: 20,
@@ -93,7 +95,7 @@ workbox.routing.registerRoute(
     url.hostname.includes('cdn') ||
     url.hostname.includes('gstatic'),
   new workbox.strategies.NetworkFirst({
-    cacheName: 'ah-cdn-v16',
+    cacheName: 'ah-cdn-v16.1',
     plugins: [
       new workbox.expiration.ExpirationPlugin({
         maxEntries: 50,
@@ -124,7 +126,7 @@ self.addEventListener('install', function(event) {
     caches.keys().then(function(cacheNames) {
       return Promise.all(
         cacheNames.map(function(cacheName) {
-          if (!cacheName.includes('-v16')) {
+          if (!cacheName.includes('-v16.1')) {
             console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
