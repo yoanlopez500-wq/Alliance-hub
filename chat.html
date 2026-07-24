@@ -8,8 +8,44 @@
 <link rel="stylesheet" href="assets/css/theme.css">
 <link rel="manifest" href="manifest.json">
 <script src="assets/js/cache-buster.js"></script>
+<!-- Emergency recovery: si un SW atascado impide cargar el chat, se desinstala solo -->
+<script>
+(function(){
+  'use strict';
+  if (!('serviceWorker' in navigator)) return;
+  var attempts = parseInt(localStorage.getItem('ah_chat_recovery_attempts') || '0', 10);
+  var RESCUE_TIMEOUT = 9000;
+  var timer = setTimeout(function() {
+    if (window.__chatReady__) return;
+    // El chat no arranco: SW atascado o cache corrupto.
+    attempts++;
+    try { localStorage.setItem('ah_chat_recovery_attempts', String(attempts)); } catch(e) {}
+    function nukeAndReload() {
+      var p1 = navigator.serviceWorker.getRegistrations().then(function(regs) {
+        return Promise.all(regs.map(function(r) { return r.unregister(); }));
+      });
+      var p2 = ('caches' in window) ? caches.keys().then(function(names) {
+        return Promise.all(names.map(function(n) { return caches.delete(n); }));
+      }) : Promise.resolve();
+      Promise.all([p1, p2]).finally(function() {
+        window.location.href = window.location.pathname + '?recovered=' + Date.now();
+      });
+    }
+    if (attempts <= 3) {
+      nukeAndReload();
+    } else {
+      // Demasiados intentos: mostrar boton manual por si acaso.
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0f172a;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:sans-serif';
+      d.innerHTML = '<h2 style="font-size:1.25rem;font-weight:bold;margin-bottom:8px">Actualizando chat...</h2><p style="color:#94a3b8;margin-bottom:16px">Toca el boton para terminar.</p><button id="ah-force-reload" style="background:#f59e0b;color:#0f172a;border:none;padding:12px 24px;border-radius:8px;font-weight:bold">Actualizar ahora</button>';
+      document.addEventListener('DOMContentLoaded', function() { document.body.appendChild(d); document.getElementById('ah-force-reload').onclick = nukeAndReload; });
+    }
+  }, RESCUE_TIMEOUT);
+  window.__cancelChatRecovery__ = function() { clearTimeout(timer); window.__chatReady__ = true; };
+})();
+</script>
 <script src="assets/js/loader.js"></script>
-<script>AHLoader.init({ role: 'chat', extraScripts: ['assets/js/nav-engine.js', 'assets/js/components.js', 'assets/js/pwa-utils.js'], pageScript: 'assets/js/pages/chat.js' });</script>
+<script>AHLoader.init({ role: 'chat', extraScripts: ['assets/js/nav-engine.js', 'assets/js/components.js', 'assets/js/pwa-utils.js'], pageScript: 'assets/js/pages/chat.js' }); window.__cancelChatRecovery__ && window.__cancelChatRecovery__();</script>
 <meta name="theme-color" content="#0f172a">
 <style>
 html, body { height: 100dvh; overflow: hidden; }

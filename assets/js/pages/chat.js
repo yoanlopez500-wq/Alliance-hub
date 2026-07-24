@@ -71,6 +71,9 @@
         if (loadingScreen) loadingScreen.classList.add('hidden');
         if (chatInterface) chatInterface.classList.remove('hidden');
 
+        // Chat cargo OK: cancelar el rescue timer.
+        if (window.__cancelChatRecovery__) window.__cancelChatRecovery__();
+
         // Canales visibles para mi rol desde chat_channels
         channels = await window.ChatChannels.loadForRole(me.role);
 
@@ -89,6 +92,7 @@
         var accessDenied = document.getElementById('access-denied');
         if (loadingScreen) loadingScreen.classList.add('hidden');
         if (accessDenied) accessDenied.classList.remove('hidden');
+        if (window.__cancelChatRecovery__) window.__cancelChatRecovery__();
     }
 
     // ============================================================

@@ -74,7 +74,12 @@
 
     localStorage.setItem('ah_sw_version', CURRENT_VERSION);
 
-    navigator.serviceWorker.register(window.AHBuster ? window.AHBuster.url('./service-worker.js') : './service-worker.js')
+    // Cache-buster en la URL del propio SW para que el navegador nunca
+    // use un service-worker.js cacheado por un SW atascado o un proxy.
+    var swUrl = './service-worker.js?bust=' + buildId();
+    if (window.AHBuster) swUrl = window.AHBuster.url(swUrl);
+
+    navigator.serviceWorker.register(swUrl)
         .then(function(reg) {
             console.log('[SW-Reg] Registered:', reg.scope);
 
