@@ -114,7 +114,7 @@
 
         if (match) {
             currentMatch = match;
-            if (!match.requires_approval || (myRegistration && myRegistration.status === 'approved')) {
+            if (!match.requires_approval || (myRegistration && (myRegistration.status === 'approved' || myRegistration.status === 'confirmed'))) {
                 var sanctionCheck = await window.AHSanctions.assertNoSanction(parseInt(playerData.playerId));
                 if (!sanctionCheck.ok) return;
                 window.AHRuleGate.requireConsent(playerData.playerId, matchId, function() {

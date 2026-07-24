@@ -298,18 +298,57 @@ async function removeStrike(id) {
     console.log('[removeStrike] id=', id, 'reason=', reason);
     try {
         var { data: { session } } = await window.supabase.auth.getSession();
-        var { data, error, count } = await window.supabase.from('player_strikes').update({
+
+        // Obtener datos del strike antes de revocarlo
+        var { data: strikeData, error: fetchErr } = await window.supabase.from('player_strikes')
+            .select('player_id, strike_type_id')
+            .eq('id', id)
+            .single();
+        if (fetchErr) throw fetchErr;
+        if (!strikeData) {
+            window.showToast('No se encontro el strike para revocar (id: ' + id + ')', 'error');
+            return;
+        }
+        var playerId = strikeData.player_id;
+        var typeInfo = strikeTypesMap[strikeData.strike_type_id] || {};
+        var wasBan = !!typeInfo.is_ban;
+
+        var { data, error } = await window.supabase.from('player_strikes').update({
             status: 'removed',
             removed_at: new Date().toISOString(),
             removed_by: session.user.id,
             removal_reason: reason
         }).eq('id', id).select();
         if (error) throw error;
-        console.log('[removeStrike] updated data=', data, 'count=', count);
+        console.log('[removeStrike] updated data=', data);
         if (!data || data.length === 0) {
             window.showToast('No se encontro el strike para revocar (id: ' + id + ')', 'error');
             return;
         }
+
+        // Si era ban, revisar si hay otros strikes de tipo ban activos
+        if (wasBan && playerId) {
+            try {
+                var { data: activeStrikes } = await window.supabase.from('player_strikes')
+                    .select('strike_type_id')
+                    .eq('player_id', playerId)
+                    .eq('status', 'active');
+                var hasOtherBan = (activeStrikes || []).some(function(s) {
+                    var t = strikeTypesMap[s.strike_type_id];
+                    return t && t.is_ban;
+                });
+                if (!hasOtherBan) {
+                    await window.supabase.from('players').update({
+                        status: 'active',
+                        banned_until: null,
+                        suspension_reason: null
+                    }).eq('id', playerId);
+                }
+            } catch(banErr) {
+                console.error('[removeStrike] Error reactivando jugador:', banErr);
+            }
+        }
+
         window.showToast('Strike revocado', 'success');
         loadStrikes();
     } catch(e) { window.showToast('Error: ' + e.message, 'error'); }

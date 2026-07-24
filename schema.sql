@@ -942,9 +942,9 @@ CREATE POLICY "rule_precedents_update" ON public.rule_precedents AS PERMISSIVE F
 -- Tabla: public.rule_section_history (2 políticas)
 CREATE POLICY "rule_section_history_read" ON public.rule_section_history AS PERMISSIVE FOR SELECT TO public
     USING (true);
-CREATE POLICY "rule_section_history_write" ON public.rule_section_history AS PERMISSIVE FOR ALL TO authenticated
-    USING (true)
-    WITH CHECK (true);
+CREATE POLICY "rule_section_history_write_admin" ON public.rule_section_history AS PERMISSIVE FOR ALL TO authenticated
+    USING (is_authenticated_admin())
+    WITH CHECK (is_authenticated_admin());
 
 -- Tabla: public.rule_sections (2 políticas)
 CREATE POLICY "rule_sections_read" ON public.rule_sections AS PERMISSIVE FOR SELECT TO public
@@ -1490,14 +1490,13 @@ BEGIN
 END;
 $function$;
 
--- fn: trg_rule_section_history
+-- fn: trg_rule_section_history (DEPRECADO - el historial de updates lo maneja el frontend)
+-- Se conserva la funcion vacia por compatibilidad; el trigger asociado ya no se crea.
 CREATE OR REPLACE FUNCTION public.trg_rule_section_history()
  RETURNS trigger
  LANGUAGE plpgsql
 AS $function$
 BEGIN
-    INSERT INTO rule_section_history (section_id, title, content, changed_by, changed_at)
-    VALUES (OLD.id, OLD.title, OLD.content, OLD.created_by, now());
     NEW.updated_at = now();
     RETURN NEW;
 END;
@@ -1510,7 +1509,7 @@ CREATE OR REPLACE FUNCTION public.trg_rule_section_history_insert()
 AS $function$
 BEGIN
     INSERT INTO rule_section_history (section_id, title, content, changed_by, changed_at)
-    VALUES (NEW.id, NEW.title, NEW.content, NEW.created_by, now());
+    VALUES (NEW.id, NEW.title, NEW.content, COALESCE(NEW.created_by, auth.uid()), now());
     RETURN NEW;
 END;
 $function$;
@@ -1621,9 +1620,6 @@ CREATE TRIGGER trg_auto_nullify_kills AFTER INSERT ON public.player_strikes FOR 
 
 -- trigger: set_updated_at ON rule_sections
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.rule_sections FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
-
--- trigger: trg_rule_section_history ON rule_sections
-CREATE TRIGGER trg_rule_section_history BEFORE UPDATE ON public.rule_sections FOR EACH ROW EXECUTE FUNCTION trg_rule_section_history();
 
 -- trigger: trg_rule_section_history_insert ON rule_sections
 CREATE TRIGGER trg_rule_section_history_insert AFTER INSERT ON public.rule_sections FOR EACH ROW EXECUTE FUNCTION trg_rule_section_history_insert();

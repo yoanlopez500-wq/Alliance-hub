@@ -313,10 +313,8 @@ async function registerForMatch(matchId) {
     try {
         var sanctionCheck = await window.AHSanctions.assertNoSanction(parseInt(playerData.playerId));
         if (!sanctionCheck.ok) { showToast(sanctionCheck.message, 'error'); return; }
-        var { error } = await supabase.from('match_registrations').insert({ match_id: matchId, player_id: parseInt(playerData.playerId) });
-        if (error) { showToast('Error: ' + error.message, 'error'); return; }
-        showToast('Registrado en la partida', 'success');
-        setTimeout(function(){location.reload()},500);
+        // Redirigir al flujo formal de registro donde se muestra el reglamento (rule-gate).
+        window.location.href = ahPath('register/index.html?match=' + matchId);
     } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 
@@ -533,6 +531,8 @@ if (document.readyState === 'loading') {
 
 window.canManage = canManage;
 window.canView = canView;
+window.resolveUserVisibilityRole = resolveUserVisibilityRole;
+window.canSeeRuleSection = canSeeRuleSection;
 window.isAdmin = isAdmin;
 window.getAdminRole = getAdminRole;
 window.requireAdmin = requireAdmin;

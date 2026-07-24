@@ -53,9 +53,36 @@ function getTypeBadge(type) {
 // FIX v15: window.supabase para compatibilidad strict mode
 async function removeRegistration(regId, playerName) { if (!confirm('Quitar a ' + (playerName || 'este jugador') + ' de la partida?')) return; try { var { error } = await window.supabase.from('match_registrations').delete().eq('id', regId); if (error) { showToast('Error: ' + error.message, 'error'); return; } showToast('Jugador quitado de la partida', 'success'); setTimeout(function() { location.reload(); }, 500); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
 
-function openSuspendModal(playerId, playerName) { if (!confirm('Suspender a ' + (playerName || 'este jugador') + '?')) return; suspendPlayer(playerId); }
-async function suspendPlayer(playerId) { try { var { error } = await window.supabase.from('players').update({ status: 'suspended' }).eq('id', playerId); if (error) { showToast('Error: ' + error.message, 'error'); return; } showToast('Jugador suspendido', 'success'); setTimeout(function(){location.reload()},500); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
-async function reactivatePlayer(playerId) { try { var { error } = await window.supabase.from('players').update({ status: 'active', suspension_reason: null }).eq('id', playerId); if (error) { showToast('Error: ' + error.message, 'error'); return; } showToast('Jugador reactivado', 'success'); setTimeout(function(){location.reload()},500); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
+function openSuspendModal(playerId, playerName) {
+    if (!confirm('Suspender a ' + (playerName || 'este jugador') + '?')) return;
+    var reason = prompt('Razon de la suspension (obligatoria):') || '';
+    if (!reason.trim()) { showToast('Debes indicar una razon', 'warning'); return; }
+    var hoursInput = prompt('Duracion en horas (deja vacio para suspension permanente):') || '';
+    var hours = parseInt(hoursInput, 10);
+    suspendPlayer(playerId, reason.trim(), isNaN(hours) || hours <= 0 ? null : hours);
+}
+async function suspendPlayer(playerId, reason, hours) {
+    try {
+        var updates = { status: 'suspended', suspension_reason: reason };
+        if (hours) {
+            updates.suspended_until = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+        } else {
+            updates.suspended_until = null;
+        }
+        var { error } = await window.supabase.from('players').update(updates).eq('id', playerId);
+        if (error) { showToast('Error: ' + error.message, 'error'); return; }
+        showToast('Jugador suspendido' + (hours ? ' por ' + hours + ' horas' : ' permanentemente'), 'success');
+        setTimeout(function(){location.reload()},500);
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+async function reactivatePlayer(playerId) {
+    try {
+        var { error } = await window.supabase.from('players').update({ status: 'active', suspended_until: null, suspension_reason: null }).eq('id', playerId);
+        if (error) { showToast('Error: ' + error.message, 'error'); return; }
+        showToast('Jugador reactivado', 'success');
+        setTimeout(function(){location.reload()},500);
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
 
 // Ban / suspension helpers (wrappers hacia AHSanctions para compatibilidad)
 function isPlayerBanned(player) {

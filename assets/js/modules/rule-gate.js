@@ -9,14 +9,27 @@
 
     var MODAL_ID = 'ah-rule-gate-modal';
     var STORAGE_KEY_PREFIX = 'ah_rule_consent_';
+    // Sal simple para dificultar la manipulacion casual del consentimiento en localStorage.
+    var CONSENT_SALT = 'AH_RULES_2026';
 
     function getConsentKey(playerId, matchId) {
         return STORAGE_KEY_PREFIX + playerId + '_' + matchId;
     }
 
+    // Hash rapido no criptografico (djb2) para vincular el consentimiento a player+match.
+    function computeConsentHash(playerId, matchId) {
+        var str = CONSENT_SALT + '|' + playerId + '|' + matchId;
+        var hash = 5381;
+        for (var i = 0; i < str.length; i++) {
+            hash = ((hash << 5) + hash) + str.charCodeAt(i);
+            hash |= 0;
+        }
+        return (hash >>> 0).toString(36);
+    }
+
     function hasRuleConsent(playerId, matchId) {
         try {
-            return localStorage.getItem(getConsentKey(playerId, matchId)) === 'accepted';
+            return localStorage.getItem(getConsentKey(playerId, matchId)) === 'accepted:' + computeConsentHash(playerId, matchId);
         } catch(e) {
             return false;
         }
@@ -24,7 +37,7 @@
 
     function setRuleConsent(playerId, matchId) {
         try {
-            localStorage.setItem(getConsentKey(playerId, matchId), 'accepted');
+            localStorage.setItem(getConsentKey(playerId, matchId), 'accepted:' + computeConsentHash(playerId, matchId));
         } catch(e) {}
     }
 
@@ -39,6 +52,32 @@
         var div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    function compareSectionNumber(a, b) {
+        var partsA = String(a.section_number || a.order_index || '0').split('.').map(Number);
+        var partsB = String(b.section_number || b.order_index || '0').split('.').map(Number);
+        var maxLen = Math.max(partsA.length, partsB.length);
+        for (var i = 0; i < maxLen; i++) {
+            var valA = partsA[i] || 0;
+            var valB = partsB[i] || 0;
+            if (valA !== valB) return valA - valB;
+        }
+        return 0;
+    }
+
+    function getUserRoleForRules() {
+        if (typeof window.resolveUserVisibilityRole === 'function') {
+            try { return window.resolveUserVisibilityRole(); } catch(e) {}
+        }
+        return 'public';
+    }
+
+    function canShowSection(section) {
+        if (typeof window.canSeeRuleSection === 'function') {
+            try { return window.canSeeRuleSection(getUserRoleForRules(), section.visibility || 'public'); } catch(e) {}
+        }
+        return (section.visibility || 'public') === 'public';
     }
 
     function renderSection(section, level) {
@@ -60,7 +99,9 @@
                 .eq('is_active', true)
                 .order('order_index', { ascending: true });
             if (error) throw error;
-            return data || [];
+            var sections = (data || []).filter(canShowSection);
+            sections.sort(compareSectionNumber);
+            return sections;
         } catch(e) {
             console.error('[AHRuleGate] Error cargando reglamento:', e);
             return [];
@@ -131,8 +172,10 @@
             var sectionsById = {};
             sections.forEach(function(s) { sectionsById[s.id] = s; });
             var rootSections = sections.filter(function(s) { return !s.parent_id || !sectionsById[s.parent_id]; });
+            rootSections.sort(compareSectionNumber);
             content.innerHTML = rootSections.map(function(s) {
                 var children = sections.filter(function(c) { return c.parent_id === s.id; });
+                children.sort(compareSectionNumber);
                 return renderSection(s, 0) + children.map(function(c) { return renderSection(c, 1); }).join('');
             }).join('');
         }
