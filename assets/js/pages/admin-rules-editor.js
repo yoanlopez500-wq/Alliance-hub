@@ -468,38 +468,73 @@ function renderHistoryDiff(index) {
 }
 
 function diffVersions(oldText, newText) {
-    var oldLines = String(oldText || '').split('\n');
-    var newLines = String(newText || '').split('\n');
-    var html = '';
+    var oldStr = String(oldText || '');
+    var newStr = String(newText || '');
 
-    // Diff simple: mostrar lineas eliminadas y anadidas
-    var removed = [];
-    var added = [];
-
-    for (var i = 0; i < oldLines.length; i++) {
-        var line = oldLines[i];
-        if (newLines.indexOf(line) === -1) removed.push(line);
-    }
-    for (var j = 0; j < newLines.length; j++) {
-        var line = newLines[j];
-        if (oldLines.indexOf(line) === -1) added.push(line);
-    }
-
-    if (removed.length === 0 && added.length === 0) {
+    if (oldStr === newStr) {
         return '<p class="text-sm" style="color:#64748b;">Sin cambios.</p>';
     }
 
-    if (removed.length > 0) {
+    // Tokenizar por palabras/espacios para resaltar cambios parciales de linea.
+    function tokenize(text) {
+        return text.split(/(\s+)/).filter(function(t) { return t.length > 0; });
+    }
+
+    var oldTokens = tokenize(oldStr);
+    var newTokens = tokenize(newStr);
+    var removed = [];
+    var added = [];
+
+    for (var i = 0; i < oldTokens.length; i++) {
+        if (newTokens.indexOf(oldTokens[i]) === -1) removed.push(oldTokens[i]);
+    }
+    for (var j = 0; j < newTokens.length; j++) {
+        if (oldTokens.indexOf(newTokens[j]) === -1) added.push(newTokens[j]);
+    }
+
+    var html = '';
+
+    // Diff por lineas (sin repetir las que solo cambiaron parcialmente)
+    var oldLines = oldStr.split('\n');
+    var newLines = newStr.split('\n');
+    var removedLines = [];
+    var addedLines = [];
+    for (var a = 0; a < oldLines.length; a++) {
+        if (newLines.indexOf(oldLines[a]) === -1) removedLines.push(oldLines[a]);
+    }
+    for (var b = 0; b < newLines.length; b++) {
+        if (oldLines.indexOf(newLines[b]) === -1) addedLines.push(newLines[b]);
+    }
+
+    if (removedLines.length > 0) {
         html += '<p class="text-xs font-bold mb-1" style="color:#ef5350;">Eliminado:</p>';
-        for (var r = 0; r < removed.length; r++) {
-            html += '<div class="text-sm px-2 py-0.5 mb-0.5 rounded" style="background:rgba(198,40,40,0.1);color:#c62828;">- ' + escapeHtml(removed[r]) + '</div>';
+        for (var r = 0; r < removedLines.length; r++) {
+            var line = removedLines[r];
+            var highlighted = escapeHtml(line).split(/\b/).map(function(word) {
+                if (!word.trim()) return word;
+                return removed.indexOf(word) !== -1 && added.indexOf(word) === -1
+                    ? '<span style="background:rgba(198,40,40,0.25);text-decoration:line-through;">' + escapeHtml(word) + '</span>'
+                    : escapeHtml(word);
+            }).join('');
+            html += '<div class="text-sm px-2 py-0.5 mb-0.5 rounded" style="background:rgba(198,40,40,0.1);color:#c62828;">- ' + highlighted + '</div>';
         }
     }
-    if (added.length > 0) {
+    if (addedLines.length > 0) {
         html += '<p class="text-xs font-bold mb-1 mt-2" style="color:#4caf50;">Anadido:</p>';
-        for (var a = 0; a < added.length; a++) {
-            html += '<div class="text-sm px-2 py-0.5 mb-0.5 rounded" style="background:rgba(76,175,80,0.1);color:#2e7d32;">+ ' + escapeHtml(added[a]) + '</div>';
+        for (var c = 0; c < addedLines.length; c++) {
+            var line2 = addedLines[c];
+            var highlighted2 = escapeHtml(line2).split(/\b/).map(function(word) {
+                if (!word.trim()) return word;
+                return added.indexOf(word) !== -1 && removed.indexOf(word) === -1
+                    ? '<span style="background:rgba(76,175,80,0.25);">' + escapeHtml(word) + '</span>'
+                    : escapeHtml(word);
+            }).join('');
+            html += '<div class="text-sm px-2 py-0.5 mb-0.5 rounded" style="background:rgba(76,175,80,0.1);color:#2e7d32;">+ ' + highlighted2 + '</div>';
         }
+    }
+
+    if (!html) {
+        return '<p class="text-sm" style="color:#64748b;">Sin cambios visibles.</p>';
     }
     return html;
 }

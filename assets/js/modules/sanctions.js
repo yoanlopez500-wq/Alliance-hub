@@ -29,9 +29,10 @@
             return until ? until > now : true;
         }
         if (player.status === 'suspended') {
-            if (!player.suspended_until) return false; // suspensión sin fecha = activa? mantener false por compatibilidad
+            // Suspension sin fecha = activa (bloquea). Si tiene fecha, verificar vigencia.
+            if (!player.suspended_until) return true;
             var until = parseDate(player.suspended_until);
-            return until ? until > now : false;
+            return until ? until > now : true;
         }
         return false;
     }
@@ -68,13 +69,21 @@
                 reason: player.suspension_reason || 'Cuenta baneada'
             };
         }
-        if (player.status === 'suspended' && player.suspended_until) {
-            var until = parseDate(player.suspended_until);
-            if (until && until > new Date()) {
+        if (player.status === 'suspended') {
+            if (!player.suspended_until) {
                 return {
                     isSanctioned: true,
                     type: 'suspended',
-                    remainingText: getRemainingText(player.suspended_until),
+                    remainingText: 'permanente',
+                    reason: player.suspension_reason || 'Cuenta suspendida'
+                };
+            }
+            var until = parseDate(player.suspended_until);
+            if (!until || until > new Date()) {
+                return {
+                    isSanctioned: true,
+                    type: 'suspended',
+                    remainingText: until ? getRemainingText(player.suspended_until) : 'permanente',
                     reason: player.suspension_reason || 'Cuenta suspendida'
                 };
             }
@@ -125,7 +134,13 @@
      * También limpia sanciones expiradas.
      */
     async function assertNoSanction(playerId) {
-        if (!playerId) return { ok: true };
+        if (!playerId) {
+            return {
+                ok: false,
+                message: 'No se pudo identificar al jugador.',
+                summary: null
+            };
+        }
         try {
             await checkAndClearExpiredSanctions(playerId);
             var { data: player, error } = await window.supabase
@@ -135,7 +150,11 @@
                 .single();
             if (error) {
                 console.error('[AHSanctions] Error reading player:', error);
-                return { ok: true }; // fail-open: no bloquear si no podemos leer
+                return {
+                    ok: false,
+                    message: 'No se pudo verificar el estado de la cuenta. Intenta de nuevo.',
+                    summary: null
+                };
             }
             var summary = getSanctionSummary(player);
             if (summary.isSanctioned) {
@@ -148,7 +167,11 @@
             return { ok: true };
         } catch(e) {
             console.error('[AHSanctions] assertNoSanction error:', e);
-            return { ok: true }; // fail-open
+            return {
+                ok: false,
+                message: 'Error de verificacion. Intenta de nuevo.',
+                summary: null
+            };
         }
     }
 

@@ -51,6 +51,21 @@
                 all: '*'
             }
         },
+        ruleSectionHistory: {
+            name: 'rule_section_history',
+            cols: {
+                id: 'id',
+                sectionId: 'section_id',
+                title: 'title',
+                content: 'content',
+                changedBy: 'changed_by',
+                changedAt: 'changed_at'
+            },
+            selectSets: {
+                basic: 'id, section_id, title, content, changed_by, changed_at',
+                all: '*'
+            }
+        },
         playerStrikes: {
             name: 'player_strikes',
             cols: {

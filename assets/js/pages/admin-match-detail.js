@@ -113,7 +113,7 @@ async function changePlayerUid(){
 
 function closeEditRegModal(){document.getElementById('edit-reg-modal').classList.remove('active');currentEditRegId=null;}
 
-async function saveEditRegistration(){if(!currentEditRegId)return;try{var nation=document.getElementById('er-nation').value.trim()||null;var status=document.getElementById('er-status').value;var notes=document.getElementById('er-notes').value.trim()||null;var username=document.getElementById('er-username').value.trim()||null;var reg=cachedRegistrations.find(function(x){return x.id===currentEditRegId;});if(status==='confirmed'&&reg&&window.AHSanctions){var s=window.AHSanctions.getSanctionSummary(reg.player_data||reg.players);if(s.isSanctioned){if(!confirm('ADVERTENCIA: este jugador esta '+s.type+'. '+s.reason+'\nRestante: '+s.remainingText+'\n\nAun asi quieres confirmarlo?'))return;}}var{error}=await window.supabase.from('match_registrations').update({nation:nation,status:status,notes:notes}).eq('id',currentEditRegId);if(error)throw error;if(reg&&username){var currentUsername=(reg.player_data&&reg.player_data.current_username)||(reg.players&&reg.players.current_username)||null;if(currentUsername===null){var{data:pl}=await window.supabase.from('players').select('current_username').eq('id',reg.player_id).maybeSingle();currentUsername=pl?pl.current_username:null;}if(username!==currentUsername){await window.supabase.from('players').update({current_username:username}).eq('id',reg.player_id);}}window.showToast('Registro actualizado','success');closeEditRegModal();loadRegistrations();}catch(e){window.showToast('Error: '+e.message,'error');}}
+async function saveEditRegistration(){if(!currentEditRegId)return;try{var nation=document.getElementById('er-nation').value.trim()||null;var status=document.getElementById('er-status').value;var notes=document.getElementById('er-notes').value.trim()||null;var username=document.getElementById('er-username').value.trim()||null;var reg=cachedRegistrations.find(function(x){return x.id===currentEditRegId;});if((status==='confirmed'||status==='approved')&&reg&&window.AHSanctions){var s=window.AHSanctions.getSanctionSummary(reg.player_data||reg.players);if(s.isSanctioned){if(!confirm('ADVERTENCIA: este jugador esta '+s.type+'. '+s.reason+'\nRestante: '+s.remainingText+'\n\nAun asi quieres confirmarlo?'))return;}}var{error}=await window.supabase.from('match_registrations').update({nation:nation,status:status,notes:notes}).eq('id',currentEditRegId);if(error)throw error;if(reg&&username){var currentUsername=(reg.player_data&&reg.player_data.current_username)||(reg.players&&reg.players.current_username)||null;if(currentUsername===null){var{data:pl}=await window.supabase.from('players').select('current_username').eq('id',reg.player_id).maybeSingle();currentUsername=pl?pl.current_username:null;}if(username!==currentUsername){await window.supabase.from('players').update({current_username:username}).eq('id',reg.player_id);}}window.showToast('Registro actualizado','success');closeEditRegModal();loadRegistrations();}catch(e){window.showToast('Error: '+e.message,'error');}}
 
 async function deleteRegistration(registrationId){if(!confirm('Eliminar este registro de la partida? El jugador podra volver a registrarse.'))return;try{var{error}=await window.supabase.from('match_registrations').delete().eq('id',registrationId);if(error)throw error;window.showToast('Registro eliminado','success');loadRegistrations();}catch(e){window.showToast('Error: '+e.message,'error');}}
 
@@ -142,9 +142,19 @@ async function saveAddRegistration(){
         var{data:existingReg,error:regErr}=await window.supabase.from('match_registrations').select('id').eq('match_id',matchId).eq('player_id',pid).maybeSingle();
         if(regErr)throw regErr;
         if(existingReg){window.showToast('El jugador '+pid+' ya esta registrado en esta partida','warning');return;}
+        // Verificar sanciones activas antes de añadir
+        if(window.AHSanctions){
+            var{data:existingPlayer,error:pErr}=await window.supabase.from('players').select('status,banned_until,suspended_until,suspension_reason').eq('id',pid).maybeSingle();
+            if(pErr)throw pErr;
+            var s=window.AHSanctions.getSanctionSummary(existingPlayer||{});
+            if(s.isSanctioned){
+                if(!confirm('ADVERTENCIA: el jugador '+pid+' esta '+s.type+'. '+s.reason+'\nRestante: '+s.remainingText+'\n\nAun asi quieres añadirlo a la partida?'))return;
+            }
+        }
+
         // Crear la ficha del jugador si no existe (si existe, NO se toca su username)
-        var{data:existingPlayer,error:pErr}=await window.supabase.from('players').select('id').eq('id',pid).maybeSingle();
-        if(pErr)throw pErr;
+        var{data:existingPlayer,error:pErr2}=await window.supabase.from('players').select('id').eq('id',pid).maybeSingle();
+        if(pErr2)throw pErr2;
         if(!existingPlayer){
             var insP=await window.supabase.from('players').insert({id:pid,current_username:username||('Jugador '+pid),status:'active'});
             if(insP.error&&insP.error.code!=='23505')throw insP.error; // 23505 = duplicado por condicion de carrera
