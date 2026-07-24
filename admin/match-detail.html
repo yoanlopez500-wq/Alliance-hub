@@ -69,7 +69,10 @@ AHLoader.init({
 <button onclick="copyShareLink()" class="px-3 py-2 rounded-lg font-bold text-xs hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[32px]">Copiar</button>
 </div></div></div>
 <div id="registrations-section" class="mb-6">
-<h2 class="text-xl font-bold mb-3">&#128100; Registrados (<span id="reg-count">0</span>)</h2>
+<div class="flex items-center justify-between mb-3">
+<h2 class="text-xl font-bold">&#128100; Registrados (<span id="reg-count">0</span>)</h2>
+<button onclick="openAddRegModal()" class="text-xs font-bold hover:opacity-80 transition text-amber-400 min-h-[32px]">&#10133; A&ntilde;adir jugador</button>
+</div>
 <div id="registrations-list" class="rounded-xl overflow-x-auto bg-slate-900 border border-indigo-900"><div class="text-center py-4 text-sm text-slate-400">Cargando...</div></div>
 </div>
 <div id="results-section" class="mb-6">
@@ -188,6 +191,13 @@ AHLoader.init({
 </div>
 <div class="p-5 space-y-4">
 <div><label class="block text-xs font-medium mb-1 text-slate-400">ID de Jugador</label><input type="text" id="er-player-id" readonly class="w-full px-3 py-2 rounded-lg border text-sm text-slate-500 bg-slate-900 border-indigo-900"></div>
+<!-- Cambio de UID: solo visible para superadmin (se rellena dinamicamente al abrir el modal) -->
+<div id="er-uid-change" class="hidden rounded-lg p-3 bg-slate-950 border border-amber-500/30 space-y-2">
+<p class="text-[11px] font-bold text-amber-400">&#9888; Cambiar UID (solo superadmin). Se propaga a toda la base de datos.</p>
+<div class="flex gap-2">
+<input type="number" id="er-new-uid" min="1" class="flex-1 px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Nuevo UID">
+<button onclick="changePlayerUid()" class="px-3 py-2 rounded-lg font-bold text-sm hover:opacity-80 transition bg-amber-500/20 text-amber-400 border border-amber-500/30 min-h-[44px]">Cambiar UID</button>
+</div></div>
 <div><label class="block text-xs font-medium mb-1 text-slate-400">Nombre de Usuario</label><input type="text" id="er-username" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></div>
 <div><label class="block text-xs font-medium mb-1 text-slate-400">Nacion</label><input type="text" id="er-nation" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Ej: USA"></div>
 <div><label class="block text-xs font-medium mb-1 text-slate-400">Estado</label><select id="er-status" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="pending">Pendiente</option><option value="confirmed">Confirmado</option><option value="rejected">Rechazado</option></select></div>
@@ -196,6 +206,23 @@ AHLoader.init({
 <div class="flex gap-3 pt-2">
 <button onclick="saveEditRegistration()" class="flex-1 font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#10003; Guardar</button>
 <button onclick="closeEditRegModal()" class="px-4 py-2.5 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
+</div></div></div></div>
+
+<!-- Add Registration Modal -->
+<div id="add-reg-modal" class="modal">
+<div class="rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto bg-slate-900 border border-indigo-900">
+<div class="p-5 border-b flex items-center justify-between rounded-t-2xl bg-gradient-to-br from-blue-700 to-blue-900 border-indigo-900">
+<h2 class="text-lg font-bold text-white">&#10133; A&ntilde;adir Jugador a la Partida</h2>
+<button onclick="closeAddRegModal()" class="text-white hover:opacity-70 text-xl">&#10005;</button>
+</div>
+<div class="p-5 space-y-4">
+<div><label class="block text-xs font-medium mb-1 text-slate-400">ID de Jugador *</label><input type="number" id="ar-player-id" min="1" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="UID del jugador"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Nombre de Usuario</label><input type="text" id="ar-username" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Opcional (solo si se crea la ficha)"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Nacion</label><input type="text" id="ar-nation" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Ej: USA"></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Estado</label><select id="ar-status" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="confirmed" selected>Confirmado</option><option value="pending">Pendiente</option></select></div>
+<div class="flex gap-3 pt-2">
+<button onclick="saveAddRegistration()" class="flex-1 font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#10003; Guardar</button>
+<button onclick="closeAddRegModal()" class="px-4 py-2.5 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
 </div></div></div></div>
 
 <!-- Winners Modal -->

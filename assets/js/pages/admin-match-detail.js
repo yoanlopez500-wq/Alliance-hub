@@ -9,7 +9,7 @@ var currentEditRegId=null;
 var currentAdminRole=null;
 var currentEditResultId=null;
 
-async function loadMatch(){if(action==='new'){showCreateForm();return;}if(!matchId){document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">No se especifico ID</div>';return;}try{var{data:m,error}=await window.supabase.from('matches').select('*').eq('id',matchId).single();if(error||!m){document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">Partida no encontrada</div>';return;}currentMatch=m;var alliance=null;if(m.alliance_id){var{data:a}=await window.supabase.from('alliances').select('name,tag').eq('id',m.alliance_id).single();alliance=a;}var alLabel=alliance?' ['+alliance.tag+']':'';var shareUrl=window.location.origin+'/aliance-hub/game.html?id='+matchId;document.getElementById('match-header').innerHTML='<div class="rounded-xl p-5 bg-slate-900 border border-indigo-900"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3"><div><h1 class="text-2xl font-bold text-slate-100">&#127918; '+(m.name||'Partida')+alLabel+'</h1><div class="flex gap-2 mt-1 flex-wrap">'+window.getStatusBadge(m.status)+' '+window.getTypeBadge(m.match_type||m.type)+' '+(m.csv_imported?'<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-500/15 text-green-500">&#10003; CSV</span>':'')+'</div></div><a href="matches.html" class="px-3 py-1.5 rounded-lg font-bold text-sm self-start bg-indigo-900 text-slate-100">&larr; Volver</a></div><div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm"><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">ID Juego</p><p class="font-bold">'+(m.game_id||'-')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Max</p><p class="font-bold">'+(m.max_players||'-')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Creada</p><p class="font-bold">'+window.formatDate(m.created_at)+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Alianza</p><p class="font-bold">'+(alliance?alliance.name:'Ninguna')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Password</p><p class="font-bold">'+(m.password||'-')+'</p></div></div>'+(m.description?'<div class="mt-3 p-3 rounded-lg text-sm bg-slate-950 text-slate-400">'+m.description+'</div>':'')+'</div>';document.getElementById('share-section').classList.remove('hidden');document.getElementById('share-link').value=shareUrl;document.getElementById('admin-actions-section').classList.remove('hidden');await Promise.all([loadRegistrations(),loadResults()]);initAdminRole();}catch(e){console.error(e);document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">Error: '+e.message+'</div>';}}
+async function loadMatch(){if(action==='new'){showCreateForm();return;}if(!matchId){document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">No se especifico ID</div>';return;}try{var{data:m,error}=await window.supabase.from('matches').select('*').eq('id',matchId).single();if(error||!m){document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">Partida no encontrada</div>';return;}currentMatch=m;var alliance=null;if(m.alliance_id){var{data:a}=await window.supabase.from('alliances').select('name,tag').eq('id',m.alliance_id).single();alliance=a;}var alLabel=alliance?' ['+alliance.tag+']':'';var shareUrl=window.location.origin+'/aliance-hub/game.html?id='+matchId;document.getElementById('match-header').innerHTML='<div class="rounded-xl p-5 bg-slate-900 border border-indigo-900"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3"><div><h1 class="text-2xl font-bold text-slate-100">&#127918; '+(m.name||'Partida')+alLabel+'</h1><div class="flex gap-2 mt-1 flex-wrap">'+window.getStatusBadge(m.status)+' '+window.getTypeBadge(m.match_type||m.type)+' '+(m.csv_imported?'<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-500/15 text-green-500">&#10003; CSV</span>':'')+'</div></div><a href="matches.html" class="px-3 py-1.5 rounded-lg font-bold text-sm self-start bg-indigo-900 text-slate-100">&larr; Volver</a></div><div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm"><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">ID Juego</p><p class="font-bold">'+(m.game_id||'-')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Max</p><p class="font-bold">'+(m.max_players||'-')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Creada</p><p class="font-bold">'+window.formatDate(m.created_at)+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Alianza</p><p class="font-bold">'+(alliance?alliance.name:'Ninguna')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Password</p><p class="font-bold">'+(m.password||'-')+'</p></div></div>'+(m.description?'<div class="mt-3 p-3 rounded-lg text-sm bg-slate-950 text-slate-400">'+m.description+'</div>':'')+'</div>';document.getElementById('share-section').classList.remove('hidden');document.getElementById('share-link').value=shareUrl;document.getElementById('admin-actions-section').classList.remove('hidden');await initAdminRole();await Promise.all([loadRegistrations(),loadResults()]);}catch(e){console.error(e);document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">Error: '+e.message+'</div>';}}
 
 async function initAdminRole(){
     try{
@@ -20,6 +20,46 @@ async function initAdminRole(){
 function isSuperadmin(){return currentAdminRole==='superadmin';}
 function isAdmin(){return currentAdminRole==='superadmin'||currentAdminRole==='event_admin'||currentAdminRole==='moderator';}
 function canEditResults(){return isAdmin();}
+
+// Auto-registro defensivo tras importar resultados: crea match_registrations
+// SOLO para los jugadores que aun no tienen registro en la partida.
+// NUNCA actualiza registros existentes (no pisa 'rejected' ni notas).
+// Si falla no aborta la importacion; devuelve {inserted, failed} para el toast.
+async function ensureRegistrations(matchIdParam,players){
+    var result={inserted:0,failed:0};
+    try{
+        if(!matchIdParam||!players||players.length===0)return result;
+        // IDs unicos y validos
+        var seen={};
+        var rows=[];
+        players.forEach(function(p){
+            var pid=parseInt(p.player_id,10);
+            if(!pid||pid<=0||seen[pid])return;
+            seen[pid]=true;
+            rows.push({match_id:matchIdParam,player_id:pid,nation:p.nation||null,status:'confirmed'});
+        });
+        if(rows.length===0)return result;
+        var ids=rows.map(function(r){return r.player_id;});
+        // 1) Consultar registros existentes (en bloques de 100)
+        var existing={};
+        for(var off=0;off<ids.length;off+=100){
+            var q=await window.supabase.from('match_registrations').select('player_id').eq('match_id',matchIdParam).in('player_id',ids.slice(off,off+100));
+            if(q.error)throw q.error;
+            (q.data||[]).forEach(function(r){existing[String(r.player_id)]=true;});
+        }
+        // 2) Insertar SOLO los faltantes (en bloques de 100)
+        var toInsert=rows.filter(function(r){return !existing[String(r.player_id)];});
+        for(var i=0;i<toInsert.length;i+=100){
+            var ins=await window.supabase.from('match_registrations').insert(toInsert.slice(i,i+100));
+            if(ins.error)throw ins.error;
+            result.inserted+=Math.min(100,toInsert.length-i);
+        }
+    }catch(e){
+        console.warn('[ensureRegistrations]',e);
+        result.failed=1;
+    }
+    return result;
+}
 
 function showCreateForm(){document.getElementById('match-header').classList.add('hidden');document.getElementById('admin-actions-section').classList.add('hidden');document.getElementById('share-section').classList.add('hidden');document.getElementById('registrations-section').classList.add('hidden');document.getElementById('results-section').classList.add('hidden');document.getElementById('create-match-section').classList.remove('hidden');loadAllianceSelect('cm-alliance',null);}
 
@@ -41,15 +81,86 @@ function getSanctionBadgeAndText(player){
 
 async function loadRegistrations(){try{var{data:regs,error}=await window.supabase.from('match_registrations').select('*').eq('match_id',matchId).order('registered_at',{ascending:false});if(error)throw error;var r=regs||[];cachedRegistrations=r;document.getElementById('reg-count').textContent=r.length;if(r.length===0){document.getElementById('registrations-list').innerHTML='<div class="text-center py-6 text-sm text-slate-400">Sin registrados</div>';return;}var playerIds=r.map(function(x){return x.player_id;}).filter(function(v,i,a){return a.indexOf(v)===i;});var{data:players}=await window.supabase.from('players').select('id,current_username,status,banned_until,suspended_until,suspension_reason').in('id',playerIds);var pm={};(players||[]).forEach(function(p){pm[p.id]=p;});r.forEach(function(x){x.player_data=pm[x.player_id]||{};});var{data:matchResults}=await window.supabase.from('match_results').select('player_id,kills,deaths').eq('match_id',matchId);var rm={};(matchResults||[]).forEach(function(mr){rm[mr.player_id]={kills:mr.kills||0,deaths:mr.deaths||0};});var html='<table class="w-full text-sm min-w-full"><thead><tr class="bg-slate-950"><th class="text-left p-2 text-slate-400 text-[11px]">ID</th><th class="text-left p-2 text-slate-400">Jugador</th><th class="text-right p-2 text-slate-400">Kills</th><th class="text-right p-2 text-slate-400">Deaths</th><th class="text-left p-2 text-slate-400">Nacion</th><th class="text-left p-2 text-slate-400">Estado</th><th class="text-center p-2 text-slate-400">Acciones</th></tr></thead><tbody>'+r.map(function(x){var p=pm[x.player_id]||{};var mr=rm[x.player_id]||{kills:0,deaths:0};return'<tr class="border-b border-indigo-900"><td class="p-2 font-mono text-xs text-slate-500">'+x.player_id+'</td><td class="p-2 font-medium">'+(p.current_username||'Jugador '+x.player_id)+(function(){var s=getSanctionBadgeAndText(p);return s.badge;})()+'</td><td class="p-2 text-right">'+mr.kills+'</td><td class="p-2 text-right">'+mr.deaths+'</td><td class="p-2 text-sm text-slate-400">'+(x.nation||'-')+'</td><td class="p-2">'+window.getStatusBadge(x.status)+'</td><td class="p-2 text-center"><button onclick="editRegistration(\''+x.id+'\')" class="text-xs px-1 py-0.5 rounded mr-1 bg-blue-500/15 text-blue-500" title="Editar">&#9998;</button><button onclick="deleteRegistration(\''+x.id+'\')" class="text-xs px-1 py-0.5 rounded mr-1 bg-red-500/15 text-red-400" title="Eliminar">&#128465;</button><button onclick="strikeFromRegistration('+x.player_id+')" class="text-xs px-1 py-0.5 rounded bg-amber-500/15 text-amber-400" title="Sancionar">&#9889;</button></td></tr>';}).join('')+'</tbody></table>';document.getElementById('registrations-list').innerHTML=html;}catch(e){document.getElementById('registrations-list').innerHTML='<div class="text-center py-4 text-red-400 text-sm">Error: '+e.message+'</div>';}}
 
-async function editRegistration(registrationId){try{var reg=cachedRegistrations.find(function(x){return x.id===registrationId;});if(!reg){var{data,error}=await window.supabase.from('match_registrations').select('*,players:player_id(current_username,status,banned_until,suspended_until,suspension_reason)').eq('id',registrationId).single();if(error)throw error;reg=data;}var playerData=reg.players||reg.player_data||{};var playerName=playerData.current_username?playerData.current_username:(reg.player_id?'Jugador '+reg.player_id:'');reg.player_data=playerData;currentEditRegId=registrationId;document.getElementById('er-player-id').value=reg.player_id||'';document.getElementById('er-username').value=playerName;document.getElementById('er-nation').value=reg.nation||'';document.getElementById('er-status').value=reg.status||'pending';document.getElementById('er-notes').value=reg.notes||'';var warn=document.getElementById('er-sanction-warning');if(warn&&window.AHSanctions){var s=window.AHSanctions.getSanctionSummary(playerData);if(s.isSanctioned){warn.textContent='ADVERTENCIA: '+s.reason+' · Restante: '+s.remainingText;warn.classList.remove('hidden');}else{warn.classList.add('hidden');}}document.getElementById('edit-reg-modal').classList.add('active');}catch(e){window.showToast('Error: '+e.message,'error');}}
+async function editRegistration(registrationId){try{var reg=cachedRegistrations.find(function(x){return x.id===registrationId;});if(!reg){var{data,error}=await window.supabase.from('match_registrations').select('*,players:player_id(current_username,status,banned_until,suspended_until,suspension_reason)').eq('id',registrationId).single();if(error)throw error;reg=data;}var playerData=reg.players||reg.player_data||{};var playerName=playerData.current_username?playerData.current_username:(reg.player_id?'Jugador '+reg.player_id:'');reg.player_data=playerData;currentEditRegId=registrationId;document.getElementById('er-player-id').value=reg.player_id||'';document.getElementById('er-username').value=playerName;document.getElementById('er-nation').value=reg.nation||'';document.getElementById('er-status').value=reg.status||'pending';document.getElementById('er-notes').value=reg.notes||'';var warn=document.getElementById('er-sanction-warning');if(warn&&window.AHSanctions){var s=window.AHSanctions.getSanctionSummary(playerData);if(s.isSanctioned){warn.textContent='ADVERTENCIA: '+s.reason+' · Restante: '+s.remainingText;warn.classList.remove('hidden');}else{warn.classList.add('hidden');}}var uidBlock=document.getElementById('er-uid-change');if(uidBlock){document.getElementById('er-new-uid').value='';if(isSuperadmin()){uidBlock.classList.remove('hidden');}else{uidBlock.classList.add('hidden');}}document.getElementById('edit-reg-modal').classList.add('active');}catch(e){window.showToast('Error: '+e.message,'error');}}
+
+// Cambio de UID del jugador (solo superadmin). La migracion CASCADE de las FK
+// propaga el nuevo id a toda la base de datos; si la migracion no esta aplicada
+// el UPDATE falla por FK y se muestra un error claro sin tocar nada mas.
+async function changePlayerUid(){
+    if(!isSuperadmin()){window.showToast('Solo el superadmin puede cambiar el UID','error');return;}
+    try{
+        var oldId=parseInt(document.getElementById('er-player-id').value,10);
+        var newId=parseInt(document.getElementById('er-new-uid').value,10);
+        if(!newId||newId<=0){window.showToast('Introduce un UID nuevo numerico positivo','warning');return;}
+        if(!oldId||newId===oldId){window.showToast('El nuevo UID debe ser distinto del actual','warning');return;}
+        var{data:exists,error:exErr}=await window.supabase.from('players').select('id').eq('id',newId).maybeSingle();
+        if(exErr)throw exErr;
+        if(exists){window.showToast('El UID '+newId+' ya existe en el sistema','error');return;}
+        if(!confirm('Cambiar el UID del jugador '+oldId+' a '+newId+'?\n\nEsto cambiara el UID en TODA la base de datos (registros, resultados, strikes, etc.).\n\nContinuar?'))return;
+        var{error:upErr}=await window.supabase.from('players').update({id:newId}).eq('id',oldId);
+        if(upErr){
+            // Probable falta de ON UPDATE CASCADE en las FK (migracion pendiente)
+            window.showToast('Error al cambiar el UID: '+upErr.message+' (verifica que la migracion CASCADE de las FK este aplicada)','error');
+            return;
+        }
+        window.showToast('UID cambiado de '+oldId+' a '+newId,'success');
+        document.getElementById('er-player-id').value=newId;
+        closeEditRegModal();
+        loadRegistrations();
+        loadResults();
+    }catch(e){window.showToast('Error: '+e.message,'error');}
+}
 
 function closeEditRegModal(){document.getElementById('edit-reg-modal').classList.remove('active');currentEditRegId=null;}
 
-async function saveEditRegistration(){if(!currentEditRegId)return;try{var nation=document.getElementById('er-nation').value.trim()||null;var status=document.getElementById('er-status').value;var notes=document.getElementById('er-notes').value.trim()||null;var username=document.getElementById('er-username').value.trim()||null;var reg=cachedRegistrations.find(function(x){return x.id===currentEditRegId;});if(status==='confirmed'&&reg&&window.AHSanctions){var s=window.AHSanctions.getSanctionSummary(reg.player_data||reg.players);if(s.isSanctioned){if(!confirm('ADVERTENCIA: este jugador esta '+s.type+'. '+s.reason+'\nRestante: '+s.remainingText+'\n\nAun asi quieres confirmarlo?'))return;}}var{error}=await window.supabase.from('match_registrations').update({nation:nation,status:status,notes:notes}).eq('id',currentEditRegId);if(error)throw error;if(reg&&username&&username!==reg.player_id){await window.supabase.from('players').update({current_username:username}).eq('id',reg.player_id);}window.showToast('Registro actualizado','success');closeEditRegModal();loadRegistrations();}catch(e){window.showToast('Error: '+e.message,'error');}}
+async function saveEditRegistration(){if(!currentEditRegId)return;try{var nation=document.getElementById('er-nation').value.trim()||null;var status=document.getElementById('er-status').value;var notes=document.getElementById('er-notes').value.trim()||null;var username=document.getElementById('er-username').value.trim()||null;var reg=cachedRegistrations.find(function(x){return x.id===currentEditRegId;});if(status==='confirmed'&&reg&&window.AHSanctions){var s=window.AHSanctions.getSanctionSummary(reg.player_data||reg.players);if(s.isSanctioned){if(!confirm('ADVERTENCIA: este jugador esta '+s.type+'. '+s.reason+'\nRestante: '+s.remainingText+'\n\nAun asi quieres confirmarlo?'))return;}}var{error}=await window.supabase.from('match_registrations').update({nation:nation,status:status,notes:notes}).eq('id',currentEditRegId);if(error)throw error;if(reg&&username){var currentUsername=(reg.player_data&&reg.player_data.current_username)||(reg.players&&reg.players.current_username)||null;if(currentUsername===null){var{data:pl}=await window.supabase.from('players').select('current_username').eq('id',reg.player_id).maybeSingle();currentUsername=pl?pl.current_username:null;}if(username!==currentUsername){await window.supabase.from('players').update({current_username:username}).eq('id',reg.player_id);}}window.showToast('Registro actualizado','success');closeEditRegModal();loadRegistrations();}catch(e){window.showToast('Error: '+e.message,'error');}}
 
 async function deleteRegistration(registrationId){if(!confirm('Eliminar este registro de la partida? El jugador podra volver a registrarse.'))return;try{var{error}=await window.supabase.from('match_registrations').delete().eq('id',registrationId);if(error)throw error;window.showToast('Registro eliminado','success');loadRegistrations();}catch(e){window.showToast('Error: '+e.message,'error');}}
 
 function strikeFromRegistration(playerId){if(!confirm('Redirigir al panel de strikes para sancionar al jugador '+playerId+'?'))return;window.open('strikes.html?prefill_player='+playerId+(matchId?'&prefill_match='+matchId:''),'_blank');}
+
+// ===================== ANADIR JUGADOR A LA PARTIDA (2B) =====================
+function openAddRegModal(){
+    if(!matchId){window.showToast('No hay partida seleccionada','warning');return;}
+    document.getElementById('ar-player-id').value='';
+    document.getElementById('ar-username').value='';
+    document.getElementById('ar-nation').value='';
+    document.getElementById('ar-status').value='confirmed';
+    document.getElementById('add-reg-modal').classList.add('active');
+}
+function closeAddRegModal(){document.getElementById('add-reg-modal').classList.remove('active');}
+
+async function saveAddRegistration(){
+    if(!matchId){window.showToast('No hay partida seleccionada','error');return;}
+    try{
+        var pid=parseInt(document.getElementById('ar-player-id').value,10);
+        var username=document.getElementById('ar-username').value.trim();
+        var nation=document.getElementById('ar-nation').value.trim()||null;
+        var status=document.getElementById('ar-status').value||'confirmed';
+        if(!pid||pid<=0){window.showToast('Introduce un ID de jugador numerico positivo','warning');return;}
+        // Comprobar si ya esta registrado en la partida (evitar duplicados)
+        var{data:existingReg,error:regErr}=await window.supabase.from('match_registrations').select('id').eq('match_id',matchId).eq('player_id',pid).maybeSingle();
+        if(regErr)throw regErr;
+        if(existingReg){window.showToast('El jugador '+pid+' ya esta registrado en esta partida','warning');return;}
+        // Crear la ficha del jugador si no existe (si existe, NO se toca su username)
+        var{data:existingPlayer,error:pErr}=await window.supabase.from('players').select('id').eq('id',pid).maybeSingle();
+        if(pErr)throw pErr;
+        if(!existingPlayer){
+            var insP=await window.supabase.from('players').insert({id:pid,current_username:username||('Jugador '+pid),status:'active'});
+            if(insP.error&&insP.error.code!=='23505')throw insP.error; // 23505 = duplicado por condicion de carrera
+        }
+        // Insertar el registro en la partida
+        var insR=await window.supabase.from('match_registrations').insert({match_id:matchId,player_id:pid,nation:nation,status:status});
+        if(insR.error){
+            if(insR.error.code==='23505'){window.showToast('El jugador '+pid+' ya esta registrado en esta partida','warning');return;}
+            throw insR.error;
+        }
+        window.showToast('Jugador '+pid+' anadido a la partida','success');
+        closeAddRegModal();
+        loadRegistrations();
+        loadResults();
+    }catch(e){window.showToast('Error: '+e.message,'error');}
+}
 
 async function loadPlayersForResultDropdown(){try{var select=document.getElementById('mr-player-select');if(!cachedRegistrations||cachedRegistrations.length===0){select.innerHTML='<option value="">-- No hay registrados --</option>';return;}var playerIds=cachedRegistrations.map(function(x){return x.player_id;}).filter(function(v,i,a){return a.indexOf(v)===i;});var{data:players}=await window.supabase.from('players').select('id,current_username,status,banned_until,suspended_until,suspension_reason').in('id',playerIds);var pm={};(players||[]).forEach(function(p){pm[p.id]=p;});var html='<option value="">-- Seleccionar de registrados --</option>';cachedRegistrations.forEach(function(r){var name=pm[r.player_id]?pm[r.player_id].current_username:'Jugador '+r.player_id;html+='<option value="'+r.player_id+'">'+name+' (ID: '+r.player_id+')</option>';});select.innerHTML=html;}catch(e){console.error('[ResultDropdown]',e);}}
 
@@ -118,7 +229,7 @@ function handleFile(f){if(!f||!f.name.endsWith('.csv')){window.showToast('Solo C
 function parseCSV(text){var lines=text.split('\n').filter(function(l){return l.trim();});var preview=document.getElementById('csv-preview');preview.classList.remove('hidden');var html='<table class="w-full text-sm"><thead><tr class="bg-slate-950"><th class="p-2">Player ID</th><th class="p-2 text-right">Kills</th><th class="p-2 text-right">Deaths</th></tr></thead><tbody>';csvData=[];for(var i=1;i<lines.length;i++){var c=lines[i].split(',');if(c.length>=3){var pid=parseInt(c[0].trim());var kills=parseInt(c[1].trim())||0;var deaths=parseInt(c[2].trim())||0;if(pid){csvData.push({player_id:pid,kills:kills,deaths:deaths});html+='<tr class="border-b border-indigo-900"><td class="p-2">'+pid+'</td><td class="p-2 text-right text-green-500">'+kills+'</td><td class="p-2 text-right text-red-400">'+deaths+'</td></tr>';}}}html+='</tbody></table>';document.getElementById('csv-preview').innerHTML=html;}
 async function importCSVResults(){if(!matchId||!csvData||csvData.length===0)return;try{for(var i=0;i<csvData.length;i++){var r=csvData[i];var kd=r.deaths>0?(r.kills/r.deaths):r.kills;await window.supabase.from('match_results').upsert({match_id:matchId,player_id:r.player_id,kills:r.kills,deaths:r.deaths,kd_ratio:parseFloat(kd.toFixed(2))},{onConflict:'match_id,player_id'});}await window.supabase.from('matches').update({csv_imported:true}).eq('id',matchId);window.showToast(csvData.length+' resultados importados','success');document.getElementById('csv-preview').classList.add('hidden');loadResults();loadMatch();}catch(e){window.showToast('Error: '+e.message,'error');}}
 function handleCSVUpload(input){var f=input.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){parseCSV(e.target.result);};r.readAsText(f);}
-async function confirmCSVImport(){if(!csvData||!matchId)return;try{for(var i=0;i<csvData.length;i++){var r=csvData[i];var kd=r.deaths>0?(r.kills/r.deaths):r.kills;await window.supabase.from('match_results').upsert({match_id:matchId,player_id:r.player_id,kills:r.kills,deaths:r.deaths,kd_ratio:parseFloat(kd.toFixed(2))},{onConflict:'match_id,player_id'});}await window.supabase.from('matches').update({csv_imported:true}).eq('id',matchId);window.showToast('CSV importado: '+csvData.length+' jugadores','success');closeCSVModal();loadResults();loadMatch();}catch(e){window.showToast('Error: '+e.message,'error');}}
+async function confirmCSVImport(){if(!csvData||!matchId)return;try{for(var i=0;i<csvData.length;i++){var r=csvData[i];var kd=r.deaths>0?(r.kills/r.deaths):r.kills;await window.supabase.from('match_results').upsert({match_id:matchId,player_id:r.player_id,kills:r.kills,deaths:r.deaths,kd_ratio:parseFloat(kd.toFixed(2))},{onConflict:'match_id,player_id'});}await window.supabase.from('matches').update({csv_imported:true}).eq('id',matchId);var regRes=await ensureRegistrations(matchId,csvData);var msg='CSV importado: '+csvData.length+' jugadores';if(regRes.failed)msg+=' · AVISO: no se pudieron crear los registros automaticos';else if(regRes.inserted>0)msg+=' · + '+regRes.inserted+' registros creados';window.showToast(msg,regRes.failed?'warning':'success');closeCSVModal();loadResults();loadRegistrations();loadMatch();}catch(e){window.showToast('Error: '+e.message,'error');}}
 function openEditModal(){if(!currentMatch)return;document.getElementById('em-name').value=currentMatch.name||'';document.getElementById('em-game-id').value=currentMatch.game_id||'';document.getElementById('em-password').value=currentMatch.password||'';document.getElementById('em-type').value=currentMatch.match_type||currentMatch.type||'internal';document.getElementById('em-max').value=currentMatch.max_players||'';document.getElementById('em-desc').value=currentMatch.description||'';loadAllianceSelect('em-alliance',currentMatch.alliance_id);document.getElementById('edit-modal').classList.add('active');}
 function closeEditModal(){document.getElementById('edit-modal').classList.remove('active');}
 document.getElementById('edit-form').addEventListener('submit',async function(e){e.preventDefault();try{var{error}=await window.supabase.from('matches').update({name:document.getElementById('em-name').value,game_id:document.getElementById('em-game-id').value||null,password:document.getElementById('em-password').value||null,alliance_id:document.getElementById('em-alliance').value||null,match_type:document.getElementById('em-type').value,max_players:parseInt(document.getElementById('em-max').value)||null,description:document.getElementById('em-desc').value||null}).eq('id',matchId);if(error)throw error;window.showToast('Actualizada','success');closeEditModal();loadMatch();}catch(e){window.showToast('Error: '+e.message,'error');}});
@@ -386,8 +497,12 @@ async function confirmAPIImport(){
         // 4) Marcar la partida como importada (igual que el flujo CSV)
         var um=await window.supabase.from('matches').update({csv_imported:true}).eq('id',matchId);
         if(um.error)throw um.error;
+        // 4b) Auto-registro defensivo: crea match_registrations solo para los faltantes (no aborta si falla)
+        var regRes=await ensureRegistrations(matchId,toImport);
         // 5) Resumen + refresco de la pagina
         var summary='API importada: '+toImport.length+' jugadores · '+registeredCount+' registrados en partida · '+(players.length-registeredCount)+' no registrados · '+apiImportState.data.skippedBots+' bots descartados · '+apiImportState.data.errors.length+' errores';
+        if(regRes.failed)summary+=' · AVISO: fallo el auto-registro';
+        else if(regRes.inserted>0)summary+=' · + '+regRes.inserted+' registros creados';
         if(fkSkipped>0)summary+=' · '+fkSkipped+' sin ficha (no creados)';
         window.showToast(summary,'success');
         closeAPIImportModal();
