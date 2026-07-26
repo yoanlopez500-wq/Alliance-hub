@@ -222,7 +222,7 @@
                         errorBanner.classList.remove('hidden');
                     }
                 }
-                if (btn) { btn.disabled = false; btn.textContent = '\uD83D\uDCE8 Enviar Solicitud'; }
+                if (btn) { btn.disabled = false; btn.textContent = '\uD83D\DCE8 Enviar Solicitud'; }
             });
         }
     }
