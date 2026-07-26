@@ -39,7 +39,7 @@ function filterGames(status) {
     else renderGames(allGames.filter(function(g) { return g.status === status; }));
 }
 
-function openGameModal() { document.getElementById('game-modal').classList.remove('hidden'); document.getElementById('modal-title').textContent = 'Nuevo Game'; document.getElementById('game-id').value = ''; }
+function openGameModal() { document.getElementById('game-modal').classList.remove('hidden'); document.getElementById('modal-title').textContent = 'Nuevo Game'; document.getElementById('game-id').value = ''; document.getElementById('game-is-public').checked = false; }
 function closeGameModal() { document.getElementById('game-modal').classList.add('hidden'); }
 
 async function editGame(id) {
@@ -55,18 +55,31 @@ async function editGame(id) {
     document.getElementById('game-alliance').value = g.alliance_id || '';
     document.getElementById('game-game-id').value = g.game_id || '';
     document.getElementById('game-password').value = g.password || '';
+    document.getElementById('game-is-public').checked = g.is_private === false && g.match_type !== 'internal';
 }
 
 async function saveGame() {
     var id = document.getElementById('game-id').value;
+    var matchType = document.getElementById('game-type').value;
+    var wantsPublic = document.getElementById('game-is-public').checked;
+    // FIX visibilidad: coherencia is_private <-> tipo. Las internas siempre privadas.
+    // El share_token lo genera la BD por defecto (gen_random_uuid()) al crear la partida.
+    var isPrivate;
+    if (matchType === 'internal') {
+        isPrivate = true;
+        if (wantsPublic) alert("Las partidas internas no pueden ser públicas. Usa 'Torneo' o 'Amistosa' para partidas visibles.");
+    } else {
+        isPrivate = !wantsPublic;
+    }
     var payload = {
         name: document.getElementById('game-name').value,
         description: document.getElementById('game-desc').value,
-        match_type: document.getElementById('game-type').value,
+        match_type: matchType,
         max_players: parseInt(document.getElementById('game-max').value) || 10,
         alliance_id: document.getElementById('game-alliance').value || null,
         game_id: document.getElementById('game-game-id').value || null,
-        password: document.getElementById('game-password').value || null
+        password: document.getElementById('game-password').value || null,
+        is_private: isPrivate
     };
     try {
         if (id) { var { error } = await window.supabase.from('matches').update(payload).eq('id', id); }
