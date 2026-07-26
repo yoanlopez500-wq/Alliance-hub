@@ -14,12 +14,21 @@
     var myAllianceData = null;
     var initialized = false;
 
+    // Sanitiza texto antes de inyectarlo en innerHTML (anti-XSS).
+    // Reusa window.escapeHtml si existe (definido en auth-core.js).
+    var escapeHtml = (typeof window.escapeHtml === 'function') ? window.escapeHtml : function(str) {
+        if (str == null) return '';
+        return String(str).replace(/[&<>"'`]/g, function(c) {
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c];
+        });
+    };
+
     function statusBadge(status) {
         if (status === 'pending') return '<span class="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/15 text-amber-400">PENDIENTE</span>';
         if (status === 'under_review') return '<span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-500/15 text-blue-500">EN REVISION</span>';
         if (status === 'approved') return '<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-500/15 text-green-500">APROBADO</span>';
         if (status === 'rejected') return '<span class="px-2 py-0.5 rounded text-xs font-bold bg-red-500/15 text-red-400">RECHAZADO</span>';
-        return '<span class="px-2 py-0.5 rounded text-xs font-bold bg-white/5 text-slate-400">' + (status || '?') + '</span>';
+        return '<span class="px-2 py-0.5 rounded text-xs font-bold bg-white/5 text-slate-400">' + escapeHtml(status || '?') + '</span>';
     }
 
     function formatDateTime(iso) {
@@ -109,9 +118,9 @@
                 var p = pm[r.player_id] || {};
                 return '<div class="rounded-xl p-4 mb-3 bg-ah-card border border-ah-border">' +
                     '<div class="flex items-center gap-3 mb-3">' +
-                        '<div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold bg-indigo-900 text-white">' + (p.current_username ? p.current_username.charAt(0).toUpperCase() : '?') + '</div>' +
+                        '<div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold bg-indigo-900 text-white">' + (p.current_username ? escapeHtml(p.current_username.charAt(0).toUpperCase()) : '?') + '</div>' +
                         '<div class="flex-1">' +
-                            '<p class="font-bold text-white text-sm">' + (p.current_username || 'Jugador ' + r.player_id) + '</p>' +
+                            '<p class="font-bold text-white text-sm">' + escapeHtml(p.current_username || 'Jugador ' + r.player_id) + '</p>' +
                             '<p class="text-xs text-ah-muted">Solicitado: ' + window.formatDate(r.requested_at) + '</p>' +
                         '</div>' +
                     '</div>' +
@@ -214,9 +223,9 @@
                 var s = stats[p.id] || { kills: 0, deaths: 0, games: 0 };
                 var kd = s.deaths > 0 ? (s.kills / s.deaths).toFixed(2) : s.kills || 0;
                 return '<div class="rounded-xl p-4 flex items-center gap-4 transition hover:opacity-90 bg-ah-card border border-ah-border">' +
-                    '<div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold bg-indigo-900 text-white">' + (p.current_username ? p.current_username.charAt(0).toUpperCase() : '?') + '</div>' +
+                    '<div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold bg-indigo-900 text-white">' + (p.current_username ? escapeHtml(p.current_username.charAt(0).toUpperCase()) : '?') + '</div>' +
                     '<div class="flex-1">' +
-                        '<p class="font-bold text-white text-sm">' + p.current_username + '</p>' +
+                        '<p class="font-bold text-white text-sm">' + escapeHtml(p.current_username) + '</p>' +
                         '<p class="text-xs text-ah-muted">' + (s.games || 0) + ' partidas validas</p>' +
                     '</div>' +
                     '<div class="text-right">' +
@@ -266,7 +275,7 @@
                 return '<div class="flex items-center gap-3 p-3 rounded-lg bg-white/5">' +
                     '<span class="text-lg font-bold w-8 ' + medalColor + '">' + medal + '</span>' +
                     '<div class="flex-1">' +
-                        '<p class="font-bold text-sm text-ah-text">' + r.player.current_username + '</p>' +
+                        '<p class="font-bold text-sm text-ah-text">' + escapeHtml(r.player.current_username) + '</p>' +
                         '<p class="text-xs text-ah-muted">' + r.games + ' partidas validas</p>' +
                     '</div>' +
                     '<div class="text-right">' +
@@ -309,7 +318,7 @@
             container.innerHTML = allDuels.map(function(d) {
                 return '<div class="rounded-xl p-4 mb-3 bg-ah-card border border-ah-border">' +
                     '<div class="flex items-center justify-between mb-2">' +
-                        '<span class="font-bold text-white">' + d.name + '</span>' +
+                        '<span class="font-bold text-white">' + escapeHtml(d.name) + '</span>' +
                         (typeof window.getStatusBadge === 'function' ? window.getStatusBadge(d.status) : d.status) +
                     '</div>' +
                     '<p class="text-xs text-ah-muted">' + window.formatDate(d.created_at) + ' | Max: ' + (d.max_players || '-') + '</p>' +
@@ -341,7 +350,7 @@
                 return '<a href="admin/match-detail.html?id=' + m.id + '" class="block rounded-xl p-4 mb-3 transition hover:opacity-90 bg-ah-card border border-ah-border">' +
                     '<div class="flex items-center justify-between">' +
                         '<div>' +
-                            '<h3 class="font-bold text-ah-text">' + (m.name || 'Partida') + '</h3>' +
+                            '<h3 class="font-bold text-ah-text">' + escapeHtml(m.name || 'Partida') + '</h3>' +
                             '<p class="text-xs mt-1 text-ah-muted">' + window.formatDate(m.created_at) + ' | Max: ' + (m.max_players || '-') + ' jugadores</p>' +
                         '</div>' +
                         '<div class="flex items-center gap-1">' + (typeof window.getStatusBadge === 'function' ? window.getStatusBadge(m.status) : m.status) + typeBadge + '</div>' +
