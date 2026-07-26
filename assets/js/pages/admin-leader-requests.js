@@ -31,6 +31,77 @@ function statusBadge(status) {
     return badges[status] || '<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-500/15 text-slate-400">' + status + '</span>';
 }
 
+/**
+ * Determina el estado del invite de lider de un player a partir de sus invites
+ * (admin_invites con role='alliance_leader').
+ * Devuelve: 'used' | 'valid' | 'expired' | 'missing'
+ */
+function leaderInviteStatus(invites) {
+    if (!invites || invites.length === 0) return 'missing';
+    var now = new Date();
+    var hasUsed = invites.some(function(i) { return i.used; });
+    if (hasUsed) return 'used';
+    var hasValid = invites.some(function(i) {
+        return !i.used && (!i.expires_at || new Date(i.expires_at) > now);
+    });
+    return hasValid ? 'valid' : 'expired';
+}
+
+function inviteStatusBadge(st) {
+    if (st === 'used') return '<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-500/15 text-green-500">INVITE USADA</span>';
+    if (st === 'valid') return '<span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-500/15 text-blue-500">INVITE VALIDA</span>';
+    if (st === 'expired') return '<span class="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/15 text-amber-400">INVITE EXPIRADA</span>';
+    return '<span class="px-2 py-0.5 rounded text-xs font-bold bg-red-500/15 text-red-400">SIN INVITE</span>';
+}
+
+/**
+ * Regenera el codigo de invitacion de lider para una solicitud aprobada cuya
+ * invite expiro o no existe. Crea una nueva admin_invite (+30 dias) vinculada
+ * a la alianza de esa solicitud (buscada por nombre; si no existe, error claro).
+ */
+async function regenerateInvite(playerId, allianceName, allianceTag) {
+    try {
+        window.showToast('Generando nuevo codigo de invitacion...', 'info');
+
+        // Buscar la alianza de la solicitud por nombre (fallback: tag)
+        var { data: alliance, error: aErr } = await window.supabase.from('alliances')
+            .select('id')
+            .eq('name', allianceName)
+            .maybeSingle();
+        if (aErr) throw aErr;
+        if (!alliance && allianceTag) {
+            var { data: byTag, error: tErr } = await window.supabase.from('alliances')
+                .select('id')
+                .eq('tag', allianceTag)
+                .maybeSingle();
+            if (tErr) throw tErr;
+            alliance = byTag;
+        }
+        if (!alliance) {
+            window.showToast('Error: no existe la alianza "' + allianceName + '" en el sistema. No se puede regenerar el invite.', 'error');
+            return;
+        }
+
+        var inviteCode = generateInviteCode();
+        var { error: iErr } = await window.supabase.from('admin_invites').insert({
+            code: inviteCode,
+            role: 'alliance_leader',
+            created_by: currentAdminId,
+            player_id: playerId,
+            alliance_id: alliance.id,
+            used: false,
+            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        });
+        if (iErr) throw iErr;
+
+        window.showToast('Nuevo codigo generado: ' + inviteCode + ' (expira en 30 dias)', 'success');
+        loadRequests();
+    } catch(e) {
+        console.error('[regenerateInvite]', e);
+        window.showToast('Error regenerando invite: ' + (e.message || e), 'error');
+    }
+}
+
 async function loadRequests() {
     var list = document.getElementById('requests-list');
     list.innerHTML = '<div class="text-center py-8 text-slate-400">Cargando...</div>';
@@ -41,6 +112,23 @@ async function loadRequests() {
         var { data, error } = await q;
         if (error) throw error;
         if (!data || data.length === 0) { list.innerHTML = '<div class="text-center py-8 rounded-xl bg-slate-900 border border-indigo-900 text-slate-400">No hay solicitudes</div>'; return; }
+
+        // Cargar invites de lider para las solicitudes aprobadas (estado + boton regenerar)
+        var approvedPlayerIds = data.filter(function(r) { return r.status === 'approved'; }).map(function(r) { return r.player_id; });
+        var invitesByPlayer = {};
+        if (approvedPlayerIds.length > 0) {
+            try {
+                var { data: invites, error: invErr } = await window.supabase.from('admin_invites')
+                    .select('*')
+                    .eq('role', 'alliance_leader')
+                    .in('player_id', approvedPlayerIds);
+                if (invErr) throw invErr;
+                (invites || []).forEach(function(inv) {
+                    if (!invitesByPlayer[inv.player_id]) invitesByPlayer[inv.player_id] = [];
+                    invitesByPlayer[inv.player_id].push(inv);
+                });
+            } catch(invEx) { console.error('[Requests] Error cargando invites:', invEx); }
+        }
 
         list.innerHTML = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' + data.map(function(r) {
             var playerName = r.display_name || 'Jugador ' + r.player_id;
@@ -56,6 +144,17 @@ async function loadRequests() {
                 actions = '<div class="flex flex-col sm:flex-row gap-2 mt-4">' +
                     '<button onclick="openApproveModal(' + r.player_id + ', \'' + nameEscaped + '\', \'' + tagEscaped + '\', \'' + r.id + '\', \'' + descEscaped + '\', \'' + playerNameEscaped + '\')" class="flex-1 py-2 rounded-lg text-sm font-bold min-h-[44px] bg-green-700 text-white hover:bg-green-600 transition">&#10003; Aprobar</button>' +
                     '<button onclick="openRejectModal(\'' + r.id + '\', \'' + playerNameEscaped + '\', \'' + nameEscaped + '\')" class="flex-1 py-2 rounded-lg text-sm font-bold min-h-[44px] bg-red-600 text-white hover:bg-red-500 transition">&#10005; Rechazar</button>' +
+                    '</div>';
+            } else if (r.status === 'approved') {
+                // Estado del invite de lider + boton "Regenerar invite" si expiro o no existe
+                var invSt = leaderInviteStatus(invitesByPlayer[r.player_id]);
+                var regenBtn = '';
+                if (invSt === 'expired' || invSt === 'missing') {
+                    regenBtn = '<button onclick="regenerateInvite(' + r.player_id + ', \'' + escapeAttr(r.alliance_name) + '\', \'' + escapeAttr(r.alliance_tag) + '\')" class="flex-1 py-2 rounded-lg text-sm font-bold min-h-[44px] bg-indigo-700 text-white hover:bg-indigo-600 transition">&#128273; Regenerar invite</button>';
+                }
+                actions = '<div class="mt-4 rounded-lg p-3 bg-slate-950 border border-indigo-900 flex flex-col sm:flex-row sm:items-center gap-3">' +
+                    '<div class="flex items-center gap-2"><span class="text-xs text-slate-500 uppercase tracking-wider font-bold">Invite:</span>' + inviteStatusBadge(invSt) + '</div>' +
+                    (regenBtn ? '<div class="sm:ml-auto flex-1 sm:flex-none">' + regenBtn + '</div>' : '') +
                     '</div>';
             }
 
