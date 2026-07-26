@@ -219,8 +219,9 @@ async function updatePassword(newPassword) {
 
 async function signupWithInvite(email, password, inviteCode, supremacyId, displayName) {
     var normalizedCode = inviteCode.trim().toUpperCase();
-    if (!normalizedCode || !/^AH[A-Z0-9]{6}$/.test(normalizedCode)) {
-        return { success: false, message: 'Formato de codigo invalido. Debe ser AH + 6 caracteres.' };
+    // Formato flexible: acepta codigos legacy de 6 y los nuevos de 10 caracteres
+    if (!normalizedCode || !/^AH[A-Z0-9]{6,10}$/i.test(normalizedCode)) {
+        return { success: false, message: 'Formato de codigo invalido. Debe ser AH + 6 a 10 caracteres.' };
     }
     var inviteResult = await supabase.from('admin_invites').select('*')
         .eq('code', normalizedCode)
@@ -396,7 +397,6 @@ async function unsubscribePush() {
             await sub.unsubscribe();
         }
         localStorage.removeItem('ah_v2_push_subscribed');
-        return true;
     } catch(e) { return false; }
 }
 
@@ -421,6 +421,8 @@ async function checkPendingLeaderApproval() {
         console.log('[checkPendingLeaderApproval] Checking player_id:', playerId);
 
         var now = new Date().toISOString();
+        // NOTA seguridad: 'now' es un valor interno (no input de usuario),
+        // por lo que la concatenacion en .or() es segura.
         var { data: invites, error } = await supabase
             .from('admin_invites')
             .select('code, role, alliance_id')
