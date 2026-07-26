@@ -144,6 +144,11 @@ function renderFluidNav(nav, session, admin, playerData, onAdminPage) {
     var mainLinks = panel.navLinks.filter(function(l) { return l.section === 'main'; });
     var toolsLinks = panel.navLinks.filter(function(l) { return l.section === 'tools'; });
     var commsLinks = panel.navLinks.filter(function(l) { return l.section === 'comms'; });
+    // FASE 4: superadmin/event_admin vinculado a una alianza (alliance_id NOT NULL)
+    // ve el enlace al panel de lider de SU alianza (sin selector de alianza).
+    if (admin && (role === 'superadmin' || role === 'event_admin') && admin.alliance_id) {
+        mainLinks = mainLinks.concat([{ href: 'leader-dashboard.html', label: '&#127968; Panel de Alianza', section: 'main' }]);
+    }
 
     var navBarHTML = mainLinks.map(mkLink).join('');
     if (toolsLinks.length) {
@@ -203,6 +208,11 @@ function renderAdminNav(nav, session, admin) {
     var mainLinks = panel.navLinks.filter(function(l) { return l.section === 'main'; });
     var toolsLinks = panel.navLinks.filter(function(l) { return l.section === 'tools'; });
     var commsLinks = panel.navLinks.filter(function(l) { return l.section === 'comms'; });
+    // FASE 4: superadmin/event_admin vinculado a una alianza (alliance_id NOT NULL)
+    // ve el enlace al panel de lider de SU alianza (sin selector de alianza).
+    if (admin && (role === 'superadmin' || role === 'event_admin') && admin.alliance_id) {
+        mainLinks = mainLinks.concat([{ href: 'leader-dashboard.html', label: '&#127968; Panel de Alianza', section: 'main' }]);
+    }
 
     var logoutHTML = '<div class="relative group">' +
         '<button class="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-red-500/80 hover:bg-red-500 text-white transition">Salir &#9660;</button>' +
