@@ -1,13 +1,21 @@
 var allGames = [];
 var allAlliances = [];
 
+// Sanitiza texto antes de inyectarlo en innerHTML (anti-XSS)
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/[&<>"'`]/g, function(c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c];
+    });
+}
+
 async function loadAlliances() {
     try {
         var { data, error } = await window.supabase.from('alliances').select('id,name').order('name');
         if (error) throw error;
         allAlliances = data || [];
         var sel = document.getElementById('game-alliance');
-        sel.innerHTML = '<option value="">Ninguna</option>' + allAlliances.map(function(a){ return '<option value="'+a.id+'">'+a.name+'</option>'; }).join('');
+        sel.innerHTML = '<option value="">Ninguna</option>' + allAlliances.map(function(a){ return '<option value="'+a.id+'">'+escapeHtml(a.name)+'</option>'; }).join('');
     } catch(e) { console.error(e); }
 }
 
@@ -26,7 +34,7 @@ function renderGames(list) {
     container.innerHTML = list.map(function(g) {
         var typeLabel = {internal: 'Interna', duel: 'Duelo', tournament: 'Torneo'}[g.match_type] || g.match_type;
         var statusColor = {draft: 'bg-slate-600', open: 'bg-green-600', in_progress: 'bg-yellow-600', finished: 'bg-blue-600', archived: 'bg-slate-500'}[g.status] || 'bg-slate-600';
-        return '<div class="bg-slate-800 rounded-lg p-4 border border-slate-700 flex items-center justify-between"><div><div class="flex items-center gap-2"><span class="px-2 py-0.5 rounded text-xs font-bold '+statusColor+' text-white">'+g.status+'</span><span class="text-sm text-slate-400">'+typeLabel+'</span></div><h3 class="font-bold text-white mt-1">'+g.name+'</h3><p class="text-xs text-slate-400">'+ (g.description || '') + '</p></div><div class="flex gap-2"><a href="game-detail.html?id='+g.id+'" class="px-3 py-1.5 rounded text-sm font-bold bg-blue-600 text-white">Ver</a><button onclick="editGame(\''+g.id+'\')" class="px-3 py-1.5 rounded text-sm font-bold bg-slate-600 text-white">Editar</button><button onclick="deleteGame(\''+g.id+'\')" class="px-3 py-1.5 rounded text-sm font-bold bg-red-600 text-white">Eliminar</button></div></div>';
+        return '<div class="bg-slate-800 rounded-lg p-4 border border-slate-700 flex items-center justify-between"><div><div class="flex items-center gap-2"><span class="px-2 py-0.5 rounded text-xs font-bold '+statusColor+' text-white">'+escapeHtml(g.status)+'</span><span class="text-sm text-slate-400">'+escapeHtml(typeLabel)+'</span></div><h3 class="font-bold text-white mt-1">'+escapeHtml(g.name)+'</h3><p class="text-xs text-slate-400">'+ escapeHtml(g.description || '') + '</p></div><div class="flex gap-2"><a href="game-detail.html?id='+g.id+'" class="px-3 py-1.5 rounded text-sm font-bold bg-blue-600 text-white">Ver</a><button onclick="editGame(\''+g.id+'\')" class="px-3 py-1.5 rounded text-sm font-bold bg-slate-600 text-white">Editar</button><button onclick="deleteGame(\''+g.id+'\')" class="px-3 py-1.5 rounded text-sm font-bold bg-red-600 text-white">Eliminar</button></div></div>';
     }).join('');
 }
 

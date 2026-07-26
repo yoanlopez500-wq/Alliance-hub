@@ -1,24 +1,59 @@
 window.requireAdmin();
 var currentAdminId = null;
+var currentAdminRole = null;
 var pendingApprove = null;
 var pendingReject = null;
 var lastGeneratedInviteCode = '';
 
 async function init() {
     try { var s = await window.supabase.auth.getSession(); currentAdminId = s.data.session.user.id; } catch(e){}
+    // Cargar el rol del admin para las guardas de permisos en acciones criticas
+    try {
+        var admin = (typeof window.getAdminRole === 'function') ? await window.getAdminRole() : null;
+        currentAdminRole = admin ? admin.role : null;
+    } catch(e) { currentAdminRole = null; }
     loadRequests();
 }
 
+// Codigo de invitacion robusto: 12 chars totales ('AH' + 10), alfabeto sin
+// caracteres ambiguos y aleatoriedad criptografica cuando esta disponible.
 function generateInviteCode() {
-    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    var result = 'AH';
-    for (var i = 0; i < 6; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-    return result;
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin I/O/0/1 ambiguos
+    var code = 'AH';
+    var arr = new Uint8Array(10);
+    if (window.crypto && window.crypto.getRandomValues) {
+        window.crypto.getRandomValues(arr);
+    } else {
+        for (var i = 0; i < 10; i++) arr[i] = Math.floor(Math.random() * 256);
+    }
+    for (var j = 0; j < 10; j++) code += chars[arr[j] % chars.length];
+    return code;
 }
 
+// Guarda de rol: solo superadmin/event_admin pueden ejecutar acciones criticas
+// (aprobar, rechazar, regenerar invites). requireAdmin() admite cualquier rol
+// de admin_users; aqui se refuerza el permiso en cliente.
+function hasLeaderRequestsWriteRole() {
+    if (['superadmin', 'event_admin'].indexOf(currentAdminRole) === -1) {
+        if (typeof window.showToast === 'function') window.showToast('No tienes permisos para esta acción', 'error');
+        return false;
+    }
+    return true;
+}
+
+// Sanitiza texto antes de inyectarlo en innerHTML (anti-XSS)
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/[&<>"'`]/g, function(c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c];
+    });
+}
+
+// Escapa valores que van dentro de un string JS en un atributo onclick="...".
+// Ademas aplica escapeHtml para neutralizar HTML en el valor resultante.
 function escapeAttr(str) {
-    if (!str) return '';
-    return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n').replace(/\r/g, '\\r');
+    if (str == null) return '';
+    return escapeHtml(String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n').replace(/\r/g, '\\r'));
 }
 
 function statusBadge(status) {
@@ -28,7 +63,7 @@ function statusBadge(status) {
         approved: '<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-500/15 text-green-500">APROBADO</span>',
         rejected: '<span class="px-2 py-0.5 rounded text-xs font-bold bg-red-500/15 text-red-400">RECHAZADO</span>'
     };
-    return badges[status] || '<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-500/15 text-slate-400">' + status + '</span>';
+    return badges[status] || '<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-500/15 text-slate-400">' + escapeHtml(status) + '</span>';
 }
 
 /**
@@ -60,6 +95,7 @@ function inviteStatusBadge(st) {
  * a la alianza de esa solicitud (buscada por nombre; si no existe, error claro).
  */
 async function regenerateInvite(playerId, allianceName, allianceTag) {
+    if (!hasLeaderRequestsWriteRole()) return;
     try {
         window.showToast('Generando nuevo codigo de invitacion...', 'info');
 
@@ -161,21 +197,21 @@ async function loadRequests() {
             return '<div class="rounded-xl p-5 bg-slate-900 border border-indigo-900 flex flex-col">' +
                 '<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">' +
                     '<div class="min-w-0">' +
-                        '<h3 class="font-bold text-lg text-slate-100 truncate" title="' + escapeAttr(r.alliance_name) + '">' + r.alliance_name + '</h3>' +
-                        '<p class="text-sm text-amber-400 font-mono">[' + r.alliance_tag + ']</p>' +
+                        '<h3 class="font-bold text-lg text-slate-100 truncate" title="' + escapeAttr(r.alliance_name) + '">' + escapeHtml(r.alliance_name) + '</h3>' +
+                        '<p class="text-sm text-amber-400 font-mono">[' + escapeHtml(r.alliance_tag) + ']</p>' +
                     '</div>' +
                     '<div class="shrink-0">' + statusBadge(r.status) + '</div>' +
                 '</div>' +
-                '<p class="text-sm text-slate-300 mb-3 line-clamp-3">' + displayDesc + '</p>' +
+                '<p class="text-sm text-slate-300 mb-3 line-clamp-3">' + escapeHtml(displayDesc) + '</p>' +
                 '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-400 mb-4">' +
-                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">Solicitante:</span> <span class="text-slate-200">' + playerName + '</span></div>' +
-                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">ID Jugador:</span> <span class="text-slate-200 font-mono">' + r.player_id + '</span></div>' +
-                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">Miembros:</span> <span class="text-slate-200">' + (r.member_count || '?') + '</span></div>' +
-                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">Discord:</span> <span class="text-slate-200 break-all">' + (r.discord_handle || '-') + '</span></div>' +
+                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">Solicitante:</span> <span class="text-slate-200">' + escapeHtml(playerName) + '</span></div>' +
+                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">ID Jugador:</span> <span class="text-slate-200 font-mono">' + escapeHtml(r.player_id) + '</span></div>' +
+                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">Miembros:</span> <span class="text-slate-200">' + escapeHtml(r.member_count || '?') + '</span></div>' +
+                    '<div class="rounded-lg p-2 bg-slate-950 border border-indigo-900"><span class="text-slate-500">Discord:</span> <span class="text-slate-200 break-all">' + escapeHtml(r.discord_handle || '-') + '</span></div>' +
                 '</div>' +
                 '<div class="mt-auto pt-3 border-t border-indigo-900/50 flex items-center justify-between text-xs text-slate-500">' +
                     '<span>Solicitado ' + window.formatDate(r.created_at) + '</span>' +
-                    (r.rejection_reason ? '<span class="text-red-400">Motivo: ' + r.rejection_reason + '</span>' : '') +
+                    (r.rejection_reason ? '<span class="text-red-400">Motivo: ' + escapeHtml(r.rejection_reason) + '</span>' : '') +
                 '</div>' +
                 actions +
             '</div>';
@@ -186,7 +222,7 @@ async function loadRequests() {
 function openApproveModal(playerId, allianceName, allianceTag, requestId, allianceDescription, playerName) {
     pendingApprove = { playerId: playerId, allianceName: allianceName, allianceTag: allianceTag, requestId: requestId, allianceDescription: allianceDescription, playerName: playerName };
     document.getElementById('approve-modal-text').innerHTML =
-        'Aprobar a <strong class="text-amber-400">' + playerName + '</strong> como lider de <strong class="text-amber-400">' + allianceName + ' [' + allianceTag + ']</strong>?<br><br>' +
+        'Aprobar a <strong class="text-amber-400">' + escapeHtml(playerName) + '</strong> como lider de <strong class="text-amber-400">' + escapeHtml(allianceName) + ' [' + escapeHtml(allianceTag) + ']</strong>?<br><br>' +
         '<span class="text-slate-400">Se creara la alianza, se asignara como lider y se generara un codigo de invitacion.</span>';
     document.getElementById('approve-modal').classList.add('active');
 }
@@ -197,6 +233,7 @@ function closeApproveModal() {
 }
 
 async function confirmApprove() {
+    if (!hasLeaderRequestsWriteRole()) return;
     if (!pendingApprove) return;
     var playerId = pendingApprove.playerId;
     var allianceName = pendingApprove.allianceName;
@@ -297,7 +334,7 @@ function copyInviteCode() {
 function openRejectModal(requestId, playerName, allianceName) {
     pendingReject = { requestId: requestId };
     document.getElementById('reject-modal-text').innerHTML =
-        'Rechazar la solicitud de <strong class="text-red-400">' + playerName + '</strong> para liderar <strong class="text-red-400">' + allianceName + '</strong>?';
+        'Rechazar la solicitud de <strong class="text-red-400">' + escapeHtml(playerName) + '</strong> para liderar <strong class="text-red-400">' + escapeHtml(allianceName) + '</strong>?';
     document.getElementById('reject-reason-input').value = '';
     document.getElementById('reject-modal').classList.add('active');
 }
@@ -308,6 +345,7 @@ function closeRejectModal() {
 }
 
 async function confirmReject() {
+    if (!hasLeaderRequestsWriteRole()) return;
     if (!pendingReject) return;
     var reason = document.getElementById('reject-reason-input').value.trim() || null;
     var requestId = pendingReject.requestId;
