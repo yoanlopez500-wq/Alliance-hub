@@ -62,7 +62,8 @@
             var elAlliances = document.getElementById('stat-alliances');
             if (elAlliances) elAlliances.textContent = a.count || 0;
 
-            var m = await window.supabase.from('matches').select('*', { count: 'exact', head: true });
+            // FIX visibilidad: el contador publico usa la vista filtrada (sin internas/privadas/borradores)
+            var m = await window.supabase.from('public_matches_view').select('*', { count: 'exact', head: true });
             var elMatches = document.getElementById('stat-matches');
             if (elMatches) elMatches.textContent = m.count || 0;
 
