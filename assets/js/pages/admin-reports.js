@@ -78,7 +78,16 @@ async function openDetail(id) {
         if (data.evidence_urls && data.evidence_urls.length > 0) {
             evDiv.classList.remove('hidden');
             evDiv.innerHTML = '<h4 class="font-bold text-sm mb-2 text-amber-400">&#128247; Evidencia adjunta:</h4><div id="evidence-grid-container"></div>';
-            renderEvidenceGrid(data.evidence_urls, 'evidence-grid-container');
+            // Sanitizar URLs de evidencia (coherente con PR #11: solo http(s) o rutas relativas)
+            var safeUrls = (data.evidence_urls || []).filter(function(u) {
+                return typeof u === 'string' && /^(https?:\/\/|\/|\.\.?\/)/i.test(u.trim());
+            });
+            // Guarda defensiva por si storage-utils.js no cargo
+            if (typeof window.renderEvidenceGrid === 'function') {
+                renderEvidenceGrid(safeUrls, 'evidence-grid-container');
+            } else {
+                console.error('[Reports] renderEvidenceGrid no disponible (storage-utils.js no cargado)');
+            }
         } else {
             evDiv.classList.add('hidden');
             evDiv.innerHTML = '';
