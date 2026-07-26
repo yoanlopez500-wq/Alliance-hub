@@ -2,6 +2,10 @@
  * leader-dashboard.js - Panel de lider de alianza
  *
  * Migrado desde leader-dashboard.html como parte de la refactorizacion.
+ *
+ * FASE 4: la guarda de acceso ahora permite tambien a superadmin/event_admin
+ * vinculados a una alianza (admin_users.alliance_id NOT NULL). En ese caso la
+ * alianza de trabajo es admin.alliance_id (mismo camino que los lideres).
  */
 (function() {
     'use strict';
@@ -30,7 +34,10 @@
 
         try {
             var admin = await window.getAdminRole();
-            if (!admin || admin.role !== 'alliance_leader') {
+            // FASE 4: superadmin/event_admin vinculado a una alianza puede acceder
+            // al panel de SU alianza (sin selector; la alianza es admin.alliance_id).
+            var isLinkedAdmin = !!(admin && (admin.role === 'superadmin' || admin.role === 'event_admin') && admin.alliance_id);
+            if (!admin || (admin.role !== 'alliance_leader' && !isLinkedAdmin)) {
                 window.location.href = 'index.html';
                 return;
             }
