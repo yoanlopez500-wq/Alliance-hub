@@ -398,12 +398,26 @@
         var password = document.getElementById('cm-password').value.trim() || null;
         var maxPlayers = parseInt(document.getElementById('cm-max').value) || 31;
         var description = document.getElementById('cm-desc').value.trim() || null;
-        var allowExternal = document.getElementById('cm-allow-external').checked;
+        // FIX visibilidad: el checkbox ahora significa "Partida publica (visible en el listado)".
+        // Las partidas internas NUNCA pueden ser publicas: se fuerza is_private=true.
+        var wantsPublic = document.getElementById('cm-allow-external').checked;
         var requireApproval = document.getElementById('cm-require-approval').checked;
+        var matchType = (document.getElementById('cm-type') && document.getElementById('cm-type').value) || 'internal';
 
         if (!name) {
             if (typeof window.showToast === 'function') window.showToast('Nombre obligatorio', 'warning');
             return;
+        }
+
+        // Coherencia is_private <-> tipo de partida
+        var isPrivate;
+        if (matchType === 'internal') {
+            isPrivate = true;
+            if (wantsPublic && typeof window.showToast === 'function') {
+                window.showToast("Las partidas internas no pueden ser públicas. Usa 'Torneo' o 'Amistosa' para partidas visibles.", 'warning');
+            }
+        } else {
+            isPrivate = !wantsPublic;
         }
 
         try {
@@ -416,10 +430,10 @@
                 game_id: gameId,
                 password: password,
                 alliance_id: myAllianceId,
-                match_type: 'internal',
+                match_type: matchType,
                 max_players: maxPlayers,
                 description: description,
-                is_private: !allowExternal,
+                is_private: isPrivate,
                 requires_approval: requireApproval,
                 status: 'draft',
                 created_by: session.user.id
