@@ -9,6 +9,15 @@
 
     var initialized = false;
 
+    // Sanitiza texto antes de inyectarlo en innerHTML (anti-XSS).
+    // Reusa window.escapeHtml si existe (definido en auth-core.js).
+    var escapeHtml = (typeof window.escapeHtml === 'function') ? window.escapeHtml : function(str) {
+        if (str == null) return '';
+        return String(str).replace(/[&<>"'`]/g, function(c) {
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c];
+        });
+    };
+
     function requirePlayerSession() {
         var playerData = (typeof window.getPlayerData === 'function') ? window.getPlayerData() : null;
         if (!playerData || !playerData.playerId) {
@@ -26,7 +35,7 @@
         if (status === 'under_review') return '<span class="px-2 py-1 rounded text-xs font-bold bg-blue-500/15 text-blue-500">EN REVISION</span>';
         if (status === 'approved') return '<span class="px-2 py-1 rounded text-xs font-bold bg-green-500/15 text-green-500">APROBADO</span>';
         if (status === 'rejected') return '<span class="px-2 py-1 rounded text-xs font-bold bg-red-500/15 text-red-400">RECHAZADO</span>';
-        return '<span class="px-2 py-1 rounded text-xs font-bold bg-slate-500/15 text-slate-400">' + (status || '?') + '</span>';
+        return '<span class="px-2 py-1 rounded text-xs font-bold bg-slate-500/15 text-slate-400">' + escapeHtml(status || '?') + '</span>';
     }
 
     function formatDateTime(iso) {
@@ -55,6 +64,9 @@
     async function loadInviteCode(playerId) {
         try {
             var now = new Date().toISOString();
+            // NOTA seguridad: 'now' proviene de new Date().toISOString() (valor
+            // interno, no de input de usuario), por lo que la concatenacion en
+            // .or() es segura y no requiere escape adicional.
             var { data, error } = await window.supabase
                 .from('admin_invites')
                 .select('code, role, alliance_id, created_at')
@@ -90,8 +102,8 @@
             '<h2 class="text-lg font-bold text-white mb-2">Estado de tu solicitud</h2>' +
             '<div class="flex items-center gap-2 mb-3">' + statusBadge(request.status) +
             '<span class="text-xs text-ah-muted">' + formatDateTime(request.created_at) + '</span></div>' +
-            '<p class="text-sm text-ah-muted mb-1"><strong class="text-ah-text">Alianza:</strong> ' + (request.alliance_name || '-') + ' [' + (request.alliance_tag || '-') + ']</p>' +
-            '<p class="text-sm text-ah-muted mb-1"><strong class="text-ah-text">Solicitante:</strong> ' + (request.display_name || '-') + ' (ID: ' + request.player_id + ')</p>';
+            '<p class="text-sm text-ah-muted mb-1"><strong class="text-ah-text">Alianza:</strong> ' + escapeHtml(request.alliance_name || '-') + ' [' + escapeHtml(request.alliance_tag || '-') + ']</p>' +
+            '<p class="text-sm text-ah-muted mb-1"><strong class="text-ah-text">Solicitante:</strong> ' + escapeHtml(request.display_name || '-') + ' (ID: ' + escapeHtml(request.player_id) + ')</p>';
 
         if (request.status === 'pending') {
             html += '<p class="text-sm text-ah-muted mt-3">Tu solicitud esta pendiente de revision por un superadmin. Te notificaremos cuando sea aprobada.</p>';
@@ -103,15 +115,15 @@
                 '<p class="text-sm text-green-400 font-bold mb-2">&#127941; ¡Tu solicitud fue aprobada!</p>';
             if (invite && invite.code) {
                 html += '<p class="text-sm text-ah-muted mb-2">Usa este codigo para completar tu registro como lider:</p>' +
-                    '<div class="flex items-center gap-2 mb-3"><code class="text-base font-mono bg-ah-bg px-3 py-1 rounded border border-indigo-900 text-ah-accent">' + invite.code + '</code>' +
-                    '<button onclick="copyLeaderInviteCode(this)" data-code="' + invite.code + '" class="px-2 py-1 rounded text-xs font-bold bg-indigo-900 text-white hover:bg-indigo-800 transition">Copiar</button></div>' +
+                    '<div class="flex items-center gap-2 mb-3"><code class="text-base font-mono bg-ah-bg px-3 py-1 rounded border border-indigo-900 text-ah-accent">' + escapeHtml(invite.code) + '</code>' +
+                    '<button onclick="copyLeaderInviteCode(this)" data-code="' + escapeHtml(invite.code) + '" class="px-2 py-1 rounded text-xs font-bold bg-indigo-900 text-white hover:bg-indigo-800 transition">Copiar</button></div>' +
                     '<a href="register/leader.html?code=' + encodeURIComponent(invite.code) + '" class="inline-block px-4 py-2 rounded-lg text-sm font-bold gradient-btn">Completar Registro &rarr;</a>';
             } else {
                 html += '<p class="text-sm text-ah-muted">Contacta a un admin para obtener tu codigo de invitacion.</p>';
             }
             html += '</div>';
         } else if (request.status === 'rejected') {
-            html += '<p class="text-sm text-red-400 mt-3">Tu solicitud fue rechazada. ' + (request.rejection_reason ? 'Motivo: ' + request.rejection_reason : '') + '</p>';
+            html += '<p class="text-sm text-red-400 mt-3">Tu solicitud fue rechazada. ' + (request.rejection_reason ? 'Motivo: ' + escapeHtml(request.rejection_reason) : '') + '</p>';
         }
 
         html += '</div>';
@@ -210,7 +222,7 @@
                         errorBanner.classList.remove('hidden');
                     }
                 }
-                if (btn) { btn.disabled = false; btn.textContent = '\uD83D\DCE8 Enviar Solicitud'; }
+                if (btn) { btn.disabled = false; btn.textContent = '\uD83D\uDCE8 Enviar Solicitud'; }
             });
         }
     }
