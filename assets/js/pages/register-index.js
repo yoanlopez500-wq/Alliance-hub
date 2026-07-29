@@ -162,6 +162,14 @@
                 errorMsg.classList.remove('hidden');
             } else {
                 window.saveLastRegisteredMatch(matchId);
+                // Hook push: momento de engagement, subscribe() SI puede pedir
+                // permiso. Sin await bloqueante; fallos no criticos.
+                try {
+                    if (window.AHPush) {
+                        var playerActual = { id: parseInt(playerData.playerId), current_alliance_id: playerData.current_alliance_id || null };
+                        window.AHPush.subscribe(playerActual);
+                    }
+                } catch (ePush) { console.warn('[Register] Hook push fallo (no critico):', ePush); }
                 if (currentMatch.requires_approval) {
                     successMsg.textContent = '\u2713 Solicitud enviada. Espera aprobacion del admin.';
                     successMsg.classList.remove('hidden');

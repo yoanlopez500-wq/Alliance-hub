@@ -31,7 +31,8 @@
             'assets/js/base.js',
             'assets/js/ranking-utils.js',
             'assets/js/roles-data.js',
-            'assets/js/auth-core.js'
+            'assets/js/auth-core.js',
+            'assets/js/push-manager.js'
         ],
         public: [
             'assets/js/messaging.js',

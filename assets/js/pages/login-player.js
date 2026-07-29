@@ -45,12 +45,12 @@
             msg.textContent = 'Verificando...';
             msg.className = 'text-sm text-slate-500';
             try {
-                var { data: player, error } = await window.supabase.from('players').select('id, current_username, status, banned_until, suspended_until, suspension_reason').eq('id', parseInt(pid)).single();
+                var { data: player, error } = await window.supabase.from('players').select('id, current_username, status, banned_until, suspended_until, suspension_reason, current_alliance_id').eq('id', parseInt(pid)).single();
                 if (error && error.code !== 'PGRST116') { msg.textContent = 'Error: ' + error.message; msg.className = 'text-sm text-red-600'; return; }
                 if (player) {
                     await checkAndClearExpiredBan(parseInt(pid));
                     // Re-fetch after cleanup
-                    var { data: refreshed } = await window.supabase.from('players').select('id, current_username, status, banned_until, suspended_until, suspension_reason').eq('id', parseInt(pid)).single();
+                    var { data: refreshed } = await window.supabase.from('players').select('id, current_username, status, banned_until, suspended_until, suspension_reason, current_alliance_id').eq('id', parseInt(pid)).single();
                     player = refreshed;
                     if (isPlayerBanned(player)) {
                         msg.innerHTML = '\u2716 Cuenta restringida.<br><strong>' + getBanRemainingText(player) + '</strong>' + (player.suspension_reason ? '<br>' + player.suspension_reason : '');
@@ -68,6 +68,13 @@
                 if (!ok) { msg.textContent = 'Error guardando sesion'; msg.className = 'text-sm text-red-600'; return; }
                 msg.textContent = 'Bienvenido, ' + name + '!';
                 msg.className = 'text-sm text-green-600 font-bold';
+
+                // Hook push silencioso: re-suscribe solo si el permiso ya
+                // estaba concedido (nunca pide permiso ni bloquea el flujo).
+                // player puede ser null si el jugador se acaba de crear.
+                try {
+                    if (window.AHPush) window.AHPush.ensureSubscribed(player || { id: parseInt(pid), current_alliance_id: null });
+                } catch (ePush) { console.warn('[Login] Hook push fallo (no critico):', ePush); }
 
                 // REDIRECT: Despues de login exitoso, verificar si hay URL guardada
                 setTimeout(function() {
