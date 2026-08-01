@@ -1,28 +1,17 @@
-/**
- * loader.js - Carga centralizada de scripts para Alliance Hub
- *
- * Centraliza la carga de todos los scripts core en el orden correcto,
- * usando el cache-buster automatico (AHBuster).
- *
- * Elimina las 8-12 etiquetas <script> duplicadas en cada HTML.
- *
- * FIX (chat consolidado): el rol 'chat' ahora carga SCRIPTS.core igual que
- * el resto de roles (antes lo omitia, dejando window.supabase undefined y
- * rompiendo el chat). Se elimina el shim assets/js/auth.js (document.write,
- * deprecated) y se carga el modulo de canales assets/js/chat-channels.js.
- */
+// assets/js/loader.js - Cargador central de scripts con cache-buster automatico
+// Todos los HTML cargan SOLO este script; el decide que modulos cargar segun la pagina.
+// El cache-buster ?v= usa la version de APP_VERSION (config.js) + timestamp del build.
+//
+// USO en HTML: <script src="/assets/js/loader.js" data-page="home"></script>
+// data-page indica el rol de la pagina: home | public | admin | player | chat
 (function() {
     'use strict';
 
-    var path = window.location.pathname;
-    var isAdmin = path.indexOf('/admin/') !== -1;
-    var isRegister = path.indexOf('/register/') !== -1;
-    var BASE = isAdmin || isRegister ? '../' : '';
+    var BUILD_TS = '20260731'; // actualizar al desplegar cambios en JS
 
-    // Orden de carga de scripts (dependencias primero)
-    // HOTFIX: Agregado db-schema.js a core. Sin esto, window.DB es undefined
-    // y todas las paginas que usan DB.tableCols() / DB.from() crashean.
+    // Conjunto de scripts por rol de pagina. ORDEN IMPORTA (dependencias).
     var SCRIPTS = {
+        // Nucleo: siempre se carga (todas las paginas lo necesitan)
         core: [
             'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
             'assets/js/config.js',
@@ -30,6 +19,7 @@
             'assets/js/modules/sanctions.js',
             'assets/js/base.js',
             'assets/js/ranking-utils.js',
+            'assets/js/ranking-score.js',
             'assets/js/roles-data.js',
             'assets/js/auth-core.js',
             'assets/js/push-manager.js'
@@ -38,142 +28,84 @@
             'assets/js/messaging.js',
             'assets/js/notifications.js',
             'assets/js/nav-engine.js',
-            'assets/js/training.js',
-            'assets/js/components.js'
+            'assets/js/pages/rankings.js',
+            'assets/js/pages/game.js',
+            'assets/js/pages/games.js'
         ],
         admin: [
-            'assets/js/components.js',
             'assets/js/messaging.js',
             'assets/js/notifications.js',
-            'assets/js/nav-engine.js',
-            'assets/js/training.js'
+            'assets/js/admin.js',
+            'assets/js/modules/notifications-admin.js',
+            'assets/js/modules/report-notes.js'
         ],
         player: [
             'assets/js/messaging.js',
             'assets/js/notifications.js',
             'assets/js/nav-engine.js',
-            'assets/js/training.js',
-            'assets/js/components.js',
-            'assets/js/pwa-utils.js'
+            'assets/js/player.js'
         ],
-        // Chat consolidado: core (con supabase, roles-data y auth-core) +
-        // el modulo de canales. Sin el shim auth.js (document.write deprecated).
         chat: [
-            'assets/js/chat-channels.js'
+            'assets/js/messaging.js',
+            'assets/js/notifications.js',
+            'assets/js/chat.js'
         ]
     };
 
-    function resolveUrl(url) {
-        if (!url) return url;
-        // URLs absolutas o externas se dejan tal cual
-        if (url.indexOf('://') !== -1 || url.indexOf('//') === 0 || url.charAt(0) === '/') {
-            return url;
-        }
-        // Si ya es una ruta relativa a la carpeta del HTML (sube un nivel), no duplicar BASE
-        if (url.indexOf('../') === 0) {
-            return url;
-        }
-        return BASE + url;
+    // Mapa pagina -> rol. Las paginas pasan data-page con el nombre del HTML.
+    var PAGE_ROLES = {
+        'index': 'public',
+        'rankings': 'public',
+        'game': 'public',
+        'games': 'public',
+        'admin': 'admin',
+        'player': 'player',
+        'chat': 'chat'
+    };
+
+    function getVersion() {
+        // Si config.js ya definio APP_VERSION, la usamos; si no, BUILD_TS.
+        return (typeof window.APP_VERSION !== 'undefined') ? window.APP_VERSION : BUILD_TS;
+    }
+
+    function withBuster(src) {
+        // Solo agregamos buster a scripts locales (no CDN).
+        if (src.indexOf('http') === 0) return src;
+        var sep = src.indexOf('?') >= 0 ? '&' : '?';
+        return src + sep + 'v=' + getVersion();
     }
 
     function loadScript(src) {
         return new Promise(function(resolve, reject) {
-            var script = document.createElement('script');
-            script.src = src;
-            script.async = false;
-            script.onload = function() { resolve(src); };
-            script.onerror = function() {
-                console.warn('[AHLoader] Fallo al cargar:', src);
-                reject(src);
-            };
-            document.head.appendChild(script);
+            var s = document.createElement('script');
+            s.src = withBuster(src);
+            s.async = false; // respeta el orden de dependencias
+            s.onload = function() { resolve(src); };
+            s.onerror = function() { reject(new Error('No se pudo cargar ' + src)); };
+            document.head.appendChild(s);
         });
     }
 
-    async function loadScripts(urls) {
-        for (var i = 0; i < urls.length; i++) {
-            var url = resolveUrl(urls[i]);
-            if (window.AHBuster) {
-                url = window.AHBuster.url(url);
+    async function boot() {
+        var el = document.querySelector('script[data-page]');
+        var page = el ? el.getAttribute('data-page') : 'index';
+        var role = PAGE_ROLES[page] || 'public';
+
+        var queue = SCRIPTS.core.concat(SCRIPTS[role] || []);
+        try {
+            for (var i = 0; i < queue.length; i++) {
+                await loadScript(queue[i]);
             }
-            try {
-                await loadScript(url);
-            } catch(e) {
-                console.warn('[AHLoader] Script no critico fallo:', urls[i]);
-            }
+            // Senal global: todo el JS del rol ya esta disponible.
+            window.dispatchEvent(new CustomEvent('ah:scripts-ready', { detail: { page: page, role: role } }));
+        } catch (e) {
+            console.error('[AHLoader]', e);
         }
     }
 
-    window.AHLoader = {
-        init: async function(opts) {
-            opts = opts || {};
-            var role = opts.role || 'public';
-            var pageScript = opts.pageScript || null;
-            var extraScripts = opts.extraScripts || [];
-
-            console.log('[AHLoader] Iniciando carga para rol:', role);
-
-            // Todos los roles (incluido 'chat') cargan el core: supabase,
-            // config, db-schema, base, roles-data y auth-core.
-            await loadScripts(SCRIPTS.core);
-
-            var roleScripts = SCRIPTS[role] || SCRIPTS.public;
-            await loadScripts(roleScripts);
-
-            if (extraScripts.length > 0) {
-                await loadScripts(extraScripts);
-            }
-
-            if (pageScript) {
-                try {
-                    var pageUrl = resolveUrl(pageScript);
-                    if (window.AHBuster) {
-                        pageUrl = window.AHBuster.url(pageUrl);
-                    }
-                    await loadScript(pageUrl);
-                } catch(e) {
-                    console.warn('[AHLoader] Page script critico fallo:', pageScript);
-                }
-            }
-
-            console.log('[AHLoader] Carga completada para:', role);
-            window.dispatchEvent(new CustomEvent('ah:loaded', { detail: { role: role } }));
-
-            // FIX: Si el DOM ya estaba listo antes de que los scripts dinamicos
-            // terminaran de cargar, DOMContentLoaded no se dispara para ellos.
-            // Emitimos un evento explicito para que page scripts y nav-engine
-            // puedan inicializarse de forma robusta.
-            if (document.readyState === 'interactive' || document.readyState === 'complete') {
-                console.log('[AHLoader] DOM ya estaba listo; disparando ah:dom-ready');
-                window.dispatchEvent(new CustomEvent('ah:dom-ready', { detail: { role: role } }));
-            }
-        },
-
-        load: function(src) {
-            var url = resolveUrl(src);
-            if (window.AHBuster) {
-                url = window.AHBuster.url(url);
-            }
-            return loadScript(url);
-        },
-
-        // Helper para que los page scripts se inicialicen correctamente tanto si
-        // el DOM ya esta listo como si los scripts se cargaron dinamicamente.
-        // El callback se ejecuta UNA sola vez.
-        onReady: function(callback) {
-            var done = false;
-            function run() {
-                if (done) return;
-                done = true;
-                callback();
-            }
-            if (document.readyState === 'interactive' || document.readyState === 'complete') {
-                run();
-            } else {
-                document.addEventListener('DOMContentLoaded', run);
-            }
-            window.addEventListener('ah:dom-ready', run);
-            window.addEventListener('ah:loaded', run);
-        }
-    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
 })();
