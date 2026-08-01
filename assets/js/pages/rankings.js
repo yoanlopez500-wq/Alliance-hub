@@ -124,17 +124,11 @@
             // alianza se aplica en cliente despues (mismas filas visibles).
             // Lectura paginada: PostgREST limita las filas por request (~1000);
             // con .range() se garantiza la poblacion completa aunque crezca.
-            var allRows = [];
-            var PAGE = 1000;
-            for (var from = 0; ; from += PAGE) {
-                var pageRes = await window.DB.from('publicRankings')
+            var allRows = await window.AHRankingScore.fetchAllRows(function(from, to) {
+                return window.DB.from('publicRankings')
                     .select(window.DB.select('publicRankings', 'all'))
-                    .range(from, from + PAGE - 1);
-                if (pageRes.error) throw pageRes.error;
-                var pageRows = pageRes.data || [];
-                allRows = allRows.concat(pageRows);
-                if (pageRows.length < PAGE || allRows.length >= 50000) break;
-            }
+                    .range(from, to);
+            });
 
             // Mapear TODA la poblacion al formato de jugador usado por el renderizado.
             var allPlayers = allRows.map(function(r) {
@@ -151,52 +145,31 @@
             // Guardia numerica: dato corrupto nunca produce NaN en el orden.
             function safeEff(p) { var v = effectiveKills(p); return isFinite(v) ? v : 0; }
 
-            // ---- Score Bayesiano (constante de confianza C=3) ----
-            // Priors = promedios globales por partida de kills EFECTIVAS y
-            // muertes sobre toda la poblacion (consistente con el numerador).
-            var BAYES_C = 3;
-            var sumK = 0, sumD = 0, sumG = 0;
-            allPlayers.forEach(function(p) {
-                sumK += safeEff(p);
-                sumD += p[pc.deaths] || 0;
-                sumG += p[pc.gamesPlayed] || 0;
+            // ---- Score Bayesiano C=3 (motor compartido AHRankingScore) ----
+            // Priors sobre kills EFECTIVAS de toda la poblacion (consistente
+            // con el numerador). Con pocas partidas el score se jala al
+            // promedio global; con muchas, domina el KD real del jugador.
+            var scorer = window.AHRankingScore.makeBayesScorer(allPlayers, {
+                eff: safeEff,
+                deaths: function(p) { return p[pc.deaths]; },
+                games: function(p) { return p[pc.gamesPlayed]; }
             });
-            var priorK = sumG > 0 ? sumK / sumG : 0;
-            var priorD = sumG > 0 ? sumD / sumG : 0;
-
-            // score = (kills_efectivas + C*priorK) / (muertes + C*priorD)
-            // Con pocas partidas el score se jala al promedio global (~KD medio);
-            // con muchas, domina el KD real del jugador.
-            function bayesScore(p) {
-                var denom = (p[pc.deaths] || 0) + BAYES_C * priorD;
-                if (denom <= 0) denom = 1; // guardia: poblacion sin muertes
-                return (safeEff(p) + BAYES_C * priorK) / denom;
-            }
 
             // Filtro de alianza en cliente (equivalente al antiguo filtro SQL).
             var playersData = allPlayers.filter(function(p) {
                 return !allianceFilter || p[pc.currentAllianceId] === allianceFilter;
             });
 
-            // Orden deterministico de 5 niveles:
+            // Orden deterministico de 5 niveles (motor compartido):
             // 1) Score Bayesiano 2) mas partidas 3) menos muertes
             // 4) mas kills efectivas 5) alfabetico (desempate absoluto).
-            playersData.sort(function(a, b) {
-                var s = bayesScore(b) - bayesScore(a);
-                if (isNaN(s)) s = 0;
-                if (s !== 0) return s;
-                var g = (b[pc.gamesPlayed] || 0) - (a[pc.gamesPlayed] || 0);
-                if (g !== 0) return g;
-                var d = (a[pc.deaths] || 0) - (b[pc.deaths] || 0);
-                if (d !== 0) return d;
-                var k = safeEff(b) - safeEff(a);
-                if (k !== 0) return k;
-                var na = (a[pc.currentUsername] || '').toLowerCase();
-                var nb = (b[pc.currentUsername] || '').toLowerCase();
-                if (na < nb) return -1;
-                if (na > nb) return 1;
-                return 0;
-            });
+            playersData.sort(window.AHRankingScore.compareRankedPlayers({
+                score: scorer.score,
+                games: function(p) { return p[pc.gamesPlayed]; },
+                deaths: function(p) { return p[pc.deaths]; },
+                eff: safeEff,
+                name: function(p) { return p[pc.currentUsername]; }
+            }));
             var tbody = document.getElementById('players-tbody');
             if (!tbody) return;
             if (playersData.length === 0) {
