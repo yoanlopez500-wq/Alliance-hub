@@ -124,9 +124,11 @@
             // alianza se aplica en cliente despues (mismas filas visibles).
             // Lectura paginada: PostgREST limita las filas por request (~1000);
             // con .range() se garantiza la poblacion completa aunque crezca.
+            // ORDER BY player_id: paginacion estable entre requests.
             var allRows = await window.AHRankingScore.fetchAllRows(function(from, to) {
                 return window.DB.from('publicRankings')
                     .select(window.DB.select('publicRankings', 'all'))
+                    .order(vc.playerId, { ascending: true })
                     .range(from, to);
             });
 
