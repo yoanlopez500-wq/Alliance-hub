@@ -14,13 +14,14 @@
 (function() {
     'use strict';
 
-    var ROLE = (function() {
-        var el = document.querySelector('script[data-role]');
-        return el ? el.getAttribute('data-role') : 'public';
-    })();
+    var path = window.location.pathname;
+    var isAdmin = path.indexOf('/admin/') !== -1;
+    var isRegister = path.indexOf('/register/') !== -1;
+    var BASE = isAdmin || isRegister ? '../' : '';
 
-    // Conjuntos de scripts por rol. Orden de carga = orden del array.
-    // 'core' se carga SIEMPRE primero (supabase, config, base, auth, etc).
+    // Orden de carga de scripts (dependencias primero)
+    // HOTFIX: Agregado db-schema.js a core. Sin esto, window.DB es undefined
+    // y todas las paginas que usan DB.tableCols() / DB.from() crashean.
     var SCRIPTS = {
         core: [
             'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
@@ -37,94 +38,135 @@
         public: [
             'assets/js/messaging.js',
             'assets/js/notifications.js',
-            'assets/js/nav-engine.js'
+            'assets/js/nav-engine.js',
+            'assets/js/training.js',
+            'assets/js/components.js'
         ],
         admin: [
+            'assets/js/components.js',
             'assets/js/messaging.js',
             'assets/js/notifications.js',
-            'assets/js/admin.js'
+            'assets/js/nav-engine.js',
+            'assets/js/training.js'
         ],
         player: [
             'assets/js/messaging.js',
             'assets/js/notifications.js',
-            'assets/js/player.js'
+            'assets/js/nav-engine.js',
+            'assets/js/training.js',
+            'assets/js/components.js',
+            'assets/js/pwa-utils.js'
         ],
+        // Chat consolidado: core (con supabase, roles-data y auth-core) +
+        // el modulo de canales. Sin el shim auth.js (document.write deprecated).
         chat: [
-            'assets/js/config.js',
-            'assets/js/messaging.js',
-            'assets/js/notifications.js',
-            'assets/js/chat.js',
             'assets/js/chat-channels.js'
         ]
     };
 
-    function loadSequential(list, onEach) {
-        var i = 0;
+    function resolveUrl(url) {
+        if (!url) return url;
+        // URLs absolutas o externas se dejan tal cual
+        if (url.indexOf('://') !== -1 || url.indexOf('//') === 0 || url.charAt(0) === '/') {
+            return url;
+        }
+        // Si ya es una ruta relativa a la carpeta del HTML (sube un nivel), no duplicar BASE
+        if (url.indexOf('../') === 0) {
+            return url;
+        }
+        return BASE + url;
+    }
+
+    function loadScript(src) {
         return new Promise(function(resolve, reject) {
-            function next() {
-                if (i >= list.length) { resolve(); return; }
-                var src = list[i++];
-                var url = src;
-                // Cache-buster automatico para scripts locales (no CDN)
-                if (src.indexOf('http') !== 0 && window.AHBuster) {
-                    url = window.AHBuster.url(src);
-                }
-                var s = document.createElement('script');
-                s.src = url;
-                s.onload = function() { if (onEach) onEach(src); next(); };
-                s.onerror = function() { reject(new Error('Error cargando: ' + src)); };
-                document.head.appendChild(s);
-            }
-            next();
+            var script = document.createElement('script');
+            script.src = src;
+            script.async = false;
+            script.onload = function() { resolve(src); };
+            script.onerror = function() {
+                console.warn('[AHLoader] Fallo al cargar:', src);
+                reject(src);
+            };
+            document.head.appendChild(script);
         });
     }
 
-    async function init() {
-        try {
-            var core = SCRIPTS.core.slice();
-            var role = SCRIPTS[ROLE] ? SCRIPTS[ROLE].slice() : [];
-
-            // chat: carga core COMPLETO igual que los demas roles (fix: antes
-            // lo omitia y dejaba window.supabase undefined). Su lista propia
-            // solo contiene scripts especificos de chat (sin config duplicado).
-            if (ROLE === 'chat') {
-                role = SCRIPTS.chat.filter(function(s) { return core.indexOf(s) === -1; });
+    async function loadScripts(urls) {
+        for (var i = 0; i < urls.length; i++) {
+            var url = resolveUrl(urls[i]);
+            if (window.AHBuster) {
+                url = window.AHBuster.url(url);
             }
-
-            await loadSequential(core.concat(role));
-            window.AHLoader = window.AHLoader || {};
-            window.AHLoader.ready = true;
-            window.dispatchEvent(new CustomEvent('ah:scripts-loaded', { detail: { role: ROLE } }));
-        } catch (e) {
-            console.error('[Loader]', e);
-            window.AHLoader = window.AHLoader || {};
-            window.AHLoader.error = e;
+            try {
+                await loadScript(url);
+            } catch(e) {
+                console.warn('[AHLoader] Script no critico fallo:', urls[i]);
+            }
         }
     }
 
-    // API publica minima
     window.AHLoader = {
-        role: ROLE,
-        ready: false,
-        error: null,
-        // Utilidad para scripts que necesitan esperar a que todo este cargado
-        onReady: function(callback) {
-            if (window.AHLoader.ready) {
-                callback();
-            } else {
-                window.addEventListener('ah:scripts-loaded', function() { callback(); }, { once: true });
+        init: async function(opts) {
+            opts = opts || {};
+            var role = opts.role || 'public';
+            var pageScript = opts.pageScript || null;
+            var extraScripts = opts.extraScripts || [];
+
+            console.log('[AHLoader] Iniciando carga para rol:', role);
+
+            // Todos los roles (incluido 'chat') cargan el core: supabase,
+            // config, db-schema, base, roles-data y auth-core.
+            await loadScripts(SCRIPTS.core);
+
+            var roleScripts = SCRIPTS[role] || SCRIPTS.public;
+            await loadScripts(roleScripts);
+
+            if (extraScripts.length > 0) {
+                await loadScripts(extraScripts);
+            }
+
+            if (pageScript) {
+                try {
+                    var pageUrl = resolveUrl(pageScript);
+                    if (window.AHBuster) {
+                        pageUrl = window.AHBuster.url(pageUrl);
+                    }
+                    await loadScript(pageUrl);
+                } catch(e) {
+                    console.warn('[AHLoader] Page script critico fallo:', pageScript);
+                }
+            }
+
+            console.log('[AHLoader] Carga completada para:', role);
+            window.dispatchEvent(new CustomEvent('ah:loaded', { detail: { role: role } }));
+
+            // FIX: Si el DOM ya estaba listo antes de que los scripts dinamicos
+            // terminaran de cargar, DOMContentLoaded no se dispara para ellos.
+            // Emitimos un evento explicito para que page scripts y nav-engine
+            // puedan inicializarse de forma robusta.
+            if (document.readyState === 'interactive' || document.readyState === 'complete') {
+                console.log('[AHLoader] DOM ya estaba listo; disparando ah:dom-ready');
+                window.dispatchEvent(new CustomEvent('ah:dom-ready', { detail: { role: role } }));
             }
         },
-        // Ejecuta callback cuando el DOM esta listo (o inmediatamente si ya lo esta)
-        onDomReady: function(callback) {
+
+        load: function(src) {
+            var url = resolveUrl(src);
+            if (window.AHBuster) {
+                url = window.AHBuster.url(url);
+            }
+            return loadScript(url);
+        },
+
+        // Helper para que los page scripts se inicialicen correctamente tanto si
+        // el DOM ya esta listo como si los scripts se cargaron dinamicamente.
+        // El callback se ejecuta UNA sola vez.
+        onReady: function(callback) {
+            var done = false;
             function run() {
-                if (window.AHLoader._domReadyFired) return;
-                window.AHLoader._domReadyFired = true;
-                try {
-                    callback();
-                } catch (e) {
-                    console.error('[Loader] Error en onDomReady callback:', e);
-                }
+                if (done) return;
+                done = true;
+                callback();
             }
             if (document.readyState === 'interactive' || document.readyState === 'complete') {
                 run();
