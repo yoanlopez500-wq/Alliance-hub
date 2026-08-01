@@ -3,6 +3,7 @@
  *
  * Extraido de admin/rankings.html como parte de la refactorizacion al sistema de loader/cache-buster.
  * Ahora calcula bajas/muertes solo de partidas donde el jugador esta registrado en match_registrations.
+ * Orden: Score Bayesiano C=3 + desempate de 5 niveles (motor compartido AHRankingScore).
  */
 (function() {
     'use strict';
@@ -26,11 +27,15 @@
         try {
             await loadAlliances();
 
-            // 1) Resultados de partidas publicas (no internal)
-            var { data: results, error: rErr } = await window.supabase.from('match_results')
-                .select('player_id, kills, deaths, match_id, matches!inner(match_type)')
-                .neq('matches.match_type', 'internal');
-            if (rErr) throw rErr;
+            // 1) Resultados de partidas publicas (no internal), paginados:
+            // PostgREST limita las filas por request (~1000); fetchAllRows
+            // garantiza la poblacion completa aunque la tabla crezca.
+            var results = await window.AHRankingScore.fetchAllRows(function(from, to) {
+                return window.supabase.from('match_results')
+                    .select('player_id, kills, deaths, match_id, matches!inner(match_type)')
+                    .neq('matches.match_type', 'internal')
+                    .range(from, to);
+            });
 
             // 2) Filtrar por jugadores registrados en cada partida
             var matchIds = [];
@@ -38,10 +43,12 @@
                 if (r.match_id && matchIds.indexOf(r.match_id) === -1) matchIds.push(r.match_id);
             });
             var validRegistrations = {};
-            if (matchIds.length > 0) {
+            // .in() en bloques defensivos para no exceder el limite de URL.
+            var CHUNK = 100;
+            for (var ci = 0; ci < matchIds.length; ci += CHUNK) {
                 var { data: regs, error: regErr } = await window.supabase.from('match_registrations')
                     .select('match_id, player_id')
-                    .in('match_id', matchIds);
+                    .in('match_id', matchIds.slice(ci, ci + CHUNK));
                 if (regErr) throw regErr;
                 (regs || []).forEach(function(r) {
                     validRegistrations[r.match_id + ':' + r.player_id] = true;
@@ -78,7 +85,23 @@
                 });
             }
 
-            playersData.sort(function(a, b) { return b.kills - a.kills; });
+            // Orden deterministico de 5 niveles con Score Bayesiano C=3
+            // (mismo motor compartido AHRankingScore que el ranking publico;
+            // aqui las kills efectivas son las kills crudas de partidas validas).
+            // 1) Score Bayesiano 2) mas partidas 3) menos muertes
+            // 4) mas kills 5) alfabetico (desempate absoluto).
+            var scorer = window.AHRankingScore.makeBayesScorer(playersData, {
+                eff: function(p) { return p.kills; },
+                deaths: function(p) { return p.deaths; },
+                games: function(p) { return p.games; }
+            });
+            playersData.sort(window.AHRankingScore.compareRankedPlayers({
+                score: scorer.score,
+                games: function(p) { return p.games; },
+                deaths: function(p) { return p.deaths; },
+                eff: function(p) { return p.kills; },
+                name: function(p) { return p.username; }
+            }));
 
             var tbody = document.getElementById('rankings-tbody');
             if (!tbody) return;
