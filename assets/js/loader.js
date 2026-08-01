@@ -30,6 +30,7 @@
             'assets/js/modules/sanctions.js',
             'assets/js/base.js',
             'assets/js/ranking-utils.js',
+            'assets/js/ranking-score.js',
             'assets/js/roles-data.js',
             'assets/js/auth-core.js',
             'assets/js/push-manager.js'

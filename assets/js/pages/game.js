@@ -8,6 +8,8 @@
  * public_players_view. La partida (loadMatch), el gate csv_imported y los
  * resultados (badge "no registrado") siguen leyendo tablas base.
  * v3: eliminado el chat de jugadores (chat solo auth) y fix match.password.
+ * v4: la tabla de resultados aplica desempate determinista en cliente:
+ * kd_ratio -> mas kills -> menos muertes -> nombre alfabetico.
  */
 (function() {
     'use strict';
@@ -270,6 +272,13 @@
             var { data: players } = await window.supabase.from('public_players_view').select('id, current_username').in('id', playerIds);
             var playersMap = {};
             (players || []).forEach(function(p) { playersMap[p.id] = p; });
+            // Desempate determinista: el SQL ordena por kd_ratio DESC; aqui se
+            // fijan los criterios secundarios para que dos jugadores con el
+            // mismo KD nunca queden en orden aleatorio.
+            // 1) KD del partido 2) mas kills 3) menos muertes 4) alfabetico.
+            results.sort(window.AHRankingScore.compareMatchResults(function(rw) {
+                return (playersMap[rw.player_id] || {}).current_username || '';
+            }));
             var resultsSection = document.getElementById('results-section');
             var resultsTbody = document.getElementById('results-tbody');
             if (resultsSection) resultsSection.classList.remove('hidden');

@@ -267,7 +267,45 @@
                 var s = stats[p.id] || { kills: 0, deaths: 0, games: 0 };
                 var kd = s.deaths > 0 ? (s.kills / s.deaths) : (s.kills || 0);
                 return { player: p, kd: kd, kills: s.kills, deaths: s.deaths, games: s.games };
-            }).sort(function(a, b) { return b.kd - a.kd; });
+            });
+
+            // Orden deterministico de 5 niveles con Score Bayesiano C=3
+            // (mismo criterio que el ranking publico). Los priors deben ser
+            // GLOBALES (toda la poblacion rankeada), no solo de la alianza.
+            // ORDER BY player_id: paginacion estable entre requests.
+            // Respaldo: si el motor no esta disponible, orden por KD crudo.
+            if (window.AHRankingScore && window.AHRankingScore.makeBayesScorer) {
+                try {
+                    var vc = window.DB.tableCols('publicRankings');
+                    var popRows = await window.AHRankingScore.fetchAllRows(function(from, to) {
+                        return window.DB.from('publicRankings')
+                            .select(window.DB.select('publicRankings', 'all'))
+                            .order(vc.playerId, { ascending: true })
+                            .range(from, to);
+                    });
+                    var scorer = window.AHRankingScore.makeBayesScorer(popRows, {
+                        eff: function(p) { return p[vc.totalKills]; },
+                        deaths: function(p) { return p[vc.totalDeaths]; },
+                        games: function(p) { return p[vc.gamesPlayed]; }
+                    });
+                    ranked.sort(window.AHRankingScore.compareRankedPlayers({
+                        score: function(x) {
+                            var denom = x.deaths + scorer.C * scorer.priorD;
+                            if (denom <= 0) denom = 1;
+                            return (x.kills + scorer.C * scorer.priorK) / denom;
+                        },
+                        games: function(x) { return x.games; },
+                        deaths: function(x) { return x.deaths; },
+                        eff: function(x) { return x.kills; },
+                        name: function(x) { return x.player.current_username; }
+                    }));
+                } catch(e2) {
+                    console.error('[LeaderDashboard] Fallback a KD crudo:', e2);
+                    ranked.sort(function(a, b) { return b.kd - a.kd; });
+                }
+            } else {
+                ranked.sort(function(a, b) { return b.kd - a.kd; });
+            }
 
             container.innerHTML = '<div class="space-y-2">' + ranked.map(function(r, i) {
                 var medal = i === 0 ? '&#129351;' : i === 1 ? '&#129352;' : i === 2 ? '&#129353;' : (i + 1) + '.';

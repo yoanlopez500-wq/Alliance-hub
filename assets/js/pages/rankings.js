@@ -8,6 +8,11 @@
  * public_matches_view). Strikes/sanciones/kills anulados siguen leyendo tablas base.
  * v3: tab Duelos muestra ademas la tabla de standings por alianza
  * (public_duel_standings_view) ordenada por puntos de duelo.
+ * v4: el ranking publico de jugadores se ordena por Score Bayesiano (C=3)
+ * sobre kills efectivas, con desempate determinista de 5 niveles:
+ * score -> mas partidas -> menos muertes -> mas kills efectivas -> alfabetico.
+ * El score es motor interno de orden; la tabla muestra las mismas columnas.
+ * Lectura paginada (defensa ante el limite de filas de PostgREST).
  */
 (function() {
     'use strict';
@@ -114,13 +119,21 @@
             var vc = window.DB.tableCols('publicRankings');
 
             // La vista ya agrega solo resultados validos de partidas no internas.
-            var q = window.DB.from('publicRankings').select(window.DB.select('publicRankings', 'all'));
-            if (allianceFilter) q = q.eq(vc.currentAllianceId, allianceFilter);
-            var res = await q;
-            if (res.error) throw res.error;
+            // Sin filtro SQL de alianza: los promedios globales del prior bayesiano
+            // deben calcularse sobre TODA la poblacion rankeada; el filtro de
+            // alianza se aplica en cliente despues (mismas filas visibles).
+            // Lectura paginada: PostgREST limita las filas por request (~1000);
+            // con .range() se garantiza la poblacion completa aunque crezca.
+            // ORDER BY player_id: paginacion estable entre requests.
+            var allRows = await window.AHRankingScore.fetchAllRows(function(from, to) {
+                return window.DB.from('publicRankings')
+                    .select(window.DB.select('publicRankings', 'all'))
+                    .order(vc.playerId, { ascending: true })
+                    .range(from, to);
+            });
 
-            // Mapear filas de la vista al formato de jugador usado por el renderizado.
-            var playersData = (res.data || []).map(function(r) {
+            // Mapear TODA la poblacion al formato de jugador usado por el renderizado.
+            var allPlayers = allRows.map(function(r) {
                 var p = {};
                 p[pc.id] = r[vc.playerId];
                 p[pc.currentUsername] = r[vc.currentUsername];
@@ -131,7 +144,34 @@
                 return p;
             });
 
-            playersData.sort(function(a, b) { return effectiveKills(b) - effectiveKills(a); });
+            // Guardia numerica: dato corrupto nunca produce NaN en el orden.
+            function safeEff(p) { var v = effectiveKills(p); return isFinite(v) ? v : 0; }
+
+            // ---- Score Bayesiano C=3 (motor compartido AHRankingScore) ----
+            // Priors sobre kills EFECTIVAS de toda la poblacion (consistente
+            // con el numerador). Con pocas partidas el score se jala al
+            // promedio global; con muchas, domina el KD real del jugador.
+            var scorer = window.AHRankingScore.makeBayesScorer(allPlayers, {
+                eff: safeEff,
+                deaths: function(p) { return p[pc.deaths]; },
+                games: function(p) { return p[pc.gamesPlayed]; }
+            });
+
+            // Filtro de alianza en cliente (equivalente al antiguo filtro SQL).
+            var playersData = allPlayers.filter(function(p) {
+                return !allianceFilter || p[pc.currentAllianceId] === allianceFilter;
+            });
+
+            // Orden deterministico de 5 niveles (motor compartido):
+            // 1) Score Bayesiano 2) mas partidas 3) menos muertes
+            // 4) mas kills efectivas 5) alfabetico (desempate absoluto).
+            playersData.sort(window.AHRankingScore.compareRankedPlayers({
+                score: scorer.score,
+                games: function(p) { return p[pc.gamesPlayed]; },
+                deaths: function(p) { return p[pc.deaths]; },
+                eff: safeEff,
+                name: function(p) { return p[pc.currentUsername]; }
+            }));
             var tbody = document.getElementById('players-tbody');
             if (!tbody) return;
             if (playersData.length === 0) {
