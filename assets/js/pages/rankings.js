@@ -8,6 +8,10 @@
  * public_matches_view). Strikes/sanciones/kills anulados siguen leyendo tablas base.
  * v3: tab Duelos muestra ademas la tabla de standings por alianza
  * (public_duel_standings_view) ordenada por puntos de duelo.
+ * v4: el ranking publico de jugadores se ordena por Score Bayesiano (C=3)
+ * sobre kills efectivas, con desempate determinista de 5 niveles:
+ * score -> mas partidas -> menos muertes -> mas kills efectivas -> alfabetico.
+ * El score es motor interno de orden; la tabla muestra las mismas columnas.
  */
 (function() {
     'use strict';
@@ -114,13 +118,37 @@
             var vc = window.DB.tableCols('publicRankings');
 
             // La vista ya agrega solo resultados validos de partidas no internas.
-            var q = window.DB.from('publicRankings').select(window.DB.select('publicRankings', 'all'));
-            if (allianceFilter) q = q.eq(vc.currentAllianceId, allianceFilter);
-            var res = await q;
+            // Sin filtro SQL de alianza: los promedios globales del prior bayesiano
+            // deben calcularse sobre TODA la poblacion rankeada; el filtro de
+            // alianza se aplica en cliente despues del mapeo (mismas filas visibles).
+            var res = await window.DB.from('publicRankings').select(window.DB.select('publicRankings', 'all'));
             if (res.error) throw res.error;
 
+            // ---- Score Bayesiano (constante de confianza C=3) ----
+            // Promedios globales por partida sobre toda la poblacion (prior).
+            var BAYES_C = 3;
+            var sumK = 0, sumD = 0, sumG = 0;
+            (res.data || []).forEach(function(r) {
+                sumK += r[vc.totalKills] || 0;
+                sumD += r[vc.totalDeaths] || 0;
+                sumG += r[vc.gamesPlayed] || 0;
+            });
+            var priorK = sumG > 0 ? sumK / sumG : 0;
+            var priorD = sumG > 0 ? sumD / sumG : 0;
+
+            // score = (kills_efectivas + C*priorK) / (muertes + C*priorD)
+            // Con pocas partidas el score se jala al promedio global (~KD medio);
+            // con muchas, domina el KD real del jugador.
+            function bayesScore(p) {
+                var denom = (p[pc.deaths] || 0) + BAYES_C * priorD;
+                if (denom <= 0) denom = 1; // guardia: poblacion sin muertes
+                return (effectiveKills(p) + BAYES_C * priorK) / denom;
+            }
+
             // Mapear filas de la vista al formato de jugador usado por el renderizado.
-            var playersData = (res.data || []).map(function(r) {
+            var playersData = (res.data || []).filter(function(r) {
+                return !allianceFilter || r[vc.currentAllianceId] === allianceFilter;
+            }).map(function(r) {
                 var p = {};
                 p[pc.id] = r[vc.playerId];
                 p[pc.currentUsername] = r[vc.currentUsername];
@@ -131,7 +159,24 @@
                 return p;
             });
 
-            playersData.sort(function(a, b) { return effectiveKills(b) - effectiveKills(a); });
+            // Orden deterministico de 5 niveles:
+            // 1) Score Bayesiano 2) mas partidas 3) menos muertes
+            // 4) mas kills efectivas 5) alfabetico (desempate absoluto).
+            playersData.sort(function(a, b) {
+                var s = bayesScore(b) - bayesScore(a);
+                if (s !== 0) return s;
+                var g = (b[pc.gamesPlayed] || 0) - (a[pc.gamesPlayed] || 0);
+                if (g !== 0) return g;
+                var d = (a[pc.deaths] || 0) - (b[pc.deaths] || 0);
+                if (d !== 0) return d;
+                var k = effectiveKills(b) - effectiveKills(a);
+                if (k !== 0) return k;
+                var na = (a[pc.currentUsername] || '').toLowerCase();
+                var nb = (b[pc.currentUsername] || '').toLowerCase();
+                if (na < nb) return -1;
+                if (na > nb) return 1;
+                return 0;
+            });
             var tbody = document.getElementById('players-tbody');
             if (!tbody) return;
             if (playersData.length === 0) {

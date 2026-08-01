@@ -8,6 +8,8 @@
  * public_players_view. La partida (loadMatch), el gate csv_imported y los
  * resultados (badge "no registrado") siguen leyendo tablas base.
  * v3: eliminado el chat de jugadores (chat solo auth) y fix match.password.
+ * v4: la tabla de resultados aplica desempate determinista en cliente:
+ * kd_ratio -> mas kills -> menos muertes -> nombre alfabetico.
  */
 (function() {
     'use strict';
@@ -270,6 +272,23 @@
             var { data: players } = await window.supabase.from('public_players_view').select('id, current_username').in('id', playerIds);
             var playersMap = {};
             (players || []).forEach(function(p) { playersMap[p.id] = p; });
+            // Desempate determinista: el SQL ordena por kd_ratio DESC; aqui se
+            // fijan los criterios secundarios para que dos jugadores con el
+            // mismo KD nunca queden en orden aleatorio.
+            // 1) KD del partido 2) mas kills 3) menos muertes 4) alfabetico.
+            results.sort(function(a, b) {
+                var kd = (b.kd_ratio || 0) - (a.kd_ratio || 0);
+                if (kd !== 0) return kd;
+                var k = (b.kills || 0) - (a.kills || 0);
+                if (k !== 0) return k;
+                var d = (a.deaths || 0) - (b.deaths || 0);
+                if (d !== 0) return d;
+                var na = ((playersMap[a.player_id] || {}).current_username || '').toLowerCase();
+                var nb = ((playersMap[b.player_id] || {}).current_username || '').toLowerCase();
+                if (na < nb) return -1;
+                if (na > nb) return 1;
+                return 0;
+            });
             var resultsSection = document.getElementById('results-section');
             var resultsTbody = document.getElementById('results-tbody');
             if (resultsSection) resultsSection.classList.remove('hidden');
@@ -279,7 +298,7 @@
                     var p = playersMap[r.player_id] || {};
                     var rowClass = isValid ? '' : 'opacity-60 bg-slate-950/30';
                     var badge = isValid ? '' : '<span class="ml-2 text-[10px] px-1 py-0.5 rounded font-bold bg-slate-500/20 text-slate-400">no registrado</span>';
-                    return '<tr class="border-b border-indigo-900 ' + rowClass + '"><td class="p-3 font-bold ' + (i < 3 ? 'text-yellow-400' : 'text-slate-400') + ';">' + (i + 1) + '</td><td class="p-3 text-slate-100">' + (r.nation || '-') + '</td><td class="p-3 font-medium"><a href="player.html?id=' + r.player_id + '" class="text-amber-400">' + (p.current_username || '?') + '</a>' + badge + '</td><td class="p-3 text-right font-bold text-green-500">' + (r.kills || 0).toLocaleString() + '</td><td class="p-3 text-right text-red-400">' + (r.deaths || 0).toLocaleString() + '</td><td class="p-3 text-right font-bold ' + ((r.kd_ratio || 0) >= 1 ? 'text-green-500' : 'text-amber-400') + ';">' + (r.kd_ratio || 0) + '</td></tr>';
+                    return '<tr class="border-b border-indigo-900 ' + rowClass + '"><td class="p-3 font-bold ' + (i < 3 ? 'text-yellow-400' : 'text-slate-400') + ';">' + (i + 1) + '</td><td class="p-3 text-slate-100">' + (r.nation || '-') + '</td><td class="p-3 font-medium"><a href="player.html?id=' + r.player_id + '" class="text-amber-400">' + (p.current_username || '?') + '</a>' + badge + '</td><td class="p-3 text-right font-bold text-green-500">' + (r.kills || 0).toLocaleString() + '</td><td class="p-3 text-right text-red-400">' + (r.deaths || 0) + '</td><td class="p-3 text-right font-bold ' + ((r.kd_ratio || 0) >= 1 ? 'text-green-500' : 'text-amber-400') + ';">' + (r.kd_ratio || 0) + '</td></tr>';
                 }).join('');
             }
         } catch(e) {
