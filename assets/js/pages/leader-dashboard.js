@@ -272,6 +272,7 @@
             // Orden deterministico de 5 niveles con Score Bayesiano C=3
             // (mismo criterio que el ranking publico). Los priors deben ser
             // GLOBALES (toda la poblacion rankeada), no solo de la alianza.
+            // ORDER BY player_id: paginacion estable entre requests.
             // Respaldo: si el motor no esta disponible, orden por KD crudo.
             if (window.AHRankingScore && window.AHRankingScore.makeBayesScorer) {
                 try {
@@ -279,6 +280,7 @@
                     var popRows = await window.AHRankingScore.fetchAllRows(function(from, to) {
                         return window.DB.from('publicRankings')
                             .select(window.DB.select('publicRankings', 'all'))
+                            .order(vc.playerId, { ascending: true })
                             .range(from, to);
                     });
                     var scorer = window.AHRankingScore.makeBayesScorer(popRows, {
