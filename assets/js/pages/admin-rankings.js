@@ -30,10 +30,12 @@
             // 1) Resultados de partidas publicas (no internal), paginados:
             // PostgREST limita las filas por request (~1000); fetchAllRows
             // garantiza la poblacion completa aunque la tabla crezca.
+            // ORDER BY id: paginacion estable (sin filas duplicadas/omitidas).
             var results = await window.AHRankingScore.fetchAllRows(function(from, to) {
                 return window.supabase.from('match_results')
                     .select('player_id, kills, deaths, match_id, matches!inner(match_type)')
                     .neq('matches.match_type', 'internal')
+                    .order('id', { ascending: true })
                     .range(from, to);
             });
 
