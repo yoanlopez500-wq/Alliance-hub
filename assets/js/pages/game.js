@@ -276,19 +276,9 @@
             // fijan los criterios secundarios para que dos jugadores con el
             // mismo KD nunca queden en orden aleatorio.
             // 1) KD del partido 2) mas kills 3) menos muertes 4) alfabetico.
-            results.sort(function(a, b) {
-                var kd = (b.kd_ratio || 0) - (a.kd_ratio || 0);
-                if (kd !== 0) return kd;
-                var k = (b.kills || 0) - (a.kills || 0);
-                if (k !== 0) return k;
-                var d = (a.deaths || 0) - (b.deaths || 0);
-                if (d !== 0) return d;
-                var na = ((playersMap[a.player_id] || {}).current_username || '').toLowerCase();
-                var nb = ((playersMap[b.player_id] || {}).current_username || '').toLowerCase();
-                if (na < nb) return -1;
-                if (na > nb) return 1;
-                return 0;
-            });
+            results.sort(window.AHRankingScore.compareMatchResults(function(rw) {
+                return (playersMap[rw.player_id] || {}).current_username || '';
+            }));
             var resultsSection = document.getElementById('results-section');
             var resultsTbody = document.getElementById('results-tbody');
             if (resultsSection) resultsSection.classList.remove('hidden');
