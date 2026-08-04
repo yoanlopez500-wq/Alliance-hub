@@ -55,7 +55,7 @@ function escapeHtml(str) {
 // Ademas aplica escapeHtml para neutralizar HTML en el valor resultante.
 function escapeAttr(str) {
     if (str == null) return '';
-    return escapeHtml(String(str).replace(/\/g, '\\').replace(/'/g, "\'").replace(/\r?\n/g, '\\n').replace(/\r/g, '\\r'));
+    return escapeHtml(String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n').replace(/\r/g, '\\r'));
 }
 
 function statusBadge(status) {
