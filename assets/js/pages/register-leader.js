@@ -24,8 +24,12 @@
             showError('No se proporciono un codigo de invitacion.');
             return;
         }
-        if (!/^AH[A-Z0-9]{6}$/i.test(inviteCode)) {
-            showError('Formato de codigo invalido. Debe ser AH + 6 caracteres alfanumericos.');
+        // Formato via modulo compartido: acepta AH+10 (actual) y AH+6 (legacy)
+        var codeOk = (window.AHInviteCode && window.AHInviteCode.isValid)
+            ? window.AHInviteCode.isValid(inviteCode)
+            : /^AH[A-Z0-9]{6,10}$/i.test(inviteCode);
+        if (!codeOk) {
+            showError('Formato de codigo invalido. Debe ser AH + 6 a 10 caracteres alfanumericos.');
             return;
         }
 
