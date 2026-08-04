@@ -32,6 +32,10 @@ function jsonResponse(body: Record<string, unknown>, status: number): Response {
 }
 
 Deno.serve(async (req: Request) => {
+  // Log de request para diagnóstico (sin datos sensibles)
+  const requestId = req.headers.get("x-sb-request-id") || crypto.randomUUID();
+  console.log(`[complete-admin-signup] request ${requestId} ${req.method} ${req.url}`);
+
   // 1. CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -63,16 +67,20 @@ Deno.serve(async (req: Request) => {
     : body.supremacyId;
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    console.log(`[${requestId}] validation failed: email invalid`);
     return jsonResponse({ error: "Email inválido" }, 400);
   }
   if (password.length < 6) {
+    console.log(`[${requestId}] validation failed: password too short`);
     return jsonResponse({ error: "La contraseña debe tener al menos 6 caracteres" }, 400);
   }
   // Acepta códigos AH+10 (actuales) y AH+6 (legacy pre-hardening)
-  if (!/^AH[A-Z0-9]{6,10}$/i.test(body.inviteCode ?? "")) {
+  if (!/^AH[A-Z0-9]{6,10}$/i.test(inviteCode)) {
+    console.log(`[${requestId}] validation failed: invite code format invalid (${inviteCode})`);
     return jsonResponse({ error: "Formato de código de invitación inválido" }, 400);
   }
   if (supremacyId == null || isNaN(supremacyId)) {
+    console.log(`[${requestId}] validation failed: supremacyId invalid (${body.supremacyId})`);
     return jsonResponse({ error: "ID de jugador inválido" }, 400);
   }
 
@@ -91,24 +99,27 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
 
   if (inviteError) {
-    console.error("invite lookup error:", inviteError);
+    console.error(`[${requestId}] invite lookup error:`, inviteError);
     return jsonResponse({ error: "Error consultando la invitación" }, 500);
   }
   if (!invite) {
+    console.log(`[${requestId}] invite not found or used: ${inviteCode}`);
     return jsonResponse({ error: "Código de invitación inválido o ya usado" }, 400);
   }
   if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+    console.log(`[${requestId}] invite expired: ${inviteCode}`);
     return jsonResponse({ error: "Código de invitación expirado" }, 400);
   }
   if (!invite.role) {
-    console.error("corrupt invite (no role):", invite.code);
+    console.error(`[${requestId}] corrupt invite (no role):`, invite.code);
     return jsonResponse({ error: "Invitación inválida: sin rol asignado" }, 400);
   }
   if (invite.role === "alliance_leader") {
     // Leader codes carry player_id/alliance_id and must go through complete-leader-signup
+    console.log(`[${requestId}] leader invite rejected for staff signup: ${inviteCode}`);
     return jsonResponse({ error: "Este código es de líder de alianza: usa la página de registro de líder" }, 400);
   }
-  console.log(`staff invite ${invite.code} valid (role=${invite.role})`);
+  console.log(`[${requestId}] staff invite ${invite.code} valid (role=${invite.role})`);
 
   // 4. Ensure player row exists for the given supremacyId
   const { data: existingPlayer, error: playerLookupError } = await supabaseAdmin
@@ -117,7 +128,7 @@ Deno.serve(async (req: Request) => {
     .eq("id", supremacyId)
     .maybeSingle();
   if (playerLookupError) {
-    console.error("player lookup error:", playerLookupError);
+    console.error(`[${requestId}] player lookup error:`, playerLookupError);
     return jsonResponse({ error: "Error verificando jugador" }, 500);
   }
   if (!existingPlayer) {
@@ -129,10 +140,10 @@ Deno.serve(async (req: Request) => {
         status: "active",
       });
     if (playerInsertError) {
-      console.error("player insert error:", playerInsertError);
+      console.error(`[${requestId}] player insert error:`, playerInsertError);
       return jsonResponse({ error: "Error creando jugador" }, 500);
     }
-    console.log(`player ${supremacyId} created`);
+    console.log(`[${requestId}] player ${supremacyId} created`);
   }
 
   // 5. Check if email is already registered (paginate through users)
@@ -145,7 +156,7 @@ Deno.serve(async (req: Request) => {
       perPage,
     });
     if (listError) {
-      console.error("listUsers error:", listError);
+      console.error(`[${requestId}] listUsers error:`, listError);
       return jsonResponse({ error: "Error verificando usuarios existentes" }, 500);
     }
     const users = usersPage?.users ?? [];
@@ -158,6 +169,7 @@ Deno.serve(async (req: Request) => {
     }
   }
   if (emailExists) {
+    console.log(`[${requestId}] email already registered: ${email}`);
     return jsonResponse({ error: "email ya registrado" }, 409);
   }
 
@@ -168,7 +180,7 @@ Deno.serve(async (req: Request) => {
     email_confirm: true,
   });
   if (createError || !created?.user) {
-    console.error("createUser error:", createError);
+    console.error(`[${requestId}] createUser error:`, createError);
     const msg = (createError?.message ?? "").toLowerCase();
     if (msg.includes("already") || msg.includes("registered") || msg.includes("duplicate")) {
       return jsonResponse({ error: "email ya registrado" }, 409);
@@ -176,16 +188,16 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Error creando la cuenta" }, 500);
   }
   const userId = created.user.id;
-  console.log(`auth user created: ${userId}`);
+  console.log(`[${requestId}] auth user created: ${userId}`);
 
   // Compensation helper: delete the auth user if a later step fails
   const compensate = async (step: string, stepError: unknown) => {
-    console.error(`step '${step}' failed, rolling back user ${userId}:`, stepError);
+    console.error(`[${requestId}] step '${step}' failed, rolling back user ${userId}:`, stepError);
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (deleteError) {
-      console.error("compensation deleteUser failed:", deleteError);
+      console.error(`[${requestId}] compensation deleteUser failed:`, deleteError);
     } else {
-      console.log(`compensation ok: user ${userId} deleted`);
+      console.log(`[${requestId}] compensation ok: user ${userId} deleted`);
     }
     return jsonResponse({ error: "Error completando el registro" }, 500);
   };
@@ -204,7 +216,7 @@ Deno.serve(async (req: Request) => {
   if (adminInsertError) {
     return await compensate("admin_users insert", adminInsertError);
   }
-  console.log(`admin_users row created for ${userId} (role=${invite.role})`);
+  console.log(`[${requestId}] admin_users row created for ${userId} (role=${invite.role})`);
 
   // 8. Mark invite as used
   const { error: inviteUpdateError } = await supabaseAdmin
@@ -215,7 +227,7 @@ Deno.serve(async (req: Request) => {
   if (inviteUpdateError) {
     return await compensate("invite mark used", inviteUpdateError);
   }
-  console.log(`invite ${invite.code} marked used by ${userId}`);
+  console.log(`[${requestId}] invite ${invite.code} marked used by ${userId}`);
 
   return jsonResponse({
     success: true,

@@ -222,30 +222,59 @@ async function signupWithInvite(email, password, inviteCode, supremacyId, displa
     // El camino anterior (SELECT/INSERT directos con anon key) estaba roto para
     // invites de staff: la politica RLS anon solo expone invites con player_id
     // NOT NULL, por lo que los codigos de staff (player_id NULL) eran invisibles.
+
+    // 1. Normalizar y validar inputs en frontend antes de gastar el invite code
+    var normalizedEmail = (email || '').trim().toLowerCase();
+    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        return { success: false, message: 'Email invalido.' };
+    }
+    if (!password || password.length < 6) {
+        return { success: false, message: 'La contrasena debe tener al menos 6 caracteres.' };
+    }
     var normalizedCode = (inviteCode || '').trim().toUpperCase();
     // Formato flexible: acepta codigos legacy de 6 y los nuevos de 10 caracteres
     if (!normalizedCode || !/^AH[A-Z0-9]{6,10}$/i.test(normalizedCode)) {
         return { success: false, message: 'Formato de codigo invalido. Debe ser AH + 6 a 10 caracteres.' };
     }
+    var rawId = String(supremacyId || '').trim();
+    var parsedId = parseInt(rawId, 10);
+    if (!rawId || isNaN(parsedId) || parsedId <= 0) {
+        return { success: false, message: 'ID de jugador invalido. Debe ser un numero positivo.' };
+    }
+    var normalizedDisplayName = (displayName || '').trim();
+    if (!normalizedDisplayName) {
+        return { success: false, message: 'El nombre de usuario es obligatorio.' };
+    }
     if (!window.SUPABASE_URL) {
         return { success: false, message: 'Configuracion incompleta (SUPABASE_URL). Recarga la pagina.' };
     }
+
     try {
         var resp = await fetch(window.SUPABASE_URL + '/functions/v1/complete-admin-signup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                email: email,
+                email: normalizedEmail,
                 password: password,
                 inviteCode: normalizedCode,
-                supremacyId: supremacyId,
-                displayName: (displayName || '').trim()
+                supremacyId: parsedId,
+                displayName: normalizedDisplayName
             })
         });
         var data = {};
         try { data = await resp.json(); } catch(parseErr) { data = {}; }
         if (resp.ok && data && data.success) {
-            return { success: true, message: data.message || 'Cuenta creada exitosamente.' };
+            // 2. Auto-login tras signup exitoso para mejor UX
+            var loginResult = await supabase.auth.signInWithPassword({
+                email: normalizedEmail,
+                password: password
+            });
+            if (loginResult.error) {
+                console.error('[signupWithInvite] auto-login failed:', loginResult.error);
+                // No es fatal; la cuenta ya fue creada. Pedir login manual.
+                return { success: true, message: 'Cuenta creada. Inicia sesion manualmente.', role: data.role };
+            }
+            return { success: true, message: data.message || 'Cuenta creada e iniciada exitosamente.', role: data.role, autoLoggedIn: true };
         }
         var msg = (data && data.error) ? data.error : 'Error al crear la cuenta (HTTP ' + resp.status + ').';
         if (resp.status === 409) msg = 'Ese email ya tiene cuenta, inicia sesion.';

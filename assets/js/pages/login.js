@@ -110,12 +110,27 @@
             // Signup form
             var signupForm = document.getElementById('signup-form');
             if (signupForm) {
+                // Forzar mayusculas en el codigo mientras escribe
+                var signupCodeInput = document.getElementById('signup-code');
+                if (signupCodeInput) {
+                    signupCodeInput.addEventListener('input', function() {
+                        this.value = this.value.toUpperCase();
+                    });
+                }
+
                 signupForm.addEventListener('submit', async function(e) {
                     e.preventDefault();
+                    if (signupForm._isSubmitting) return;
+                    signupForm._isSubmitting = true;
+
+                    var submitBtn = signupForm.querySelector('button[type="submit"]');
+                    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Procesando...'; }
+
                     var errorMsg = document.getElementById('error-msg');
                     var successMsg = document.getElementById('success-msg');
                     if (errorMsg) errorMsg.classList.add('hidden');
                     if (successMsg) successMsg.classList.add('hidden');
+
                     var result = await window.signupWithInvite(
                         document.getElementById('signup-email').value,
                         document.getElementById('signup-password').value,
@@ -123,13 +138,24 @@
                         document.getElementById('signup-supremacy-id').value,
                         document.getElementById('signup-display-name').value.trim()
                     );
+
                     if (result.success) {
+                        if (result.autoLoggedIn) {
+                            // Ya tenemos sesion; redirigir segun rol
+                            var admin = await window.getAdminRole();
+                            var target = admin && admin.role === 'alliance_leader' ? 'leader-dashboard.html' : 'admin/index.html';
+                            window.location.href = target;
+                            return;
+                        }
                         if (successMsg) { successMsg.textContent = result.message; successMsg.classList.remove('hidden'); }
-                        this.reset();
+                        signupForm.reset();
                         setTimeout(function() { showTab('login'); }, 2000);
                     } else {
                         if (errorMsg) { errorMsg.textContent = result.message; errorMsg.classList.remove('hidden'); }
                     }
+
+                    signupForm._isSubmitting = false;
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Registrarme como Admin'; }
                 });
             }
 
