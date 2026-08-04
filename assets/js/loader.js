@@ -31,6 +31,7 @@
             'assets/js/base.js',
             'assets/js/ranking-utils.js',
             'assets/js/ranking-score.js',
+            'assets/js/invite-code.js',
             'assets/js/roles-data.js',
             'assets/js/auth-core.js',
             'assets/js/push-manager.js'

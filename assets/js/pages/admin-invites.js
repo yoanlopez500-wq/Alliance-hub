@@ -53,7 +53,11 @@ async function generateInvite() {
         // Generar codigo unico verificando duplicados (max 10 intentos)
         var code, exists, attempts = 0;
         do {
-            code = 'AH' + Math.random().toString(36).substring(2, 8).toUpperCase();
+            // Generador compartido (crypto, AH+10). Fallback defensivo al formato legacy
+            // si el modulo no cargo (no deberia ocurrir: invite-code.js va en SCRIPTS.core).
+            code = (window.AHInviteCode && window.AHInviteCode.generate)
+                ? window.AHInviteCode.generate()
+                : 'AH' + Math.random().toString(36).substring(2, 8).toUpperCase();
             var { data: dup } = await window.supabase.from('admin_invites').select('id').eq('code', code).maybeSingle();
             exists = !!dup;
             attempts++;

@@ -1,7 +1,20 @@
-// complete-leader-signup
-// Public endpoint (verify_jwt=false): transactional leader signup with invite code.
+// complete-admin-signup
+// Public endpoint (verify_jwt=false): transactional STAFF signup with invite code
+// (moderator / event_admin / superadmin; alliance_leader codes must use
+// complete-leader-signup because they carry player_id/alliance_id linkage).
+//
+// Why this exists: the legacy client-side path (auth-core signupWithInvite)
+// reads admin_invites with the anon key, but RLS only exposes invites with
+// player_id NOT NULL to anon => staff invites (player_id NULL) were invisible
+// and staff signup was broken end-to-end. Service role here bypasses RLS.
+//
 // Creates player (if needed) -> auth user -> admin_users -> marks invite used,
 // with compensation (deletes auth user) if any step after createUser fails.
+//
+// Contract: POST {SUPABASE_URL}/functions/v1/complete-admin-signup
+//   body: {email, password, inviteCode, supremacyId, displayName}
+//   200 -> {success:true, message, role}
+//   error -> {error} (400 invalid/expired/corrupt, 409 email taken, 500)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -27,7 +40,13 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Método no permitido" }, 400);
   }
 
-  let body: { email?: string; password?: string; inviteCode?: string; displayName?: string };
+  let body: {
+    email?: string;
+    password?: string;
+    inviteCode?: string;
+    supremacyId?: number | string;
+    displayName?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -39,6 +58,9 @@ Deno.serve(async (req: Request) => {
   const password = body.password ?? "";
   const displayName = (body.displayName ?? "").trim();
   const inviteCode = (body.inviteCode ?? "").trim().toUpperCase();
+  const supremacyId = typeof body.supremacyId === "string"
+    ? parseInt(body.supremacyId, 10)
+    : body.supremacyId;
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return jsonResponse({ error: "Email inválido" }, 400);
@@ -46,9 +68,12 @@ Deno.serve(async (req: Request) => {
   if (password.length < 6) {
     return jsonResponse({ error: "La contraseña debe tener al menos 6 caracteres" }, 400);
   }
-  // Acepta codigos AH+10 (actuales) y AH+6 (legacy pre-hardening)
+  // Acepta códigos AH+10 (actuales) y AH+6 (legacy pre-hardening)
   if (!/^AH[A-Z0-9]{6,10}$/i.test(body.inviteCode ?? "")) {
     return jsonResponse({ error: "Formato de código de invitación inválido" }, 400);
+  }
+  if (supremacyId == null || isNaN(supremacyId)) {
+    return jsonResponse({ error: "ID de jugador inválido" }, 400);
   }
 
   const supabaseAdmin = createClient(
@@ -57,7 +82,7 @@ Deno.serve(async (req: Request) => {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  // 3. Read and validate invite
+  // 3. Read and validate invite (service role: bypasses RLS, fixes staff-code invisibility)
   const { data: invite, error: inviteError } = await supabaseAdmin
     .from("admin_invites")
     .select("id, code, role, created_by, player_id, alliance_id, used, expires_at")
@@ -75,37 +100,39 @@ Deno.serve(async (req: Request) => {
   if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
     return jsonResponse({ error: "Código de invitación expirado" }, 400);
   }
-  if (invite.role === "alliance_leader" && invite.alliance_id == null) {
-    console.error("corrupt invite (leader without alliance):", invite.code);
-    return jsonResponse({ error: "Invitación inválida: falta alianza asociada" }, 400);
+  if (!invite.role) {
+    console.error("corrupt invite (no role):", invite.code);
+    return jsonResponse({ error: "Invitación inválida: sin rol asignado" }, 400);
   }
-  console.log(`invite ${invite.code} valid (role=${invite.role})`);
+  if (invite.role === "alliance_leader") {
+    // Leader codes carry player_id/alliance_id and must go through complete-leader-signup
+    return jsonResponse({ error: "Este código es de líder de alianza: usa la página de registro de líder" }, 400);
+  }
+  console.log(`staff invite ${invite.code} valid (role=${invite.role})`);
 
-  // 4. Ensure player row exists if invite references one
-  if (invite.player_id != null) {
-    const { data: existingPlayer, error: playerLookupError } = await supabaseAdmin
+  // 4. Ensure player row exists for the given supremacyId
+  const { data: existingPlayer, error: playerLookupError } = await supabaseAdmin
+    .from("players")
+    .select("id")
+    .eq("id", supremacyId)
+    .maybeSingle();
+  if (playerLookupError) {
+    console.error("player lookup error:", playerLookupError);
+    return jsonResponse({ error: "Error verificando jugador" }, 500);
+  }
+  if (!existingPlayer) {
+    const { error: playerInsertError } = await supabaseAdmin
       .from("players")
-      .select("id")
-      .eq("id", invite.player_id)
-      .maybeSingle();
-    if (playerLookupError) {
-      console.error("player lookup error:", playerLookupError);
-      return jsonResponse({ error: "Error verificando jugador" }, 500);
+      .insert({
+        id: supremacyId,
+        current_username: displayName || `Jugador ${supremacyId}`,
+        status: "active",
+      });
+    if (playerInsertError) {
+      console.error("player insert error:", playerInsertError);
+      return jsonResponse({ error: "Error creando jugador" }, 500);
     }
-    if (!existingPlayer) {
-      const { error: playerInsertError } = await supabaseAdmin
-        .from("players")
-        .insert({
-          id: invite.player_id,
-          current_username: displayName || `Jugador ${invite.player_id}`,
-          status: "active",
-        });
-      if (playerInsertError) {
-        console.error("player insert error:", playerInsertError);
-        return jsonResponse({ error: "Error creando jugador" }, 500);
-      }
-      console.log(`player ${invite.player_id} created`);
-    }
+    console.log(`player ${supremacyId} created`);
   }
 
   // 5. Check if email is already registered (paginate through users)
@@ -168,7 +195,7 @@ Deno.serve(async (req: Request) => {
     id: userId,
     role: invite.role,
     display_name: displayName || email,
-    supremacy_player_id: invite.player_id ?? null,
+    supremacy_player_id: supremacyId,
     alliance_id: invite.alliance_id ?? null,
     approved_by: invite.created_by ?? null,
     approved_at: new Date().toISOString(),
@@ -177,7 +204,7 @@ Deno.serve(async (req: Request) => {
   if (adminInsertError) {
     return await compensate("admin_users insert", adminInsertError);
   }
-  console.log(`admin_users row created for ${userId}`);
+  console.log(`admin_users row created for ${userId} (role=${invite.role})`);
 
   // 8. Mark invite as used
   const { error: inviteUpdateError } = await supabaseAdmin
@@ -192,8 +219,7 @@ Deno.serve(async (req: Request) => {
 
   return jsonResponse({
     success: true,
-    message: "Cuenta creada correctamente",
+    message: `Cuenta de ${invite.role} creada exitosamente.`,
     role: invite.role,
-    alliance_id: invite.alliance_id ?? null,
   }, 200);
 });

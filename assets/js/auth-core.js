@@ -218,51 +218,42 @@ async function updatePassword(newPassword) {
 }
 
 async function signupWithInvite(email, password, inviteCode, supremacyId, displayName) {
-    var normalizedCode = inviteCode.trim().toUpperCase();
+    // Canje transaccional via Edge Function `complete-admin-signup` (service role).
+    // El camino anterior (SELECT/INSERT directos con anon key) estaba roto para
+    // invites de staff: la politica RLS anon solo expone invites con player_id
+    // NOT NULL, por lo que los codigos de staff (player_id NULL) eran invisibles.
+    var normalizedCode = (inviteCode || '').trim().toUpperCase();
     // Formato flexible: acepta codigos legacy de 6 y los nuevos de 10 caracteres
     if (!normalizedCode || !/^AH[A-Z0-9]{6,10}$/i.test(normalizedCode)) {
         return { success: false, message: 'Formato de codigo invalido. Debe ser AH + 6 a 10 caracteres.' };
     }
-    var inviteResult = await supabase.from('admin_invites').select('*')
-        .eq('code', normalizedCode)
-        .eq('used', false);
-    if (inviteResult.error) return { success: false, message: 'Error verificando codigo: ' + inviteResult.error.message };
-    if (!inviteResult.data || inviteResult.data.length === 0) return { success: false, message: 'Codigo de invitacion invalido o ya usado' };
-    var invite = inviteResult.data[0];
-    if (new Date(invite.expires_at) < new Date()) return { success: false, message: 'Codigo de invitacion expirado' };
-    if (!invite.role) return { success: false, message: 'Codigo de invitacion corrupto (sin rol asignado). Contacta al superadmin.' };
-    var sid = parseInt(supremacyId);
-    if (isNaN(sid)) return { success: false, message: 'ID de jugador invalido' };
-    var { data: player, error: playerErr } = await supabase.from('players')
-        .select('id, current_username')
-        .eq('id', sid)
-        .maybeSingle();
-    if (playerErr) return { success: false, message: 'Error buscando jugador: ' + playerErr.message };
-    if (!player) {
-        var { error: insertPlayerError } = await supabase.from('players').insert({
-            id: sid, current_username: displayName || ('Jugador ' + sid), status: 'active'
+    if (!window.SUPABASE_URL) {
+        return { success: false, message: 'Configuracion incompleta (SUPABASE_URL). Recarga la pagina.' };
+    }
+    try {
+        var resp = await fetch(window.SUPABASE_URL + '/functions/v1/complete-admin-signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: email,
+                password: password,
+                inviteCode: normalizedCode,
+                supremacyId: supremacyId,
+                displayName: (displayName || '').trim()
+            })
         });
-        if (insertPlayerError) return { success: false, message: 'Error creando jugador: ' + insertPlayerError.message };
+        var data = {};
+        try { data = await resp.json(); } catch(parseErr) { data = {}; }
+        if (resp.ok && data && data.success) {
+            return { success: true, message: data.message || 'Cuenta creada exitosamente.' };
+        }
+        var msg = (data && data.error) ? data.error : 'Error al crear la cuenta (HTTP ' + resp.status + ').';
+        if (resp.status === 409) msg = 'Ese email ya tiene cuenta, inicia sesion.';
+        return { success: false, message: msg };
+    } catch(e) {
+        console.error('[signupWithInvite]', e);
+        return { success: false, message: 'Error de red al crear la cuenta: ' + e.message };
     }
-    var authResult = await supabase.auth.signUp({ email: email, password: password });
-    if (authResult.error) return { success: false, message: authResult.error.message };
-    var user = authResult.data.user;
-    if (!user) return { success: false, message: 'No se pudo crear el usuario. Revisa tu email para confirmacion.' };
-    var { error: adminError } = await supabase.from('admin_users').insert({
-        id: user.id, role: invite.role, display_name: displayName,
-        supremacy_player_id: sid, approved_by: invite.created_by,
-        approved_at: new Date().toISOString(), status: 'active',
-        alliance_id: invite.alliance_id || null
-    });
-    if (adminError) {
-        console.error('[signupWithInvite] Error creando admin_user:', adminError);
-        return { success: false, message: 'Error creando admin: ' + adminError.message + '. Contacta al superadmin.' };
-    }
-    var { error: inviteUpdateErr } = await supabase.from('admin_invites').update({
-        used: true, used_by: user.id, used_at: new Date().toISOString()
-    }).eq('id', invite.id);
-    if (inviteUpdateErr) console.error('[signupWithInvite] Error marcando invite como usado:', inviteUpdateErr);
-    return { success: true, message: 'Cuenta de ' + invite.role + ' creada exitosamente.' };
 }
 
 // ===================== PLAYER SESSION =====================

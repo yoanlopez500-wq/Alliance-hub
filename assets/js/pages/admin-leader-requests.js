@@ -15,9 +15,11 @@ async function init() {
     loadRequests();
 }
 
-// Codigo de invitacion robusto: 12 chars totales ('AH' + 10), alfabeto sin
-// caracteres ambiguos y aleatoriedad criptografica cuando esta disponible.
+// Codigo de invitacion robusto: delega en el modulo compartido window.AHInviteCode
+// (assets/js/invite-code.js, cargado en SCRIPTS.core). Fallback defensivo inline
+// por si el modulo no cargo.
 function generateInviteCode() {
+    if (window.AHInviteCode && window.AHInviteCode.generate) return window.AHInviteCode.generate();
     var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin I/O/0/1 ambiguos
     var code = 'AH';
     var arr = new Uint8Array(10);
@@ -91,7 +93,7 @@ function inviteStatusBadge(st) {
 
 /**
  * Regenera el codigo de invitacion de lider para una solicitud aprobada cuya
- * invite expiro o no existe. Crea una nueva admin_invite (+30 dias) vinculada
+ * invite expiro o no existe. Crea una nueva admin_invite (+7 dias) vinculada
  * a la alianza de esa solicitud (buscada por nombre; si no existe, error claro).
  */
 async function regenerateInvite(playerId, allianceName, allianceTag) {
@@ -126,11 +128,11 @@ async function regenerateInvite(playerId, allianceName, allianceTag) {
             player_id: playerId,
             alliance_id: alliance.id,
             used: false,
-            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
         });
         if (iErr) throw iErr;
 
-        window.showToast('Nuevo codigo generado: ' + inviteCode + ' (expira en 30 dias)', 'success');
+        window.showToast('Nuevo codigo generado: ' + inviteCode + ' (expira en 7 dias)', 'success');
         loadRequests();
     } catch(e) {
         console.error('[regenerateInvite]', e);
