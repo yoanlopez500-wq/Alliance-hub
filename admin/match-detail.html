@@ -18,7 +18,7 @@
 <script>
 AHLoader.init({
     role: 'admin',
-    extraScripts: ['../assets/js/admin-base.js', '../assets/js/api-importer.js'],
+    extraScripts: ['../assets/js/admin-base.js', '../assets/js/api-importer.js', '../assets/js/export-utils.js'],
     pageScript: '../assets/js/pages/admin-match-detail.js'
 });
 </script>
@@ -80,6 +80,7 @@ AHLoader.init({
 <h2 class="text-xl font-bold">&#128202; Resultados</h2>
 <div class="flex items-center gap-2">
 <select id="sort-mode-results" onchange="onMatchSortChange()" class="px-2 py-1 rounded-lg text-xs border bg-ah-card text-ah-text border-indigo-900 min-h-[32px]"><option value="kd">Orden: KD</option><option value="kills">Orden: Bajas</option><option value="deaths">Orden: Menos muertes</option></select>
+<button onclick="openExportModal()" class="text-xs font-bold hover:opacity-80 transition text-amber-400 min-h-[32px]">&#128228; Exportar</button>
 <button onclick="openManualModal()" class="text-xs font-bold hover:opacity-80 transition text-amber-400 min-h-[32px]">&#10133; Anadir</button>
 </div>
 </div>
@@ -159,6 +160,31 @@ AHLoader.init({
 <button onclick="closeAPIImportModal()" class="px-4 py-2 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
 </div></div>
 </div></div></div>
+
+<!-- Export Report Modal -->
+<div id="export-modal" class="modal">
+<div class="rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto bg-slate-900 border border-indigo-900">
+<div class="p-5 border-b flex items-center justify-between rounded-t-2xl bg-gradient-to-br from-orange-600 to-amber-500 border-indigo-900">
+<h2 class="text-lg font-bold text-white">&#128228; Exportar informe</h2>
+<button onclick="closeExportModal()" class="text-white hover:opacity-70 text-xl">&#10005;</button>
+</div>
+<div class="p-5 space-y-4">
+<p class="text-xs text-slate-400">Elige que incluir en el informe de la partida (se exporta con el orden actual de la tabla).</p>
+<label class="flex items-center gap-2 text-sm text-slate-200 cursor-pointer">
+<input type="checkbox" id="ex-include-stats" checked class="w-4 h-4 rounded border-indigo-900 bg-slate-950 text-amber-500 focus:ring-amber-500">
+Estadisticas de la partida
+</label>
+<label class="flex items-center gap-2 text-sm text-slate-200 cursor-pointer">
+<input type="checkbox" id="ex-include-strikes" class="w-4 h-4 rounded border-indigo-900 bg-slate-950 text-amber-500 focus:ring-amber-500">
+Strikes (con razon y notas)
+</label>
+<div class="flex flex-col gap-2 pt-2">
+<button onclick="doExport('text')" class="w-full font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#128203; Copiar texto (WhatsApp)</button>
+<button onclick="doExport('pdf')" class="w-full font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-indigo-900 text-slate-100">&#128424;&#65039; Exportar PDF</button>
+</div>
+</div>
+</div>
+</div>
 
 <!-- Manual Result Modal -->
 <div id="manual-modal" class="modal">
