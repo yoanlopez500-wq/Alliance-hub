@@ -13,6 +13,8 @@
     var myAllianceId = null;
     var myAllianceData = null;
     var initialized = false;
+    // Estado del ultimo ranking de alianza cargado (re-orden sin refetch al cambiar el modo)
+    var lastRankedState = null;
 
     // Sanitiza texto antes de inyectarlo en innerHTML (anti-XSS).
     // Reusa window.escapeHtml si existe (definido en auth-core.js).
@@ -274,6 +276,11 @@
             // GLOBALES (toda la poblacion rankeada), no solo de la alianza.
             // ORDER BY player_id: paginacion estable entre requests.
             // Respaldo: si el motor no esta disponible, orden por KD crudo.
+            // El modo de orden es SOLO visualizacion: compareBy() decide el
+            // comparador segun el selector; el default 'score' es identico
+            // al orden historico. En los caminos de respaldo (sin motor) se
+            // conserva el orden por KD crudo y el selector no aplica.
+            lastRankedState = null;
             if (window.AHRankingScore && window.AHRankingScore.makeBayesScorer) {
                 try {
                     var vc = window.DB.tableCols('publicRankings');
@@ -288,45 +295,87 @@
                         deaths: function(p) { return p[vc.totalDeaths]; },
                         games: function(p) { return p[vc.gamesPlayed]; }
                     });
-                    ranked.sort(window.AHRankingScore.compareRankedPlayers({
-                        score: function(x) {
-                            var denom = x.deaths + scorer.C * scorer.priorD;
-                            if (denom <= 0) denom = 1;
-                            return (x.kills + scorer.C * scorer.priorK) / denom;
-                        },
-                        games: function(x) { return x.games; },
-                        deaths: function(x) { return x.deaths; },
-                        eff: function(x) { return x.kills; },
-                        name: function(x) { return x.player.current_username; }
-                    }));
+                    lastRankedState = {
+                        ranked: ranked,
+                        acc: {
+                            score: function(x) {
+                                var denom = x.deaths + scorer.C * scorer.priorD;
+                                if (denom <= 0) denom = 1;
+                                return (x.kills + scorer.C * scorer.priorK) / denom;
+                            },
+                            games: function(x) { return x.games; },
+                            deaths: function(x) { return x.deaths; },
+                            eff: function(x) { return x.kills; },
+                            name: function(x) { return x.player.current_username; }
+                        }
+                    };
+                    ranked.sort(window.AHRankingScore.compareRankedPlayers(lastRankedState.acc));
                 } catch(e2) {
                     console.error('[LeaderDashboard] Fallback a KD crudo:', e2);
                     ranked.sort(function(a, b) { return b.kd - a.kd; });
+                    // Estado sin acc: el selector queda inerte pero el re-render es seguro
+                    lastRankedState = { ranked: ranked, acc: null };
                 }
             } else {
                 ranked.sort(function(a, b) { return b.kd - a.kd; });
             }
 
-            container.innerHTML = '<div class="space-y-2">' + ranked.map(function(r, i) {
-                var medal = i === 0 ? '&#129351;' : i === 1 ? '&#129352;' : i === 2 ? '&#129353;' : (i + 1) + '.';
-                var medalColor = i < 3 ? 'text-yellow-400' : 'text-ah-muted';
-                return '<div class="flex items-center gap-3 p-3 rounded-lg bg-white/5">' +
-                    '<span class="text-lg font-bold w-8 ' + medalColor + '">' + medal + '</span>' +
-                    '<div class="flex-1">' +
-                        '<p class="font-bold text-sm text-ah-text">' + escapeHtml(r.player.current_username) + '</p>' +
-                        '<p class="text-xs text-ah-muted">' + r.games + ' partidas validas</p>' +
-                    '</div>' +
-                    '<div class="text-right">' +
-                        '<p class="text-sm font-bold text-ah-accent">' + r.kd.toFixed(2) + ' K/D</p>' +
-                        '<p class="text-xs text-ah-muted">' + r.kills + 'K / ' + r.deaths + 'D</p>' +
-                    '</div>' +
-                '</div>';
-            }).join('') + '</div>';
+            renderAllianceRanked(ranked);
         } catch(e) {
             console.error('[LeaderDashboard] Error cargando rankings:', e);
             container.innerHTML = '<div class="text-center py-4 text-red-400">Error cargando rankings.</div>';
         }
     }
+
+    // Render del ranking de alianza. Si hay estado guardado (camino Bayesiano),
+    // re-ordena segun el modo seleccionado; si no, usa el array tal cual
+    // (respaldo KD crudo, comportamiento historico).
+    function renderAllianceRanked(rankedFallback) {
+        var container = document.getElementById('rankings-list');
+        if (!container) return;
+        var ranked = rankedFallback;
+        if (!ranked && !lastRankedState) return;
+        if (lastRankedState) {
+            if (lastRankedState.acc && window.AHRankingScore) {
+                var mode = (window.AHRankingScore.getSavedSortMode) ? window.AHRankingScore.getSavedSortMode() : 'score';
+                var sel = document.getElementById('sort-mode');
+                if (sel && sel.value !== mode) sel.value = mode;
+                var cmp = window.AHRankingScore.compareBy
+                    ? window.AHRankingScore.compareBy(mode, lastRankedState.acc)
+                    : window.AHRankingScore.compareRankedPlayers(lastRankedState.acc);
+                ranked = lastRankedState.ranked.slice().sort(cmp);
+            } else {
+                // Fallback KD crudo: array ya ordenado, selector inerte
+                ranked = lastRankedState.ranked;
+            }
+        }
+
+        container.innerHTML = '<div class="space-y-2">' + ranked.map(function(r, i) {
+            var medal = i === 0 ? '&#129351;' : i === 1 ? '&#129352;' : i === 2 ? '&#129353;' : (i + 1) + '.';
+            var medalColor = i < 3 ? 'text-yellow-400' : 'text-ah-muted';
+            return '<div class="flex items-center gap-3 p-3 rounded-lg bg-white/5">' +
+                '<span class="text-lg font-bold w-8 ' + medalColor + '">' + medal + '</span>' +
+                '<div class="flex-1">' +
+                    '<p class="font-bold text-sm text-ah-text">' + escapeHtml(r.player.current_username) + '</p>' +
+                    '<p class="text-xs text-ah-muted">' + r.games + ' partidas validas</p>' +
+                '</div>' +
+                '<div class="text-right">' +
+                    '<p class="text-sm font-bold text-ah-accent">' + r.kd.toFixed(2) + ' K/D</p>' +
+                    '<p class="text-xs text-ah-muted">' + r.kills + 'K / ' + r.deaths + 'D</p>' +
+                '</div>' +
+            '</div>';
+        }).join('') + '</div>';
+    }
+
+    // Handler del selector de modo (onchange en leader-dashboard.html)
+    function onSortModeChange() {
+        var sel = document.getElementById('sort-mode');
+        if (sel && window.AHRankingScore && window.AHRankingScore.saveSortMode) {
+            window.AHRankingScore.saveSortMode(sel.value);
+        }
+        renderAllianceRanked(null);
+    }
+    window.onSortModeChange = onSortModeChange;
 
     async function loadDuels() {
         var container = document.getElementById('duels-list');
