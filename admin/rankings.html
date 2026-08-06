@@ -19,7 +19,7 @@ AHLoader.init({ role: 'admin', pageScript: '../assets/js/pages/admin-rankings.js
 <body class="min-h-screen" data-role="admin">
 <div id="admin-nav"></div>
 <div class="max-w-6xl mx-auto px-4 py-8">
-<h1 class="text-2xl font-bold mb-6">&#127942; Rankings (Admin)</h1>
+<div class="flex items-center justify-between gap-2 mb-6 flex-wrap"><h1 class="text-2xl font-bold">&#127942; Rankings (Admin)</h1><select id="sort-mode" onchange="onSortModeChange()" class="px-3 py-2 rounded-lg text-sm min-h-[44px]" style="background:#11183a;color:#e8eaf6;border:1px solid #283593;"><option value="score">Orden: KD ajustado</option><option value="eff">Orden: Kills validas</option><option value="games">Orden: Partidas</option></select></div>
 <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr style="background:#11183a;"><th class="text-left p-3">#</th><th class="text-left p-3">Jugador</th><th class="text-left p-3">Alianza</th><th class="text-right p-3">Kills</th><th class="text-right p-3">Deaths</th><th class="text-right p-3">KD</th><th class="text-left p-3">Estado</th></tr></thead><tbody id="rankings-tbody"><tr><td colspan="7" class="text-center py-8" style="color:#9fa8da;">Cargando...</td></tr></tbody></table></div>
 </div>
 </body>
