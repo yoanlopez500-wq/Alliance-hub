@@ -26,6 +26,11 @@
  *     acc = { score(p), games(p), deaths(p), eff(p), name(p) }
  *   AHRankingScore.compareMatchResults(nameOf)              -> comparator(a, b)
  *     nameOf(row) -> string (username del jugador de esa fila)
+ *   AHRankingScore.SORT_MODES                               -> [{id, label}] modos de orden
+ *   AHRankingScore.compareBy(modeId, acc)                   -> comparator(a, b)
+ *     Primario segun el modo + desempate final de 5 niveles (determinismo total).
+ *     'score' (default) es IDENTICO a compareRankedPlayers: cero cambio visible.
+ *   AHRankingScore.getSavedSortMode() / saveSortMode(id)    -> persistencia localStorage
  *
  * Scripts clasicos (sin ES modules). Cargado en SCRIPTS.core via loader.js.
  * No modifica la base de datos; solo encapsula el calculo comun.
@@ -126,11 +131,67 @@
         };
     }
 
+    /**
+     * Modos de ordenacion de rankings (SOLO visualizacion; mismos datos).
+     *  - 'score': KD ajustado Bayes C=3 (orden por defecto, identico al historico)
+     *  - 'eff':   kills validas/efectivas desc (quien hizo mas kills aunque su KD sea menor)
+     *  - 'games': partidas desc (actividad)
+     * compareBy() SIEMPRE cierra con el desempate de 5 niveles como tiebreak
+     * final, por lo que TODOS los modos son totales y deterministicos.
+     */
+    var SORT_MODES = [
+        { id: 'score', label: 'KD ajustado' },
+        { id: 'eff', label: 'Kills validas' },
+        { id: 'games', label: 'Partidas' }
+    ];
+
+    var SORT_STORAGE_KEY = 'ah_ranking_sort';
+
+    function isValidSortMode(id) {
+        return SORT_MODES.some(function(m) { return m.id === id; });
+    }
+
+    function compareBy(modeId, acc) {
+        var tiebreak = compareRankedPlayers(acc); // default 'score' + desempate final
+        if (modeId === 'eff') {
+            return function(a, b) {
+                var k = safeNum(acc.eff(b)) - safeNum(acc.eff(a));
+                return k !== 0 ? k : tiebreak(a, b);
+            };
+        }
+        if (modeId === 'games') {
+            return function(a, b) {
+                var g = safeNum(acc.games(b)) - safeNum(acc.games(a));
+                return g !== 0 ? g : tiebreak(a, b);
+            };
+        }
+        return tiebreak; // 'score' y cualquier modo desconocido
+    }
+
+    function getSavedSortMode() {
+        try {
+            var v = (typeof localStorage !== 'undefined') ? localStorage.getItem(SORT_STORAGE_KEY) : null;
+            return isValidSortMode(v) ? v : 'score';
+        } catch(e) { return 'score'; }
+    }
+
+    function saveSortMode(id) {
+        if (!isValidSortMode(id)) return;
+        try {
+            if (typeof localStorage !== 'undefined') localStorage.setItem(SORT_STORAGE_KEY, id);
+        } catch(e) {}
+    }
+
     window.AHRankingScore = {
         BAYES_C: BAYES_C,
         fetchAllRows: fetchAllRows,
         makeBayesScorer: makeBayesScorer,
         compareRankedPlayers: compareRankedPlayers,
-        compareMatchResults: compareMatchResults
+        compareMatchResults: compareMatchResults,
+        SORT_MODES: SORT_MODES,
+        compareBy: compareBy,
+        isValidSortMode: isValidSortMode,
+        getSavedSortMode: getSavedSortMode,
+        saveSortMode: saveSortMode
     };
 })();

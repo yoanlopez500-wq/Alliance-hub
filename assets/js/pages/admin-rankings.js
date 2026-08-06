@@ -9,6 +9,8 @@
     'use strict';
 
     var allAlliances = [];
+    // Estado del ultimo ranking cargado (para re-ordenar sin refetch al cambiar el modo)
+    var lastRankedState = null;
 
     async function loadAlliances() {
         try {
@@ -16,6 +18,11 @@
             if (error) throw error;
             allAlliances = data || [];
         } catch(e) { console.error('[RankingsAdmin] Error cargando alliances:', e); }
+    }
+
+    // Escapa texto antes de interpolarlo en innerHTML (usernames/alianzas vienen de BD)
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function getAllianceName(allianceId) {
@@ -87,37 +94,65 @@
                 });
             }
 
-            // Orden deterministico de 5 niveles con Score Bayesiano C=3
-            // (mismo motor compartido AHRankingScore que el ranking publico;
-            // aqui las kills efectivas son las kills crudas de partidas validas).
-            // 1) Score Bayesiano 2) mas partidas 3) menos muertes
-            // 4) mas kills 5) alfabetico (desempate absoluto).
+            // Score Bayesiano C=3 (mismo motor compartido AHRankingScore que el
+            // ranking publico; aqui las kills efectivas son las kills crudas de
+            // partidas validas). El modo de orden es SOLO visualizacion:
+            // compareBy() decide el comparador segun el selector; el default
+            // 'score' es identico al orden historico.
             var scorer = window.AHRankingScore.makeBayesScorer(playersData, {
                 eff: function(p) { return p.kills; },
                 deaths: function(p) { return p.deaths; },
                 games: function(p) { return p.games; }
             });
-            playersData.sort(window.AHRankingScore.compareRankedPlayers({
-                score: scorer.score,
-                games: function(p) { return p.games; },
-                deaths: function(p) { return p.deaths; },
-                eff: function(p) { return p.kills; },
-                name: function(p) { return p.username; }
-            }));
-
-            var tbody = document.getElementById('rankings-tbody');
-            if (!tbody) return;
-            if (playersData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8" style="color:#9fa8da;">Sin datos</td></tr>';
-                return;
-            }
-            tbody.innerHTML = playersData.map(function(p, i) {
-                var kd = p.deaths > 0 ? (p.kills / p.deaths).toFixed(2) : p.kills > 0 ? p.kills.toFixed(2) : '0.00';
-                var alliance = getAllianceName(p.alliance_id);
-                return '<tr style="border-bottom:1px solid #1a237e;"><td class="p-3 font-bold">' + (i+1) + '</td><td class="p-3 font-medium">' + p.username + '</td><td class="p-3" style="color:#9fa8da;">' + (alliance ? alliance.name : '-') + '</td><td class="p-3 text-right">' + (p.kills || 0) + '</td><td class="p-3 text-right">' + (p.deaths || 0) + '</td><td class="p-3 text-right">' + kd + '</td><td class="p-3">' + (p.games || 0) + ' partidas</td></tr>';
-            }).join('');
+            lastRankedState = {
+                playersData: playersData,
+                acc: {
+                    score: scorer.score,
+                    games: function(p) { return p.games; },
+                    deaths: function(p) { return p.deaths; },
+                    eff: function(p) { return p.kills; },
+                    name: function(p) { return p.username; }
+                }
+            };
+            renderRankingsTable();
         } catch(e) { console.error('[RankingsAdmin]', e); }
     }
+
+    // Re-ordena el array ya cargado segun el modo guardado y re-renderiza.
+    // Orden deterministico de 5 niveles con Score Bayesiano C=3:
+    // 1) Score Bayesiano 2) mas partidas 3) menos muertes
+    // 4) mas kills 5) alfabetico (desempate absoluto).
+    function renderRankingsTable() {
+        if (!lastRankedState) return;
+        var mode = (window.AHRankingScore.getSavedSortMode) ? window.AHRankingScore.getSavedSortMode() : 'score';
+        var sel = document.getElementById('sort-mode');
+        if (sel && sel.value !== mode) sel.value = mode;
+        var cmp = window.AHRankingScore.compareBy
+            ? window.AHRankingScore.compareBy(mode, lastRankedState.acc)
+            : window.AHRankingScore.compareRankedPlayers(lastRankedState.acc);
+        var playersData = lastRankedState.playersData.slice().sort(cmp);
+        var tbody = document.getElementById('rankings-tbody');
+        if (!tbody) return;
+        if (playersData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8" style="color:#9fa8da;">Sin datos</td></tr>';
+            return;
+        }
+        tbody.innerHTML = playersData.map(function(p, i) {
+            var kd = p.deaths > 0 ? (p.kills / p.deaths).toFixed(2) : p.kills > 0 ? p.kills.toFixed(2) : '0.00';
+            var alliance = getAllianceName(p.alliance_id);
+            return '<tr style="border-bottom:1px solid #1a237e;"><td class="p-3 font-bold">' + (i+1) + '</td><td class="p-3 font-medium">' + escapeHtml(p.username) + '</td><td class="p-3" style="color:#9fa8da;">' + (alliance ? escapeHtml(alliance.name) : '-') + '</td><td class="p-3 text-right">' + (p.kills || 0) + '</td><td class="p-3 text-right">' + (p.deaths || 0) + '</td><td class="p-3 text-right">' + kd + '</td><td class="p-3">' + (p.games || 0) + ' partidas</td></tr>';
+        }).join('');
+    }
+
+    // Handler del selector de modo (onchange en admin/rankings.html)
+    function onSortModeChange() {
+        var sel = document.getElementById('sort-mode');
+        if (sel && window.AHRankingScore && window.AHRankingScore.saveSortMode) {
+            window.AHRankingScore.saveSortMode(sel.value);
+        }
+        renderRankingsTable();
+    }
+    window.onSortModeChange = onSortModeChange;
 
     window.requireAdmin();
     loadRankings();
