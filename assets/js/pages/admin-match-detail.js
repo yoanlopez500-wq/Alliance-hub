@@ -189,15 +189,60 @@ lastResultsState={res:res,pm:pm,regIds:regIds,showActions:canEditResults()};rend
 
 function getMatchSortMode(){try{var v=localStorage.getItem('ah_match_sort');return (v==='kills'||v==='deaths')?v:'kd';}catch(e){return 'kd';}}
 
+// Ordena filas de resultados segun el modo (kd/kills/deaths); el comparador
+// historico compareMatchResults es SIEMPRE el desempate final. Compartido por
+// el render y por el exportador (se exporta exactamente lo que se ve).
+function sortMatchResultsRows(rows,mode,nameOf){var tb=(window.AHRankingScore&&window.AHRankingScore.compareMatchResults)?window.AHRankingScore.compareMatchResults(nameOf):function(a,b){return (b.kd_ratio||0)-(a.kd_ratio||0);};var res=(rows||[]).slice();if(mode==='kills'){res.sort(function(a,b){var k=(b.kills||0)-(a.kills||0);return k!==0?k:tb(a,b);});}else if(mode==='deaths'){res.sort(function(a,b){var d=(a.deaths||0)-(b.deaths||0);return d!==0?d:tb(a,b);});}else{res.sort(tb);}return res;}
+
 // Render de la tabla de resultados. El modo 'kd' (default) usa el comparador
 // historico compareMatchResults (KD del partido -> kills -> menos muertes ->
 // alfabetico); los demas modos re-ordenan EN MEMORIA con ese mismo comparador
 // como desempate final (determinismo total, sin refetch). Solo visualizacion.
-function renderResultsTable(){if(!lastResultsState)return;var st=lastResultsState;var res=st.res.slice();var pm=st.pm;var regIds=st.regIds;var mode=getMatchSortMode();var sel=document.getElementById('sort-mode-results');if(sel&&sel.value!==mode)sel.value=mode;var nameOf=function(rw){return (pm[rw.player_id]||{}).current_username||'';};var tb=(window.AHRankingScore&&window.AHRankingScore.compareMatchResults)?window.AHRankingScore.compareMatchResults(nameOf):function(a,b){return (b.kd_ratio||0)-(a.kd_ratio||0);};if(mode==='kills'){res.sort(function(a,b){var k=(b.kills||0)-(a.kills||0);return k!==0?k:tb(a,b);});}else if(mode==='deaths'){res.sort(function(a,b){var d=(a.deaths||0)-(b.deaths||0);return d!==0?d:tb(a,b);});}else{res.sort(tb);}var showActions=st.showActions;var html='<table class="w-full text-sm min-w-full"><thead><tr class="bg-slate-950"><th class="text-left p-3">Jugador</th><th class="text-right p-3">Bajas</th><th class="text-right p-3">Muertes</th><th class="text-right p-3">KD</th><th class="text-center p-3">Valido</th>'+(showActions?'<th class="text-center p-3">Acciones</th>':'')+'</tr></thead><tbody>'+res.map(function(r){var p=pm[r.player_id]||{};var isValid=!!regIds[r.player_id];var validBadge=isValid?'<span class="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-500">Si</span>':'<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-500/15 text-slate-400" title="No registrado en la partida: no cuenta para ranking">No</span>';var actionButtons=showActions?'<td class="p-2 text-center"><button onclick="editResult(\''+r.id+'\')" class="text-xs px-1 py-0.5 rounded mr-1 bg-blue-500/15 text-blue-500" title="Editar">&#9998;</button><button onclick="deleteResult(\''+r.id+'\','+r.player_id+')" class="text-xs px-1 py-0.5 rounded bg-red-500/15 text-red-400" title="Eliminar">&#128465;</button></td>':'';return'<tr class="border-b border-indigo-900"><td class="p-3 font-medium">'+(p.current_username||'Jugador '+r.player_id)+'</td><td class="p-3 text-right text-green-500">'+(r.kills||0)+'</td><td class="p-3 text-right text-red-400">'+(r.deaths||0)+'</td><td class="p-3 text-right font-bold">'+(r.kd_ratio||0)+'</td><td class="p-3 text-center">'+validBadge+'</td>'+actionButtons+'</tr>';}).join('')+'</tbody></table>';document.getElementById('results-list').innerHTML=html;}
+function renderResultsTable(){if(!lastResultsState)return;var st=lastResultsState;var pm=st.pm;var regIds=st.regIds;var mode=getMatchSortMode();var sel=document.getElementById('sort-mode-results');if(sel&&sel.value!==mode)sel.value=mode;var nameOf=function(rw){return (pm[rw.player_id]||{}).current_username||'';};var res=sortMatchResultsRows(st.res,mode,nameOf);var showActions=st.showActions;var html='<table class="w-full text-sm min-w-full"><thead><tr class="bg-slate-950"><th class="text-left p-3">Jugador</th><th class="text-right p-3">Bajas</th><th class="text-right p-3">Muertes</th><th class="text-right p-3">KD</th><th class="text-center p-3">Valido</th>'+(showActions?'<th class="text-center p-3">Acciones</th>':'')+'</tr></thead><tbody>'+res.map(function(r){var p=pm[r.player_id]||{};var isValid=!!regIds[r.player_id];var validBadge=isValid?'<span class="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-500">Si</span>':'<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-500/15 text-slate-400" title="No registrado en la partida: no cuenta para ranking">No</span>';var actionButtons=showActions?'<td class="p-2 text-center"><button onclick="editResult(\''+r.id+'\')" class="text-xs px-1 py-0.5 rounded mr-1 bg-blue-500/15 text-blue-500" title="Editar">&#9998;</button><button onclick="deleteResult(\''+r.id+'\','+r.player_id+')" class="text-xs px-1 py-0.5 rounded bg-red-500/15 text-red-400" title="Eliminar">&#128465;</button></td>':'';return'<tr class="border-b border-indigo-900"><td class="p-3 font-medium">'+(p.current_username||'Jugador '+r.player_id)+'</td><td class="p-3 text-right text-green-500">'+(r.kills||0)+'</td><td class="p-3 text-right text-red-400">'+(r.deaths||0)+'</td><td class="p-3 text-right font-bold">'+(r.kd_ratio||0)+'</td><td class="p-3 text-center">'+validBadge+'</td>'+actionButtons+'</tr>';}).join('')+'</tbody></table>';document.getElementById('results-list').innerHTML=html;}
 
 // Handler del selector de modo de resultados (onchange en match-detail.html)
 function onMatchSortChange(){var sel=document.getElementById('sort-mode-results');if(sel){try{localStorage.setItem('ah_match_sort',sel.value);}catch(e){}}renderResultsTable();}
 window.onMatchSortChange=onMatchSortChange;
+
+// --- Exportador de informe (modal en match-detail.html, modulo AHExport) ---
+function openExportModal(){if(!window.AHExport){if(typeof window.showToast==='function')window.showToast('Modulo de exportacion no disponible','error');return;}var m=document.getElementById('export-modal');if(m)m.classList.add('active');}
+function closeExportModal(){var m=document.getElementById('export-modal');if(m)m.classList.remove('active');}
+
+// Strikes vinculados a ESTA partida (con razon, notas, tipo y jugador)
+async function fetchMatchStrikes(){var stc=window.DB.tableCols('playerStrikes');var res=await window.DB.from('playerStrikes').select(window.DB.select('playerStrikes','withRelations')).eq(stc.matchId,matchId);if(res.error)throw res.error;return res.data||[];}
+
+async function doExport(format){
+    if(!window.AHExport)return;
+    var statsEl=document.getElementById('ex-include-stats');
+    var strikesEl=document.getElementById('ex-include-strikes');
+    var incStats=statsEl?statsEl.checked:true;
+    var incStrikes=strikesEl?strikesEl.checked:false;
+    if(!incStats&&!incStrikes){if(typeof window.showToast==='function')window.showToast('Elige al menos una seccion','warning');return;}
+    var st=lastResultsState||{res:[],pm:{},regIds:{}};
+    if(incStats&&st.res.length===0){if(typeof window.showToast==='function')window.showToast('Sin resultados para exportar','warning');return;}
+    var nameOf=function(rw){return (st.pm[rw.player_id]||{}).current_username||'';};
+    // El orden exportado es el visible en el select (fallback: modo guardado)
+    var sortSel=document.getElementById('sort-mode-results');
+    var sortMode=(sortSel&&(sortSel.value==='kills'||sortSel.value==='deaths'))?sortSel.value:getMatchSortMode();
+    var ordered=sortMatchResultsRows(st.res,sortMode,nameOf);
+    var strikes=[];
+    if(incStrikes){
+        try{strikes=await fetchMatchStrikes();}
+        catch(e){if(typeof window.showToast==='function')window.showToast('Error cargando strikes: '+e.message,'error');return;}
+    }
+    var report=window.AHExport.buildMatchReport({match:currentMatch,results:ordered,players:st.pm,regIds:st.regIds,strikes:strikes,options:{includeStats:incStats,includeStrikes:incStrikes,format:format==='pdf'?'html':'text'}});
+    if(format==='pdf'){
+        var okP=window.AHExport.printReport(report);
+        if(!okP&&typeof window.showToast==='function')window.showToast('El navegador bloqueo la ventana de impresion','warning');
+    }else{
+        var okC=await window.AHExport.copyToClipboard(report);
+        if(typeof window.showToast==='function')window.showToast(okC?'Informe copiado. Pegalo en WhatsApp':'No se pudo copiar',okC?'success':'error');
+    }
+    closeExportModal();
+}
+window.openExportModal=openExportModal;
+window.closeExportModal=closeExportModal;
+window.doExport=doExport;
 
 async function editResult(resultId){
     if(!canEditResults()){window.showToast('Solo admins pueden editar resultados','error');return;}
