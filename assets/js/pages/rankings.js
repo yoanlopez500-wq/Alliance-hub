@@ -13,6 +13,8 @@
  * score -> mas partidas -> menos muertes -> mas kills efectivas -> alfabetico.
  * El score es motor interno de orden; la tabla muestra las mismas columnas.
  * Lectura paginada (defensa ante el limite de filas de PostgREST).
+ * v5: selector de modo de ordenacion (KD ajustado / Kills validas / Partidas).
+ * Solo visualizacion: mismos datos, re-orden client-side sin refetch.
  */
 (function() {
     'use strict';
@@ -21,6 +23,13 @@
     var sanctionsCache = {};
     var strikesCache = {};
     var allianceMap = {};
+    // Estado del ultimo ranking cargado (para re-ordenar sin refetch al cambiar el modo)
+    var lastRankedState = null;
+
+    // Escapa texto antes de interpolarlo en innerHTML (usernames/alianzas vienen de BD)
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
 
     function showError(msg) {
         var el = document.getElementById('error-banner');
@@ -78,7 +87,7 @@
                 selectEl.innerHTML = '<option value="">Todas las alianzas</option>' +
                     (res.data || []).map(function(a) {
                         allianceMap[a[ac.id]] = { name: a[ac.name], tag: a[ac.tag] };
-                        return '<option value="' + a[ac.id] + '">' + a[ac.name] + '</option>';
+                        return '<option value="' + a[ac.id] + '">' + escapeHtml(a[ac.name]) + '</option>';
                     }).join('');
             }
         } catch(e) { console.error('[Rankings] Error alianzas:', e); }
@@ -162,35 +171,64 @@
                 return !allianceFilter || p[pc.currentAllianceId] === allianceFilter;
             });
 
-            // Orden deterministico de 5 niveles (motor compartido):
-            // 1) Score Bayesiano 2) mas partidas 3) menos muertes
-            // 4) mas kills efectivas 5) alfabetico (desempate absoluto).
-            playersData.sort(window.AHRankingScore.compareRankedPlayers({
-                score: scorer.score,
-                games: function(p) { return p[pc.gamesPlayed]; },
-                deaths: function(p) { return p[pc.deaths]; },
-                eff: safeEff,
-                name: function(p) { return p[pc.currentUsername]; }
-            }));
-            var tbody = document.getElementById('players-tbody');
-            if (!tbody) return;
-            if (playersData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-ah-muted">Sin datos de rankings publicos</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = playersData.map(function(p, i) {
-                var eff = effectiveKills(p);
-                var penalty = getPenaltyPct(p);
-                var killClass = penalty > 0 ? 'kill-nullified' : '';
-                var badge = penalty > 0 ? '<span class="text-[10px] px-1 py-0.5 rounded font-bold ml-1 bg-red-500/20 text-red-400">-' + penalty + '%</span>' : '';
-                return '<tr class="border-b border-indigo-900"><td class="p-3 font-bold text-ah-muted">' + (i+1) + '</td><td class="p-3 font-medium"><a href="player.html?id=' + p[pc.id] + '" class="text-amber-400">' + p[pc.currentUsername] + '</a>' + badge + '</td><td class="p-3 text-ah-muted">' + getAllianceTag(p[pc.currentAllianceId]) + '</td><td class="p-3 text-right text-ah-muted">' + (p[pc.gamesPlayed] || 0) + '</td><td class="p-3 text-right font-bold ' + killClass + ' ' + (eff > 0 ? 'text-green-500' : 'text-ah-muted') + ';">' + eff + '</td><td class="p-3 text-right text-ah-muted">' + (p[pc.deaths] || 0) + '</td><td class="p-3 text-right font-bold">' + (p[pc.deaths] > 0 ? (eff / p[pc.deaths]).toFixed(2) : (eff > 0 ? eff.toFixed(2) : '0')) + '</td><td class="p-3 text-right">' + (penalty > 0 ? '<span title="Penalizacion por strikes/sanciones" class="text-red-400">&#9889;</span>' : '') + '</td></tr>';
-            }).join('');
+            // Modo de ordenacion (SOLO visualizacion; mismos datos, sin refetch).
+            // compareBy() del motor compartido decide el comparador segun el
+            // selector; el default 'score' es identico al orden historico.
+            lastRankedState = {
+                playersData: playersData,
+                acc: {
+                    score: scorer.score,
+                    games: function(p) { return p[pc.gamesPlayed]; },
+                    deaths: function(p) { return p[pc.deaths]; },
+                    eff: safeEff,
+                    name: function(p) { return p[pc.currentUsername]; }
+                }
+            };
+            renderPlayersTable();
         } catch(e) {
             console.error('[Rankings] jugadores:', e);
             var tbody = document.getElementById('players-tbody');
             if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-red-400">Error: ' + e.message + '</td></tr>';
         }
+    }
+
+    // Re-ordena el array ya cargado segun el modo guardado y re-renderiza.
+    // Orden deterministico de 5 niveles (motor compartido):
+    // 1) Score Bayesiano 2) mas partidas 3) menos muertes
+    // 4) mas kills efectivas 5) alfabetico (desempate absoluto).
+    function renderPlayersTable() {
+        if (!lastRankedState) return;
+        var mode = (window.AHRankingScore.getSavedSortMode) ? window.AHRankingScore.getSavedSortMode() : 'score';
+        var sel = document.getElementById('sort-mode');
+        if (sel && sel.value !== mode) sel.value = mode;
+        var cmp = window.AHRankingScore.compareBy
+            ? window.AHRankingScore.compareBy(mode, lastRankedState.acc)
+            : window.AHRankingScore.compareRankedPlayers(lastRankedState.acc);
+        var playersData = lastRankedState.playersData.slice().sort(cmp);
+        var pc = window.DB.tableCols('players');
+        var tbody = document.getElementById('players-tbody');
+        if (!tbody) return;
+        if (playersData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-ah-muted">Sin datos de rankings publicos</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = playersData.map(function(p, i) {
+            var eff = effectiveKills(p);
+            var penalty = getPenaltyPct(p);
+            var killClass = penalty > 0 ? 'kill-nullified' : '';
+            var badge = penalty > 0 ? '<span class="text-[10px] px-1 py-0.5 rounded font-bold ml-1 bg-red-500/20 text-red-400">-' + penalty + '%</span>' : '';
+            return '<tr class="border-b border-indigo-900"><td class="p-3 font-bold text-ah-muted">' + (i+1) + '</td><td class="p-3 font-medium"><a href="player.html?id=' + p[pc.id] + '" class="text-amber-400">' + escapeHtml(p[pc.currentUsername]) + '</a>' + badge + '</td><td class="p-3 text-ah-muted">' + escapeHtml(getAllianceTag(p[pc.currentAllianceId])) + '</td><td class="p-3 text-right text-ah-muted">' + (p[pc.gamesPlayed] || 0) + '</td><td class="p-3 text-right font-bold ' + killClass + ' ' + (eff > 0 ? 'text-green-500' : 'text-ah-muted') + ';">' + eff + '</td><td class="p-3 text-right text-ah-muted">' + (p[pc.deaths] || 0) + '</td><td class="p-3 text-right font-bold">' + (p[pc.deaths] > 0 ? (eff / p[pc.deaths]).toFixed(2) : (eff > 0 ? eff.toFixed(2) : '0')) + '</td><td class="p-3 text-right">' + (penalty > 0 ? '<span title="Penalizacion por strikes/sanciones" class="text-red-400">&#9889;</span>' : '') + '</td></tr>';
+        }).join('');
+    }
+
+    // Handler del selector de modo (onchange en rankings.html)
+    function onSortModeChange() {
+        var sel = document.getElementById('sort-mode');
+        if (sel && window.AHRankingScore && window.AHRankingScore.saveSortMode) {
+            window.AHRankingScore.saveSortMode(sel.value);
+        }
+        renderPlayersTable();
     }
 
     async function loadAlliances() {
@@ -219,7 +257,7 @@
             }).sort(function(a, b) { return b.total_kills - a.total_kills; });
 
             c.innerHTML = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">' + sorted.map(function(a, i) {
-                return '<div class="rounded-xl p-5 bg-slate-900 border border-indigo-900"><div class="flex items-center gap-3"><div class="text-2xl font-bold text-amber-400">#' + (i+1) + '</div><div class="flex-1"><h3 class="font-bold text-lg">' + a.name + '</h3><p class="text-xs text-ah-muted">[' + (a.tag || '-') + ']</p></div></div><div class="grid grid-cols-2 gap-3 mt-3"><div class="rounded-lg p-2 text-center bg-slate-950"><p class="text-xs text-ah-muted">Miembros</p><p class="font-bold">' + (a.member_count || 0) + '</p></div><div class="rounded-lg p-2 text-center bg-slate-950"><p class="text-xs text-ah-muted">Bajas</p><p class="font-bold text-green-500">' + (a.total_kills || 0).toLocaleString() + '</p></div></div></div>';
+                return '<div class="rounded-xl p-5 bg-slate-900 border border-indigo-900"><div class="flex items-center gap-3"><div class="text-2xl font-bold text-amber-400">#' + (i+1) + '</div><div class="flex-1"><h3 class="font-bold text-lg">' + escapeHtml(a.name) + '</h3><p class="text-xs text-ah-muted">[' + escapeHtml(a.tag || '-') + ']</p></div></div><div class="grid grid-cols-2 gap-3 mt-3"><div class="rounded-lg p-2 text-center bg-slate-950"><p class="text-xs text-ah-muted">Miembros</p><p class="font-bold">' + (a.member_count || 0) + '</p></div><div class="rounded-lg p-2 text-center bg-slate-950"><p class="text-xs text-ah-muted">Bajas</p><p class="font-bold text-green-500">' + (a.total_kills || 0).toLocaleString() + '</p></div></div></div>';
             }).join('') + '</div>';
         } catch(e) { console.error('[Rankings] alianzas:', e); var c = document.getElementById('alliances-list'); if (c) c.innerHTML = '<div class="text-center py-8 text-red-400">Error alianzas: ' + (e.message || e) + '</div>'; }
     }
@@ -322,7 +360,7 @@
             });
             var rows = Object.values(counts).sort(function(a, b) { return b.count - a.count; }).slice(0, 50);
             tbody.innerHTML = rows.map(function(r) {
-                return '<tr class="border-b border-indigo-900"><td class="p-3 font-medium">' + (r.player.current_username || '?') + '</td><td class="p-3 text-ah-muted">' + getAllianceTag(r.player.current_alliance_id) + '</td><td class="p-3 text-right font-bold text-red-400">' + r.count + '</td><td class="p-3">' + window.getStatusBadgePlayer(r.player.status) + '</td><td class="p-3 text-ah-muted text-xs">' + window.formatDate(r.player.last_seen) + '</td></tr>';
+                return '<tr class="border-b border-indigo-900"><td class="p-3 font-medium">' + escapeHtml(r.player.current_username || '?') + '</td><td class="p-3 text-ah-muted">' + escapeHtml(getAllianceTag(r.player.current_alliance_id)) + '</td><td class="p-3 text-right font-bold text-red-400">' + r.count + '</td><td class="p-3">' + window.getStatusBadgePlayer(r.player.status) + '</td><td class="p-3 text-ah-muted text-xs">' + window.formatDate(r.player.last_seen) + '</td></tr>';
             }).join('');
         } catch(e) { console.error('[Rankings] strikes:', e); var tbody = document.getElementById('strikes-tbody'); if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-red-400">Error cargando strikes: ' + (e.message || e) + '</td></tr>'; }
     }
@@ -346,6 +384,8 @@
 
     // Exponer loadRankings para el filtro de alianza
     window.loadRankings = loadRankings;
+    // Exponer onSortModeChange para el selector de modo de ordenacion
+    window.onSortModeChange = onSortModeChange;
 
     // Inicializar
     if (document.readyState === 'loading') {
