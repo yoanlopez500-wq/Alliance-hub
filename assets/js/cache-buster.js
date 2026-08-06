@@ -9,12 +9,17 @@
 (function() {
     'use strict';
 
-    // Build ID: fecha actual en formato YYYYMMDD
+    // Build ID: timestamp al minuto (YYYYMMDDHHMM), mismo criterio que
+    // sw-register.js. Antes era solo fecha (YYYYMMDD): un deploy hecho el
+    // mismo dia que una visita previa reutilizaba la MISMA url ?h=... y el
+    // navegador/SW servia el JS viejo. Con minutos, cada deploy invalida.
     var now = new Date();
     var BUILD_ID = [
         now.getFullYear(),
         String(now.getMonth() + 1).padStart(2, '0'),
-        String(now.getDate()).padStart(2, '0')
+        String(now.getDate()).padStart(2, '0'),
+        String(now.getHours()).padStart(2, '0'),
+        String(now.getMinutes()).padStart(2, '0')
     ].join('');
 
     // Almacenar en localStorage para detectar cambios de version
