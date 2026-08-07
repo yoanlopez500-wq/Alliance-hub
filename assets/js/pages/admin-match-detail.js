@@ -208,8 +208,39 @@ window.onMatchSortChange=onMatchSortChange;
 function openExportModal(){if(!window.AHExport){if(typeof window.showToast==='function')window.showToast('Modulo de exportacion no disponible','error');return;}var m=document.getElementById('export-modal');if(m)m.classList.add('active');}
 function closeExportModal(){var m=document.getElementById('export-modal');if(m)m.classList.remove('active');}
 
-// Strikes vinculados a ESTA partida (con razon, notas, tipo y jugador)
-async function fetchMatchStrikes(){var stc=window.DB.tableCols('playerStrikes');var res=await window.DB.from('playerStrikes').select(window.DB.select('playerStrikes','withRelations')).eq(stc.matchId,matchId);if(res.error)throw res.error;return res.data||[];}
+// Strikes vinculados a ESTA partida (con razon, notas, tipo y jugador).
+// La BD NO tiene FK player_strikes.strike_type_id -> strike_types, asi que
+// PostgREST no puede embeber el join (error PGRST200 "relationship not found").
+// Se consulta plano y se enriquece en cliente con dos lookups pequenos.
+async function fetchMatchStrikes(){
+    var stc=window.DB.tableCols('playerStrikes');
+    var res=await window.DB.from('playerStrikes')
+        .select([stc.playerId,stc.strikeTypeId,stc.reason,stc.notes,stc.isActive,stc.removalReason].join(', '))
+        .eq(stc.matchId,matchId);
+    if(res.error)throw res.error;
+    var rows=res.data||[];
+    if(rows.length===0)return rows;
+    var typeIds=[],playerIds=[];
+    rows.forEach(function(s){
+        if(s[stc.strikeTypeId]&&typeIds.indexOf(s[stc.strikeTypeId])===-1)typeIds.push(s[stc.strikeTypeId]);
+        if(playerIds.indexOf(s[stc.playerId])===-1)playerIds.push(s[stc.playerId]);
+    });
+    var types={},playersMap={};
+    if(typeIds.length>0){
+        var tr=await window.supabase.from('strike_types').select('id, name').in('id',typeIds);
+        if(tr.error)throw tr.error;
+        (tr.data||[]).forEach(function(t){types[t.id]=t;});
+    }
+    var pr=await window.supabase.from('players').select('id, current_username').in('id',playerIds);
+    if(pr.error)throw pr.error;
+    (pr.data||[]).forEach(function(p){playersMap[p.id]=p;});
+    // Misma forma que devolvia el join embebido: el builder no cambia
+    rows.forEach(function(s){
+        s.players=playersMap[s[stc.playerId]]||null;
+        s.strike_types=types[s[stc.strikeTypeId]]||null;
+    });
+    return rows;
+}
 
 async function doExport(format){
     if(!window.AHExport)return;
