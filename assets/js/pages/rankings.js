@@ -104,10 +104,15 @@
 
         try {
             var stc = window.DB.tableCols('playerStrikes');
-            var res3 = await window.DB.from('playerStrikes').select(window.DB.select('playerStrikes', 'withType')).eq(stc.isActive, true);
+            // Sin embed strike_types:strike_type_id(...) — la BD no tiene esa FK (PGRST200).
+            // Select plano + join en cliente via attachStrikeTypes (base.js).
+            var res3 = await window.DB.from('playerStrikes')
+                .select([stc.playerId, stc.strikeTypeId, stc.status, stc.isActive, stc.expiresAt].join(', '))
+                .eq(stc.isActive, true);
             if (res3.error) throw res3.error;
             strikesCache = {};
-            (res3.data || []).forEach(function(s) {
+            var strikeRows = await window.attachStrikeTypes(res3.data || []);
+            strikeRows.forEach(function(s) {
                 var pid = s[stc.playerId];
                 if (!strikesCache[pid]) strikesCache[pid] = [];
                 strikesCache[pid].push(s);
