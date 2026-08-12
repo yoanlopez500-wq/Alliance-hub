@@ -137,6 +137,29 @@ function computeEffectiveKills(totalKills, strikes, nullifiedKills) {
     return { effKills: effKills, penaltyPct: maxPenalty, nullified: nullifiedKills };
 }
 
+// La BD NO tiene FK player_strikes.strike_type_id -> strike_types, asi que el
+// embed de PostgREST strike_types:strike_type_id(...) falla con PGRST200.
+// Este helper hace el join en cliente: dado un array de strikes (filas planas),
+// consulta strike_types por ids y adjunta s.strike_types a cada fila.
+async function attachStrikeTypes(strikes) {
+    strikes = strikes || [];
+    var ids = [];
+    strikes.forEach(function(s) {
+        var tid = s.strike_type_id;
+        if (tid && ids.indexOf(tid) === -1) ids.push(tid);
+    });
+    if (ids.length === 0) return strikes;
+    var res = await window.supabase.from('strike_types')
+        .select('id, name, legend, severity, nullifies_kills, is_ban, ban_duration_hours')
+        .in('id', ids);
+    if (res.error) throw res.error;
+    var map = {};
+    (res.data || []).forEach(function(t) { map[t.id] = t; });
+    strikes.forEach(function(s) { s.strike_types = map[s.strike_type_id] || null; });
+    return strikes;
+}
+window.attachStrikeTypes = attachStrikeTypes;
+
 async function checkAndClearExpiredBan(playerId) {
     if (window.AHSanctions) await window.AHSanctions.checkAndClearExpiredSanctions(playerId);
 }

@@ -66,8 +66,11 @@
             var totalDeaths = rankingRow ? (rankingRow.total_deaths || 0) : 0;
             var games = rankingRow ? (rankingRow.games_played || 0) : 0;
 
-            var strikesRes = await window.supabase.from('player_strikes').select('*, strike_types(*)').eq('player_id', playerId).eq('status', 'active');
-            var strikes = strikesRes.data || [];
+            // Sin embed strike_types(*) — la BD no tiene FK player_strikes.strike_type_id (PGRST200).
+            // Select plano + join en cliente via attachStrikeTypes (base.js).
+            var strikesRes = await window.supabase.from('player_strikes').select('*').eq('player_id', playerId).eq('status', 'active');
+            if (strikesRes.error) throw strikesRes.error;
+            var strikes = await window.attachStrikeTypes(strikesRes.data || []);
             var strikeCount = strikes.length;
             var eff = window.computeEffectiveKills(totalKills, strikes, 0);
             var effKills = eff.effKills;

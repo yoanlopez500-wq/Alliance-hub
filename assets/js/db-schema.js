@@ -90,9 +90,13 @@
             },
             selectSets: {
                 basic: 'id, player_id, strike_type_id, match_id, rule_section_id, rule_precedent_id, report_id, reason, applied_by, applied_at, status, is_active, expires_at',
-                withRelations: 'id, player_id, strike_type_id, match_id, rule_section_id, rule_precedent_id, report_id, reason, applied_by, applied_at, removed_by, removed_at, removal_reason, status, is_active, notes, evidence_urls, expires_at, players:player_id(current_username), strike_types:strike_type_id(name), rule_sections:rule_section_id(title), rule_precedents:rule_precedent_id(title)',
-                pending: 'id, player_id, strike_type_id, match_id, rule_section_id, rule_precedent_id, report_id, reason, applied_by, applied_at, status, expires_at, players:player_id(current_username), strike_types:strike_type_id(name)',
-                withType: 'id, player_id, strike_type_id, status, is_active, expires_at, strike_types:strike_type_id(id, name, legend, severity, nullifies_kills, is_ban, ban_duration_hours)',
+                // NOTA: NO existe FK player_strikes.strike_type_id -> strike_types en la BD,
+                // por lo que el embed strike_types:strike_type_id(...) falla con PGRST200.
+                // Estos select sets son planos; el tipo se resuelve en cliente con
+                // window.attachStrikeTypes (base.js).
+                withRelations: 'id, player_id, strike_type_id, match_id, rule_section_id, rule_precedent_id, report_id, reason, applied_by, applied_at, removed_by, removed_at, removal_reason, status, is_active, notes, evidence_urls, expires_at, players:player_id(current_username), rule_sections:rule_section_id(title), rule_precedents:rule_precedent_id(title)',
+                pending: 'id, player_id, strike_type_id, match_id, rule_section_id, rule_precedent_id, report_id, reason, applied_by, applied_at, status, expires_at, players:player_id(current_username)',
+                withType: 'id, player_id, strike_type_id, status, is_active, expires_at',
                 all: '*'
             }
         },
