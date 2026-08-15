@@ -296,33 +296,27 @@ function hasAdminSession() {
 }
 
 async function generatePlayerToken(playerId, displayName) {
+    // HOTFIX seguridad: el alta de jugador y el token se emiten en servidor
+    // via RPC player_login (security definer). player_tokens ya no es
+    // accesible con la anon key.
     try {
-        var { data: existing } = await supabase.from('players').select('id, current_username').eq('id', playerId).maybeSingle();
-        var pid = parseInt(playerId);
-        if (existing) {
-            await supabase.from('players').update({ current_username: displayName, last_seen: new Date().toISOString() }).eq('id', pid);
-        } else {
-            var { error: insertErr } = await supabase.from('players').insert({ id: pid, current_username: displayName, status: 'active' });
-            if (insertErr) return { success: false, message: insertErr.message };
-        }
-        var token = 'ah_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now();
-        var { error: tokenErr } = await supabase.from('player_tokens').upsert({ player_id: pid, token: token }, { onConflict: 'player_id' });
-        if (tokenErr) return { success: false, message: tokenErr.message };
-        return { success: true, token: token };
+        var { data, error } = await supabase.rpc('player_login', { p_player_id: parseInt(playerId), p_display_name: displayName || '' });
+        if (error) return { success: false, message: error.message };
+        return { success: true, token: data };
     } catch(e) { return { success: false, message: e.message }; }
 }
 
 async function verifyPlayerToken(playerId, token) {
     try {
-        var { data } = await supabase.from('player_tokens').select('token').eq('player_id', parseInt(playerId)).eq('token', token).maybeSingle();
-        return !!data;
+        var { data } = await supabase.rpc('verify_player_token', { p_player_id: parseInt(playerId), p_token: token });
+        return data === true;
     } catch(e) { return false; }
 }
 
 async function verifyPlayerLogin(playerId, token) {
     try {
-        var { data } = await supabase.from('player_tokens').select('token').eq('player_id', parseInt(playerId)).eq('token', token).maybeSingle();
-        return !!data;
+        var { data } = await supabase.rpc('verify_player_token', { p_player_id: parseInt(playerId), p_token: token });
+        return data === true;
     } catch(e) { return false; }
 }
 
@@ -343,7 +337,7 @@ async function unregisterFromMatch(matchId) {
     var playerData = (typeof getPlayerData === 'function') ? getPlayerData() : {};
     if (!playerData || !playerData.playerId) return;
     try {
-        var { error } = await supabase.from('match_registrations').delete().eq('match_id', matchId).eq('player_id', parseInt(playerData.playerId));
+        var { error } = await supabase.rpc('player_unregister_match', { p_match_id: matchId, p_player_id: parseInt(playerData.playerId), p_token: (playerData.token || '') });
         if (error) { showToast('Error: ' + error.message, 'error'); return; }
         showToast('Desregistrado de la partida', 'success');
         setTimeout(function(){location.reload()},500);
@@ -365,7 +359,7 @@ async function generateTransferCode() {
     var playerData = (typeof getPlayerData === 'function') ? getPlayerData() : {};
     if (!playerData || !playerData.playerId) return null;
     try {
-        var { data, error } = await supabase.rpc('generate_transfer_code', { p_player_id: parseInt(playerData.playerId) });
+        var { data, error } = await supabase.rpc('generate_transfer_code', { p_player_id: parseInt(playerData.playerId), p_token: (playerData.token || '') });
         if (error) throw error;
         return data;
     } catch(e) { return null; }
@@ -443,14 +437,10 @@ async function checkPendingLeaderApproval() {
         var now = new Date().toISOString();
         // NOTA seguridad: 'now' es un valor interno (no input de usuario),
         // por lo que la concatenacion en .or() es segura.
+        // HOTFIX seguridad: admin_invites ya no es legible con anon key;
+        // se consulta via RPC acotado (solo el invite del propio jugador).
         var { data: invites, error } = await supabase
-            .from('admin_invites')
-            .select('code, role, alliance_id')
-            .eq('player_id', playerId)
-            .eq('used', false)
-            .or('expires_at.gt.' + now + ',expires_at.is.null')
-            .order('created_at', { ascending: false })
-            .limit(1);
+            .rpc('get_player_invite', { p_player_id: playerId });
 
         if (error) {
             console.error('[checkPendingLeaderApproval] Query error:', error);
