@@ -151,11 +151,13 @@
         }
 
         window.AHRuleGate.requireConsent(playerData.playerId, matchId, async function() {
-            var { error } = await window.supabase.from('match_registrations').upsert({
-                match_id: matchId,
-                player_id: parseInt(playerData.playerId),
-                status: currentMatch.requires_approval ? 'pending' : 'confirmed'
-            }, { onConflict: 'match_id,player_id' });
+            // HOTFIX seguridad: el registro se hace via RPC con token de
+            // sesion validado en servidor (ya no hay escritura anon directa).
+            var { data: regStatus, error } = await window.supabase.rpc('player_register_match', {
+                p_match_id: matchId,
+                p_player_id: parseInt(playerData.playerId),
+                p_token: (playerData.token || '')
+            });
 
             if (error) {
                 errorMsg.textContent = '\u2716 Error: ' + error.message;
