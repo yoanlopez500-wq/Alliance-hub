@@ -1,134 +1,98 @@
-// sw-register.js - Smart service worker registration with auto-update
-// Cada deploy con timestamp nuevo fuerza limpieza de caches y hard reload.
+// sw-register.js v2 - Registro de Service Worker ESTABLE que preserva push
+//
+// PROBLEMA QUE CORRIGE (v1): la version se generaba por MINUTO
+// (YYYYMMDDHHMM) y, al cambiar, se hacia unregister() de TODOS los SW +
+// borrado total + reload. unregister() DESTRUYE la suscripcion push del
+// dispositivo (esta ligada a la registration), asi que las notificaciones
+// se "desactivaban solas" cada minuto.
+//
+// NUEVO DISENO:
+// - La URL del SW es ESTABLE (sin ?bust por minuto). Las actualizaciones
+//   del propio SW se obtienen con reg.update() + updateViaCache:'none'.
+// - La version de la app se lee del archivo VERSION (solo cambia en
+//   deploys reales), con fetch no-store.
+// - Cuando cambia la version: NO se desregistra NADA. Se pide al SW que
+//   limpie sus caches (CLEAR_ALL_CACHES), se fuerza update() y se hace UN
+//   solo reload (con guarda anti-bucle).
+// - La suscripcion push sobrevive a todo este flujo.
 
 (function() {
     'use strict';
 
     if (!('serviceWorker' in navigator)) return;
 
-    // Build ID: timestamp al minuto (YYYYMMDDHHMM). Cambia automaticamente
-    // en cada deploy, invalidando caches sin editar manualmente versiones.
-    function buildId() {
-        var d = new Date();
-        function p(n) { return String(n).padStart(2, '0'); }
-        return d.getFullYear() +
-            p(d.getMonth() + 1) +
-            p(d.getDate()) +
-            p(d.getHours()) +
-            p(d.getMinutes());
+    var LS_VERSION = 'ah_app_version';
+    var LS_RELOAD_GUARD = 'ah_last_reload_ts';
+    var BASE = window.__AH_BASE_PATH || '/';
+
+    // Guarda anti-bucle de reloads: maximo 1 reload forzado por minuto.
+    function guardedReload() {
+        try {
+            var last = parseInt(localStorage.getItem(LS_RELOAD_GUARD) || '0');
+            if (Date.now() - last < 60000) {
+                console.log('[SW-Reg] Reload omitido (guarda anti-bucle)');
+                return;
+            }
+            localStorage.setItem(LS_RELOAD_GUARD, String(Date.now()));
+        } catch (e) { /* storage no disponible: no recargar */ return; }
+        window.location.reload(true);
     }
 
-    var CURRENT_VERSION = 'ah-' + buildId();
-    var STORED_VERSION = localStorage.getItem('ah_sw_version');
+    // URL ESTABLE del SW: sin cache-buster por minuto. updateViaCache:'none'
+    // hace que el navegador pida el script del SW fresco en cada update().
+    var swUrl = BASE + 'service-worker.js';
 
-    function clearAllCaches() {
-        if (!('caches' in window)) return Promise.resolve();
-        return caches.keys().then(function(names) {
-            return Promise.all(names.map(function(n) {
-                console.log('[SW-Reg] Deleting cache:', n);
-                return caches.delete(n);
-            }));
-        });
-    }
-
-    // Si hay un SW activo, intentar limpiar sus caches via postMessage primero.
-    function requestSWCacheClear() {
-        return new Promise(function(resolve) {
-            if (!navigator.serviceWorker.controller) { resolve(); return; }
-            var chan = new MessageChannel();
-            chan.port1.onmessage = function(e) {
-                if (e.data === 'ALL_CACHES_CLEARED') console.log('[SW-Reg] SW confirmo limpieza');
-                resolve();
-            };
-            try {
-                navigator.serviceWorker.controller.postMessage('CLEAR_ALL_CACHES', [chan.port2]);
-                setTimeout(resolve, 500);
-            } catch (e) { resolve(); }
-        });
-    }
-
-    // If version changed, clear everything and force reload
-    if (STORED_VERSION && STORED_VERSION !== CURRENT_VERSION) {
-        console.log('[SW-Reg] Version changed:', STORED_VERSION, '->', CURRENT_VERSION);
-
-        navigator.serviceWorker.getRegistrations().then(function(regs) {
-            return Promise.all(regs.map(function(r) { return r.unregister(); }));
-        }).then(function() {
-            return requestSWCacheClear();
-        }).then(function() {
-            return clearAllCaches();
-        }).then(function() {
-            localStorage.setItem('ah_sw_version', CURRENT_VERSION);
-            console.log('[SW-Reg] Hard reloading for fresh content...');
-            window.location.reload(true);
-        }).catch(function(e) {
-            console.error('[SW-Reg] Cleanup error:', e);
-            clearAllCaches().finally(function() {
-                localStorage.setItem('ah_sw_version', CURRENT_VERSION);
-                window.location.reload(true);
-            });
-        });
-
-        return;
-    }
-
-    localStorage.setItem('ah_sw_version', CURRENT_VERSION);
-
-    // Cache-buster en la URL del propio SW para que el navegador nunca
-    // use un service-worker.js cacheado por un SW atascado o un proxy.
-    // Ruta absoluta basada en __AH_BASE_PATH (definido en base.js, cargado
-    // antes): un path relativo romperia el scope en paginas bajo /admin/ o /register/.
-    var swBase = window.__AH_BASE_PATH || '/';
-    var swUrl = swBase + 'service-worker.js?bust=' + buildId();
-    if (window.AHBuster) swUrl = window.AHBuster.url(swUrl);
-
-    navigator.serviceWorker.register(swUrl)
+    navigator.serviceWorker.register(swUrl, { updateViaCache: 'none' })
         .then(function(reg) {
             console.log('[SW-Reg] Registered:', reg.scope);
 
+            // Nuevo SW instalado -> activarlo ya; al tomar control, un solo reload.
             reg.addEventListener('updatefound', function() {
                 var newWorker = reg.installing;
+                if (!newWorker) return;
                 newWorker.addEventListener('statechange', function() {
                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        console.log('[SW-Reg] New version available');
+                        console.log('[SW-Reg] Nueva version del SW, activando...');
                         newWorker.postMessage('SKIP_WAITING');
-                        showUpdateBar();
                     }
                 });
             });
 
-            navigator.serviceWorker.addEventListener('message', function(event) {
-                if (event.data === 'RELOAD_PAGE') {
-                    window.location.reload();
-                }
+            navigator.serviceWorker.addEventListener('controllerchange', function() {
+                console.log('[SW-Reg] Nuevo SW al mando');
+                guardedReload();
             });
 
+            // Buscar actualizaciones del SW periodicamente (sin desregistrar).
             setInterval(function() { reg.update(); }, 5 * 60 * 1000);
             document.addEventListener('visibilitychange', function() {
                 if (!document.hidden) reg.update();
             });
+
+            // Deteccion de deploy real via archivo VERSION (no-store).
+            return fetch(BASE + 'VERSION', { cache: 'no-store' })
+                .then(function(res) { return res.ok ? res.text() : null; })
+                .then(function(txt) {
+                    if (!txt) return; // fallo de red: no hacer nada (seguro)
+                    var version = txt.trim();
+                    var stored = null;
+                    try { stored = localStorage.getItem(LS_VERSION); } catch (e) {}
+                    if (stored && stored !== version) {
+                        console.log('[SW-Reg] Deploy nuevo:', stored, '->', version);
+                        try { localStorage.setItem(LS_VERSION, version); } catch (e) {}
+                        // Limpiar caches del SW activo (NO desregistrar).
+                        if (navigator.serviceWorker.controller) {
+                            try {
+                                navigator.serviceWorker.controller.postMessage('CLEAR_ALL_CACHES');
+                            } catch (e) { /* noop */ }
+                        }
+                        reg.update().finally(function() { guardedReload(); });
+                    } else {
+                        try { localStorage.setItem(LS_VERSION, version); } catch (e) {}
+                    }
+                });
         })
         .catch(function(err) {
             console.log('[SW-Reg] Registration failed:', err);
         });
-
-    navigator.serviceWorker.addEventListener('controllerchange', function() {
-        console.log('[SW-Reg] New controller activated');
-    });
-
-    function showUpdateBar() {
-        var bar = document.createElement('div');
-        bar.id = 'sw-update-bar';
-        bar.innerHTML = '<span>Nueva version disponible</span> <button id="sw-update-btn">Actualizar ahora</button>';
-        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#ff6f00;color:#fff;padding:8px 16px;text-align:center;font-size:13px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:12px;';
-        document.body.appendChild(bar);
-
-        document.getElementById('sw-update-btn').addEventListener('click', function() {
-            window.location.reload(true);
-        });
-
-        setTimeout(function() {
-            window.location.reload(true);
-        }, 10000);
-    }
 })();
