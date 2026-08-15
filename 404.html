@@ -7,6 +7,17 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>404 - Alliance Hub</title>
+<script>
+// HOTFIX: GitHub Pages es case-sensitive. Los enlaces generados con la ruta en
+// minusculas (/alliance-hub/...) caian aqui con 404. Redirigimos a la ruta
+// correcta preservando path, query y hash (p.ej. game.html?id=...&token=...).
+(function(){
+    var p = window.location.pathname;
+    if (p.indexOf('/alliance-hub/') === 0) {
+        window.location.replace('/Alliance-hub/' + p.substring('/alliance-hub/'.length) + window.location.search + window.location.hash);
+    }
+})();
+</script>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>body{background:#0a0e27;color:#e8eaf6;font-family:'Inter',system-ui,sans-serif;}</style>
 </head>
