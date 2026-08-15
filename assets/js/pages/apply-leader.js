@@ -63,18 +63,10 @@
 
     async function loadInviteCode(playerId) {
         try {
-            var now = new Date().toISOString();
-            // NOTA seguridad: 'now' proviene de new Date().toISOString() (valor
-            // interno, no de input de usuario), por lo que la concatenacion en
-            // .or() es segura y no requiere escape adicional.
+            // HOTFIX seguridad: admin_invites ya no es legible con anon key;
+            // RPC acotado que solo devuelve el invite del propio jugador.
             var { data, error } = await window.supabase
-                .from('admin_invites')
-                .select('code, role, alliance_id, created_at')
-                .eq('player_id', parseInt(playerId))
-                .eq('used', false)
-                .or('expires_at.gt.' + now + ',expires_at.is.null')
-                .order('created_at', { ascending: false })
-                .limit(1);
+                .rpc('get_player_invite', { p_player_id: parseInt(playerId) });
             if (error) throw error;
             return data && data.length > 0 ? data[0] : null;
         } catch(e) {
@@ -222,7 +214,7 @@
                         errorBanner.classList.remove('hidden');
                     }
                 }
-                if (btn) { btn.disabled = false; btn.textContent = '\uD83D\DCE8 Enviar Solicitud'; }
+                if (btn) { btn.disabled = false; btn.textContent = '\uD83D\uDCE8 Enviar Solicitud'; }
             });
         }
     }

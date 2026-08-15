@@ -52,15 +52,13 @@
 
     async function verifyInviteCode(code) {
         try {
-            var now = new Date().toISOString();
-            var { data: invite, error } = await window.supabase.from('admin_invites')
-                .select('*, alliances(name)')
-                .eq('code', code)
-                .eq('used', false)
-                .or('expires_at.gt.' + now + ',expires_at.is.null')
-                .maybeSingle();
+            // HOTFIX seguridad: verificacion via RPC acotado (admin_invites
+            // ya no es legible con anon key). La edge function revalida igual.
+            var { data: inviteRows, error } = await window.supabase
+                .rpc('verify_leader_invite', { p_code: code });
 
             if (error) throw error;
+            var invite = inviteRows && inviteRows.length > 0 ? inviteRows[0] : null;
             if (!invite) { showError('Codigo invalido, ya usado o expirado.'); return; }
 
             var playerId = invite.player_id;
@@ -80,10 +78,10 @@
 
             document.getElementById('ls-player-id').value = playerId || '';
             document.getElementById('ls-username').value = username;
-            document.getElementById('ls-alliance').value = invite.alliances ? invite.alliances.name : '';
+            document.getElementById('ls-alliance').value = invite.alliance_name || '';
             document.getElementById('ls-invite-code').value = code;
             document.getElementById('ls-supremacy-id').value = supremacyId || '';
-            document.getElementById('alliance-name-display').textContent = invite.alliances ? invite.alliances.name : '';
+            document.getElementById('alliance-name-display').textContent = invite.alliance_name || '';
 
             showForm();
         } catch(e) {

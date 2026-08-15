@@ -1,3 +1,12 @@
+// HOTFIX seguridad (XSS): escapar TODO dato controlado por usuarios
+// antes de insertarlo en innerHTML.
+function esc(t) {
+    if (t === null || t === undefined) return '';
+    var d = document.createElement('div');
+    d.textContent = String(t);
+    return d.innerHTML;
+}
+
 var currentReportId = null;
 var currentReportData = null;
 var ruleSectionsMap = {};
@@ -42,10 +51,10 @@ async function loadReports() {
         list.innerHTML = data.map(function(r) {
             var statusBadge = getReportStatusBadge(r.status);
             var ruleTitle = ruleSectionsMap[r.rule_section_id] ? ruleSectionsMap[r.rule_section_id].title : 'Regla #' + r.rule_section_id;
-            var ruleBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold ml-2 bg-indigo-900 text-slate-400">' + ruleTitle + '</span>';
+            var ruleBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold ml-2 bg-indigo-900 text-slate-400">' + esc(ruleTitle) + '</span>';
             var evBadge = (r.evidence_urls && r.evidence_urls.length > 0) ? '<span class="px-2 py-0.5 rounded text-xs font-bold ml-2 bg-orange-500/15 text-orange-500">&#128247; ' + r.evidence_urls.length + '</span>' : '';
             var strikeBadge = r.strike_applied ? '<span class="px-2 py-0.5 rounded text-xs font-bold ml-2 bg-purple-500/15 text-purple-400">&#9889; Strike</span>' : '';
-            return '<div class="rounded-xl p-4 mb-3 cursor-pointer transition bg-slate-900 border border-indigo-900 hover:border-amber-500/50" onclick="openDetail(\'' + r.id + '\')"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2"><div><h3 class="font-bold">Reporte contra ' + (r.reported_player_name || 'jugador #' + r.reported_player_id) + '</h3><p class="text-sm mt-1 text-slate-400">' + (r.description || '').substring(0, 120) + '...</p></div>' + statusBadge + '</div><div class="flex flex-wrap gap-2 mt-2">' + ruleBadge + evBadge + strikeBadge + '<span class="text-xs text-slate-400">' + window.formatDate(r.created_at) + '</span></div></div>';
+            return '<div class="rounded-xl p-4 mb-3 cursor-pointer transition bg-slate-900 border border-indigo-900 hover:border-amber-500/50" onclick="openDetail(\'' + r.id + '\')"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2"><div><h3 class="font-bold">Reporte contra ' + esc(r.reported_player_name || 'jugador #' + r.reported_player_id) + '</h3><p class="text-sm mt-1 text-slate-400">' + esc((r.description || '').substring(0, 120)) + '...</p></div>' + statusBadge + '</div><div class="flex flex-wrap gap-2 mt-2">' + ruleBadge + evBadge + strikeBadge + '<span class="text-xs text-slate-400">' + window.formatDate(r.created_at) + '</span></div></div>';
         }).join('');
     } catch(e) {
         console.error('[Reports]', e);
@@ -65,10 +74,10 @@ async function openDetail(id) {
         var ruleTitle = ruleSectionsMap[data.rule_section_id] ? ruleSectionsMap[data.rule_section_id].title : 'Regla #' + data.rule_section_id;
         document.getElementById('d-title').textContent = 'Reporte contra ' + (data.reported_player_name || 'jugador #' + data.reported_player_id);
         document.getElementById('d-content').innerHTML =
-            '<p class="text-sm mb-2"><strong>Reportante:</strong> ' + (data.player_name || 'jugador #' + data.player_id) + '</p>' +
-            '<p class="text-sm mb-2"><strong>Descripcion:</strong> ' + data.description + '</p>' +
-            '<p class="text-sm mb-2"><strong>Regla:</strong> ' + ruleTitle + '</p>' +
-            (data.admin_response ? '<p class="text-sm mb-2 text-slate-400"><strong>Respuesta admin:</strong> ' + data.admin_response + '</p>' : '') +
+            '<p class="text-sm mb-2"><strong>Reportante:</strong> ' + esc(data.player_name || 'jugador #' + data.player_id) + '</p>' +
+            '<p class="text-sm mb-2"><strong>Descripcion:</strong> ' + esc(data.description) + '</p>' +
+            '<p class="text-sm mb-2"><strong>Regla:</strong> ' + esc(ruleTitle) + '</p>' +
+            (data.admin_response ? '<p class="text-sm mb-2 text-slate-400"><strong>Respuesta admin:</strong> ' + esc(data.admin_response) + '</p>' : '') +
             '<p class="text-xs text-slate-400">Fecha: ' + window.formatDateTime(data.created_at) + '</p>';
 
         document.getElementById('d-admin-response').value = data.admin_response || '';
