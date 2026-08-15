@@ -134,37 +134,92 @@
     }
 
     /**
-     * Da de baja la suscripcion actual. Delega en unsubscribeFromPush()
-     * de pwa-utils.js si existe (ya hace delete en BD + unsubscribe del SW).
+     * Da de baja la suscripcion actual. Intenta baja completa:
+     * 1) Obtiene la suscripcion del navegador (serviceWorker.ready con
+     *    timeout de 3s + getSubscription()).
+     * 2) Si hay endpoint, borra en BD via RPC delete_push_subscription
+     *    (el DELETE REST directo NO funciona por un bug de RLS; no usar
+     *    .from('push_subscriptions').delete()).
+     * 3) sub.unsubscribe() y limpieza del flag local.
+     * Si algo falla, cae al fallback window.unsubscribeFromPush() de
+     * pwa-utils.js si existe. NUNCA lanza excepciones.
      */
     async function unsubscribe() {
         try {
-            if (typeof window.unsubscribeFromPush === 'function') {
-                var ok = await window.unsubscribeFromPush();
-                try { localStorage.removeItem(FLAG_KEY); } catch (eLs) { /* noop */ }
-                return ok;
+            if (!isSupported()) return false;
+            var reg = await Promise.race([
+                navigator.serviceWorker.ready,
+                new Promise(function(_, reject) {
+                    setTimeout(function() { reject(new Error('sw-ready-timeout')); }, 3000);
+                })
+            ]);
+            var sub = await reg.pushManager.getSubscription();
+            var endpoint = sub && sub.endpoint ? sub.endpoint : null;
+            if (endpoint) {
+                try {
+                    await window.supabase.rpc('delete_push_subscription', { p_endpoint: endpoint });
+                } catch (eRpc) {
+                    console.warn('[AHPush] RPC delete_push_subscription fallo (no critico):', eRpc);
+                }
             }
-            console.warn('[AHPush] unsubscribeFromPush() no disponible (pwa-utils no cargado)');
-            return false;
+            if (sub) await sub.unsubscribe();
+            try { localStorage.removeItem(FLAG_KEY); } catch (eLs) { /* noop */ }
+            return true;
         } catch (e) {
-            console.warn('[AHPush] unsubscribe() fallo:', e);
+            console.warn('[AHPush] unsubscribe() baja completa fallo:', e);
+            // Fallback: unsubscribeFromPush() de pwa-utils.js si existe
+            try {
+                if (typeof window.unsubscribeFromPush === 'function') {
+                    var ok = await window.unsubscribeFromPush();
+                    try { localStorage.removeItem(FLAG_KEY); } catch (eLs2) { /* noop */ }
+                    return ok;
+                }
+            } catch (e2) {
+                console.warn('[AHPush] unsubscribe() fallback tambien fallo:', e2);
+            }
             return false;
         }
     }
 
     /**
      * true si el navegador tiene una suscripcion push activa.
-     * Delega en checkSubscription() de pwa-utils.js si existe.
+     * Implementacion propia: serviceWorker.ready con timeout de 3s +
+     * getSubscription(). Si falla, fallback a window.checkSubscription()
+     * de pwa-utils.js si existe; en ultima instancia, false.
      */
     async function isSubscribed() {
         try {
-            if (typeof window.checkSubscription === 'function') {
-                return await window.checkSubscription();
-            }
-            return false;
+            if (!isSupported()) return false;
+            var reg = await Promise.race([
+                navigator.serviceWorker.ready,
+                new Promise(function(_, reject) {
+                    setTimeout(function() { reject(new Error('sw-ready-timeout')); }, 3000);
+                })
+            ]);
+            var sub = await reg.pushManager.getSubscription();
+            return !!sub;
         } catch (e) {
+            console.warn('[AHPush] isSubscribed() check directo fallo:', e);
+            try {
+                if (typeof window.checkSubscription === 'function') {
+                    return await window.checkSubscription();
+                }
+            } catch (e2) { /* noop */ }
             return false;
         }
+    }
+
+    /**
+     * Estado consolidado de las notificaciones push.
+     * @returns {Promise<Object>} { supported, permission, subscribed }
+     */
+    async function getState() {
+        var supported = isSupported();
+        return {
+            supported: supported,
+            permission: getPermission(),
+            subscribed: supported ? await isSubscribed() : false
+        };
     }
 
     /**
@@ -190,6 +245,7 @@
         subscribe: subscribe,
         unsubscribe: unsubscribe,
         isSubscribed: isSubscribed,
-        ensureSubscribed: ensureSubscribed
+        ensureSubscribed: ensureSubscribed,
+        getState: getState
     };
 })();

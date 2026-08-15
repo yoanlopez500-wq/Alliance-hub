@@ -76,7 +76,10 @@
 
     // Cache-buster en la URL del propio SW para que el navegador nunca
     // use un service-worker.js cacheado por un SW atascado o un proxy.
-    var swUrl = './service-worker.js?bust=' + buildId();
+    // Ruta absoluta basada en __AH_BASE_PATH (definido en base.js, cargado
+    // antes): un path relativo romperia el scope en paginas bajo /admin/ o /register/.
+    var swBase = window.__AH_BASE_PATH || '/';
+    var swUrl = swBase + 'service-worker.js?bust=' + buildId();
     if (window.AHBuster) swUrl = window.AHBuster.url(swUrl);
 
     navigator.serviceWorker.register(swUrl)

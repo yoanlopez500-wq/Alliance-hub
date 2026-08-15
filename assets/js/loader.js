@@ -34,7 +34,9 @@
             'assets/js/invite-code.js',
             'assets/js/roles-data.js',
             'assets/js/auth-core.js',
-            'assets/js/push-manager.js'
+            'assets/js/push-manager.js',
+            'assets/js/components/push-toggle.js',
+            'sw-register.js'
         ],
         public: [
             'assets/js/messaging.js',
@@ -140,6 +142,13 @@
 
             console.log('[AHLoader] Carga completada para:', role);
             window.dispatchEvent(new CustomEvent('ah:loaded', { detail: { role: role } }));
+
+            // Banner de notificaciones push (no bloqueante, nunca critico)
+            try {
+                if (window.AHPushUI && typeof window.AHPushUI.autoMount === 'function') {
+                    window.AHPushUI.autoMount();
+                }
+            } catch (ePushUI) { console.warn('[AHLoader] Push UI no disponible:', ePushUI); }
 
             // FIX: Si el DOM ya estaba listo antes de que los scripts dinamicos
             // terminaran de cargar, DOMContentLoaded no se dispara para ellos.
