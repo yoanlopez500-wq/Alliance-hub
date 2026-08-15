@@ -162,13 +162,11 @@
                 errorMsg.classList.remove('hidden');
             } else {
                 window.saveLastRegisteredMatch(matchId);
-                // Hook push: momento de engagement, subscribe() SI puede pedir
-                // permiso. Sin await bloqueante; fallos no criticos.
+                // Hook push: momento de engagement. subscribe() directo aqui
+                // no tiene gesto de usuario (va tras awaits) y los navegadores
+                // lo bloquean; mostramos el banner forzado en su lugar.
                 try {
-                    if (window.AHPush) {
-                        var playerActual = { id: parseInt(playerData.playerId), current_alliance_id: playerData.current_alliance_id || null };
-                        window.AHPush.subscribe(playerActual);
-                    }
+                    if (window.AHPushUI) window.AHPushUI.autoMount({ force: true });
                 } catch (ePush) { console.warn('[Register] Hook push fallo (no critico):', ePush); }
                 if (currentMatch.requires_approval) {
                     successMsg.textContent = '\u2713 Solicitud enviada. Espera aprobacion del admin.';

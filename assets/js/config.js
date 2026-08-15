@@ -2,7 +2,7 @@
 // Configuracion de Supabase - inicializacion robusta
 var SUPABASE_URL = 'https://qkccyjegkgjzwoxytnqp.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_-BBqDHD9LrMiPrk6CihrKA_8p_ABQCK';
-var VAPID_PUBLIC_KEY = 'gNjAYfjWRKVE6JoNuj_CxK_JrDE07NssWfwfSHNnWklv7Hn7A23tbm6xXUZXCnFxB87Lrivhgy_yHJqakiI01Q';
+var VAPID_PUBLIC_KEY = 'BA1T-hD8Im5qjcBoQG9hlMhQd_YelUyzfSDrvt2wn88DD9fZRmCgM7RhtlfaKaSMXY7gdlC23qaRGpyfcUdq7Y0';
 window.SUPABASE_URL = SUPABASE_URL;
 window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
 window.VAPID_PUBLIC_KEY = VAPID_PUBLIC_KEY;
