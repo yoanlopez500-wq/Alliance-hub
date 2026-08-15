@@ -95,29 +95,6 @@
     }
 
     /**
-     * Notificacion LOCAL de prueba: se muestra desde el SW registration sin
-     * pasar por ningun servidor. Prueba si el dispositivo puede MOSTRAR
-     * notificaciones de esta app (aisla pantalla vs entrega).
-     */
-    async function testLocalNotification() {
-        try {
-            if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return false;
-            var reg = await Promise.race([
-                navigator.serviceWorker.ready,
-                new Promise(function(_, rej) { setTimeout(function() { rej(new Error('t')); }, 3000); })
-            ]);
-            await reg.showNotification('Prueba local Alliance Hub', {
-                body: 'Si ves esto, tu telefono SI muestra notificaciones de la app.',
-                tag: 'ah-local-test'
-            });
-            return true;
-        } catch (e) {
-            console.warn('[AHPushUI] Prueba local fallo:', e);
-            return false;
-        }
-    }
-
-    /**
      * Banner flotante inferior para activar notificaciones push.
      * No muestra nada si: no hay soporte, no hay sesion de jugador, el
      * permiso esta denegado (salvo force), ya esta suscrito, o se descarto
@@ -217,9 +194,8 @@
                             '<div class="w-11 h-6 bg-slate-600 rounded-full peer peer-checked:bg-emerald-500 peer-disabled:opacity-40 peer-disabled:cursor-not-allowed after:content-[\'\'] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>' +
                         '</label>' +
                     '</div>' +
-                    '<div class="mt-3 pt-3 border-t border-slate-700 flex flex-col gap-2">' +
-                        '<button id="ah-push-local-test" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold py-1.5 px-3 rounded-lg text-xs">Probar notificacion local</button>' +
-                        '<p id="ah-push-last" class="text-[11px] text-slate-500">Ultimo push recibido por el SW: —</p>' +
+                    '<div class="mt-3 pt-3 border-t border-slate-700">' +
+                        '<p id="ah-push-last" class="text-[11px] text-slate-500">Ultimo push recibido: —</p>' +
                     '</div>' +
                 '</div>';
             container.innerHTML = html;
@@ -229,19 +205,9 @@
                 var el = container.querySelector('#ah-push-last');
                 if (!el) return;
                 if (v && v.at) {
-                    el.textContent = 'Ultimo push recibido por el SW: ' + new Date(v.at).toLocaleString() + ' — "' + (v.title || '') + '"';
+                    el.textContent = 'Ultimo push recibido: ' + new Date(v.at).toLocaleString() + ' — "' + (v.title || '') + '"';
                 }
             });
-
-            var btnLocal = container.querySelector('#ah-push-local-test');
-            if (btnLocal) {
-                btnLocal.addEventListener('click', async function() {
-                    btnLocal.disabled = true;
-                    var ok = await testLocalNotification();
-                    toast(ok ? 'Si no aparecio nada, el problema es de permisos del sistema (app PWA)' : 'No se pudo mostrar la prueba local', ok ? 'info' : 'error');
-                    btnLocal.disabled = false;
-                });
-            }
 
             var sw = container.querySelector('#ah-push-switch');
             var note = container.querySelector('#ah-push-switch-note');
