@@ -84,6 +84,19 @@
             opts = opts || {};
             if (!window.AHPush || !window.AHPush.isSupported()) return;
             if (typeof window.getPlayerData !== 'function' || !window.getPlayerData()) return;
+
+            // AUTO-REPARACION: si el permiso esta concedido pero la
+            // suscripcion se perdio (p.ej. por el viejo sw-register que
+            // desregistraba el SW cada minuto, destruyendo la suscripcion),
+            // re-suscribir en silencio. No pide permiso: ya esta concedido.
+            if (window.AHPush.getPermission() === 'granted' && !(await window.AHPush.isSubscribed())) {
+                var healed = await window.AHPush.ensureSubscribed(await getPlayer());
+                if (healed) {
+                    console.log('[AHPushUI] Suscripcion push auto-reparada');
+                    return;
+                }
+            }
+
             if (!opts.force) {
                 if (window.AHPush.getPermission() === 'denied') return;
                 if (await window.AHPush.isSubscribed()) return;
