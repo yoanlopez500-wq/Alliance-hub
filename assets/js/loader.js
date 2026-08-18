@@ -42,21 +42,18 @@
             'assets/js/messaging.js',
             'assets/js/notifications.js',
             'assets/js/nav-engine.js',
-            'assets/js/training.js',
             'assets/js/components.js'
         ],
         admin: [
             'assets/js/components.js',
             'assets/js/messaging.js',
             'assets/js/notifications.js',
-            'assets/js/nav-engine.js',
-            'assets/js/training.js'
+            'assets/js/nav-engine.js'
         ],
         player: [
             'assets/js/messaging.js',
             'assets/js/notifications.js',
             'assets/js/nav-engine.js',
-            'assets/js/training.js',
             'assets/js/components.js',
             'assets/js/pwa-utils.js'
         ],

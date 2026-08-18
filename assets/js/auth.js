@@ -1,7 +1,7 @@
 // assets/js/auth.js v6.0 - COMPATIBILITY SHIM
 // DEPRECATED: Este archivo existe solo para backwards compatibilidad.
 // Los modulos reales estan en: auth-core.js, nav-engine.js, roles-data.js,
-// notifications.js, messaging.js, training.js
+// notifications.js, messaging.js
 //
 // Para nuevas paginas, usa los scripts modulares en lugar de auth.js:
 //   <script src="assets/js/roles-data.js?v=18"></script>
@@ -9,7 +9,6 @@
 //   <script src="assets/js/messaging.js?v=18"></script>
 //   <script src="assets/js/notifications.js?v=18"></script>
 //   <script src="assets/js/nav-engine.js?v=18"></script>
-//   <script src="assets/js/training.js?v=18"></script>
 
 (function() {
     var scripts = [
@@ -18,7 +17,6 @@
         'assets/js/messaging.js',
         'assets/js/notifications.js',
         'assets/js/nav-engine.js',
-        'assets/js/training.js'
     ];
     var basePath = window.__AH_BASE_PATH || '/';
     if (!basePath.endsWith('/')) basePath += '/';
