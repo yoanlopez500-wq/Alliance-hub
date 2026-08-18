@@ -2,8 +2,8 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3'
 
-const HOOK_SECRET = 'ah_push_7f3k9m2x8q1w'
-
+// El secreto NO va en el codigo: vive en public.push_config (tabla sellada por RLS,
+// solo legible con service role). Rotarlo = UPDATE en la BD, sin redesplegar.
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-hook-secret',
@@ -32,15 +32,23 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return json({ error: 'method not allowed' }, 405)
   }
-  if (req.headers.get('x-hook-secret') !== HOOK_SECRET) {
-    return json({ error: 'unauthorized' }, 401)
-  }
-
   // Required env for DB access (checked early for diagnostics)
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if (!supabaseUrl) return json({ error: 'missing env SUPABASE_URL' }, 500)
   if (!serviceRoleKey) return json({ error: 'missing env SUPABASE_SERVICE_ROLE_KEY' }, 500)
+
+  // Auth: comparar contra el secreto vigente en push_config (fuente unica de verdad)
+  const authClient = createClient(supabaseUrl, serviceRoleKey)
+  const { data: secretRow, error: secretErr } = await authClient
+    .from('push_config')
+    .select('value')
+    .eq('key', 'hook_secret')
+    .maybeSingle()
+  if (secretErr) return json({ error: `hook_secret lookup failed: ${secretErr.message}` }, 500)
+  if (!secretRow || req.headers.get('x-hook-secret') !== secretRow.value) {
+    return json({ error: 'unauthorized' }, 401)
+  }
 
   let body: { match_id?: string; event?: string; dry_run?: boolean }
   try {
@@ -118,7 +126,7 @@ Deno.serve(async (req: Request) => {
   // From here we actually send: VAPID env is required
   const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')
   const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')
-  const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@alliancehub.com'
+  const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@alliancehub.app'
   if (!vapidPrivateKey) return json({ error: 'missing env VAPID_PRIVATE_KEY' }, 500)
   if (!vapidPublicKey) return json({ error: 'missing env VAPID_PUBLIC_KEY' }, 500)
 
