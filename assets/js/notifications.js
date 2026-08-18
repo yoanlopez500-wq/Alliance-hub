@@ -45,8 +45,8 @@ async function renderNotifList() {
     list.innerHTML = __ahNotifMessages.slice(0, 5).map(function(m) {
         var isUnread = !m.read_at;
         return '<div class="p-3 border-b border-slate-50 hover:bg-slate-50 cursor-pointer ' + (isUnread ? 'bg-blue-50/50' : '') + '" onclick="window.location.href=\'' + ahPath('admin/inbox.html?id=' + m.id) + '\'">' +
-            '<div class="flex items-center justify-between mb-1"><span class="text-xs font-bold text-slate-700 truncate max-w-[180px]">' + (m.subject || 'Sin asunto') + '</span><span class="text-[10px] text-slate-400">' + formatDateTime(m.created_at) + '</span></div>' +
-            '<p class="text-xs text-slate-500 truncate">' + m.message + '</p><p class="text-[10px] text-slate-400 mt-1">De: ' + (m.sender_name || 'Admin') + '</p></div>';
+            '<div class="flex items-center justify-between mb-1"><span class="text-xs font-bold text-slate-700 truncate max-w-[180px]">' + escHtml(m.subject || 'Sin asunto') + '</span><span class="text-[10px] text-slate-400">' + formatDateTime(m.created_at) + '</span></div>' +
+            '<p class="text-xs text-slate-500 truncate">' + escHtml(m.message) + '</p><p class="text-[10px] text-slate-400 mt-1">De: ' + escHtml(m.sender_name || 'Admin') + '</p></div>';
     }).join('');
 }
 

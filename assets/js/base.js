@@ -192,3 +192,11 @@ function logoutPlayer() {
 
 // Expose shared helpers explicitly on window for pages that load guards/fallbacks
 window.showToast = showToast;
+
+// Escape HTML para inyectar texto de forma segura en innerHTML (anti-XSS)
+function escHtml(t) {
+    var d = document.createElement('div');
+    d.textContent = (t === null || t === undefined) ? '' : String(t);
+    return d.innerHTML;
+}
+window.escHtml = escHtml;
