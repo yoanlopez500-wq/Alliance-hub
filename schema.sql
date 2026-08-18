@@ -1,5 +1,5 @@
 -- ============================================================================
--- ALLIANCE HUB — ESQUEMA REAL EN PRODUCCION (sincronizado 2026-08-18)
+-- ALLIANCE HUB — ESQUEMA REAL EN PRODUCCION (sincronizado 2026-08-19)
 -- Fuente: base de datos en vivo (proyecto qkccyjegkgjzwoxytnqp), NO teorico.
 -- Este archivo es DOCUMENTACION del estado actual. La fuente de verdad es la
 -- base de datos; este archivo se regenera tras cada migracion.
@@ -156,8 +156,9 @@
 -- evidence, report-evidence
 --   INSERT public (jugadores suben evidencia sin cuenta)
 --   DELETE/UPDATE solo admin
---   Lectura: PENDIENTE de migrar a privado + URLs firmadas
---   (cliente listo: storage-utils.js firma URLs via createSignedUrl)
+--   public = false (privados desde 2026-08-19)
+--   SELECT solo admin (policy evidence_select_admin, is_admin())
+--   Cliente: storage-utils.js firma URLs (createSignedUrl, expira 1h)
 
 -- ============================================================================
 -- NOTAS DE DISENO (decisiones deliberadas, no huecos)
