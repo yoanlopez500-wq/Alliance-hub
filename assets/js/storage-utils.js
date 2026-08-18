@@ -127,13 +127,38 @@ async function compressAndUpload(files, targetType, targetId) {
 
 // ========== UTILIDADES UI ==========
 
-function renderEvidenceGrid(urls, containerId) {
+// Extrae {bucket, path} de una URL publica de Supabase Storage.
+// Devuelve null si no es una URL de storage (legado o externa).
+function parseStorageUrl(url) {
+    var m = String(url || '').match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+    if (!m) return null;
+    return { bucket: m[1], path: decodeURIComponent(m[2]) };
+}
+
+// Convierte una URL publica almacenada en una URL firmada temporal (1h).
+// Si no es URL de storage o falla la firma, devuelve la original.
+async function toSignedUrl(url) {
+    var ref = parseStorageUrl(url);
+    if (!ref) return url;
+    try {
+        var { data, error } = await supabase.storage.from(ref.bucket).createSignedUrl(ref.path, 3600);
+        if (error || !data || !data.signedUrl) return url;
+        return data.signedUrl;
+    } catch(e) { return url; }
+}
+
+// Render del grid de evidencias. Compatible con buckets privados:
+// firma cada URL antes de pintarla (los buckets publicos ya cerrados
+// devolverian 400/403 con la URL antigua).
+async function renderEvidenceGrid(urls, containerId) {
     var container = document.getElementById(containerId);
     if (!container || !urls || urls.length === 0) return;
 
+    var signed = await Promise.all(urls.map(toSignedUrl));
+
     container.innerHTML = '<div class="grid grid-cols-3 gap-2 mt-3">' +
-        urls.map(function(url) {
-            var isVideo = url.match(/\.(mp4|webm|mov)$/i);
+        signed.map(function(url) {
+            var isVideo = url.match(/\.(mp4|webm|mov)/i);
             if (isVideo) {
                 return '<div class="relative rounded-lg overflow-hidden" style="border:1px solid #1a237e;">' +
                     '<video src="' + url + '" class="w-full h-20 object-cover" controls preload="metadata"></video>' +
