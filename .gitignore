@@ -1,0 +1,14 @@
+# Secretos y configuracion local — NUNCA subir
+.env
+.env.*
+*.pem
+*.key
+secrets.*
+
+# Dependencias / build (si se agregan en el futuro)
+node_modules/
+dist/
+
+# Sistema
+.DS_Store
+Thumbs.db

@@ -105,6 +105,22 @@ SELECT complete_setup();
 - **Auth**: Usar `auth-core.js` directamente (no el shim legacy `auth.js`)
 - **Tabs**: Tablas de 2 espacios en JS, 4 en HTML
 
+## Seguridad y Configuracion Sensible
+
+Este repositorio es publico **a proposito**: cualquier alianza puede copiarlo y montar su propia instancia. Lo que ves aqui es seguro de exponer por diseno:
+
+**Publico por diseno (esta bien que este aqui):**
+- La `anon key` de Supabase (`sb_publishable_...`): esta hecha para ser publica. La seguridad real vive en el backend (Row Level Security + RPCs `security definer`), no en ocultar la key.
+- La llave publica VAPID (notificaciones push): tambien esta disenada para exponerse al navegador.
+- La estructura del proyecto y `schema.sql`: documentacion del esquema real. Supabase expone la estructura de tablas via su API REST de todas formas.
+
+**NUNCA en el repo (excluidos via .gitignore y verificados con escaneo de historial):**
+- `service_role` key de Supabase (vive solo como variable de entorno en Edge Functions)
+- Llave privada VAPID y `hook_secret` de push (viven en la tabla sellada `push_config`, solo legible con service role)
+- Archivos `.env` y cualquier secreto local
+
+Si montas tu propia instancia: crea tu proyecto Supabase, aplica `schema.sql` como referencia, y guarda tus secretos en variables de entorno — nunca en el codigo.
+
 ## Licencia
 
 Proyecto de comunidad. No oficial. No afiliado a Bytro Games.
