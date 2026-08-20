@@ -129,6 +129,14 @@
                         if (credGameId) credGameId.textContent = match.game_id || '---';
                         // FIX: la columna real es 'password'; se conserva game_password como fallback.
                         if (credPassword) credPassword.textContent = match.password || match.game_password || '---';
+                        // Enlace directo a la partida en Supremacy 1914 (pagina de info con boton de unirse)
+                        var joinLink = document.getElementById('cred-join-link');
+                        var joinHint = document.getElementById('cred-join-hint');
+                        if (joinLink && match.game_id) {
+                            joinLink.href = 'https://www.supremacy1914.es/game.php?bust=1#/game_info/:gameID=' + encodeURIComponent(String(match.game_id).trim());
+                            joinLink.classList.remove('hidden');
+                            if (joinHint) joinHint.classList.remove('hidden');
+                        }
                     });
                 }
             }
