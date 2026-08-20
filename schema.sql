@@ -1,5 +1,5 @@
 -- ============================================================================
--- ALLIANCE HUB — ESQUEMA REAL EN PRODUCCION (sincronizado 2026-08-19)
+-- ALLIANCE HUB — ESQUEMA REAL EN PRODUCCION (sincronizado 2026-08-20)
 -- Fuente: base de datos en vivo (proyecto qkccyjegkgjzwoxytnqp), NO teorico.
 -- Este archivo es DOCUMENTACION del estado actual. La fuente de verdad es la
 -- base de datos; este archivo se regenera tras cada migracion.
@@ -149,6 +149,14 @@
 --   de campos de texto controlados por usuarios (players, reports,
 --   leader_requests, alliances, matches, chat_messages, chat_reports)
 -- Anti-escalada: trg_protect_admin_users() (ver admin_users arriba)
+
+-- ============================================================================
+-- admin_audit_log: log INMUTABLE de acciones admin (2026-08-20)
+--   Quien (actor_id/actor_name), que (INSERT/UPDATE/DELETE), donde (table_name, row_id),
+--   valor anterior y nuevo (jsonb), cuando. RLS: SELECT is_admin(); nadie escribe/borra
+--   via API. Triggers trg_audit_* en: rule_sections, rule_precedents, strike_types,
+--   player_strikes, player_sanctions, player_reports, chat_reports, matches, alliances,
+--   admin_users, match_results. Funcion: ah_audit_admin_change() (security definer).
 
 -- ============================================================================
 -- STORAGE (buckets)
