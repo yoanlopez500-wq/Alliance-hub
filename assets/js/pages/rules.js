@@ -125,9 +125,9 @@
                 }
                 list.innerHTML = data.map(function(p) {
                     var sectionName = findSectionName(p.rule_section_id);
-                    var sectionLink = sectionName ? '<a href="#section-' + p.rule_section_id + '" class="text-[10px] underline text-ah-accent">' + sectionName + '</a>' : '<span class="text-[10px] text-ah-muted">Sin seccion asignada</span>';
+                    var sectionLink = sectionName ? '<a href="#section-' + p.rule_section_id + '" class="text-[10px] underline text-ah-accent">' + escHtml(sectionName) + '</a>' : '<span class="text-[10px] text-ah-muted">Sin seccion asignada</span>';
                     var sevInfo = renderPrecedentSeverity(p.severity);
-                    return '<div id="precedent-' + p.id + '" class="precedent-card rounded-lg p-4 bg-ah-card border border-indigo-900"><div class="flex items-start justify-between gap-2 mb-2"><h4 class="font-bold text-sm text-ah-accent">' + p.title + '</h4>' + renderPrecedentSeverityBadge(p.severity) + '</div><p class="text-xs text-ah-text">' + (p.description || '') + '</p>' + (p.sanction ? '<p class="text-[10px] mt-2 px-2 py-0.5 rounded inline-block ' + sevInfo.className + '">Sancion: ' + p.sanction + '</p>' : '') + '<div class="mt-2">' + sectionLink + '</div></div>';
+                    return '<div id="precedent-' + p.id + '" class="precedent-card rounded-lg p-4 bg-ah-card border border-indigo-900"><div class="flex items-start justify-between gap-2 mb-2"><h4 class="font-bold text-sm text-ah-accent">' + escHtml(p.title) + '</h4>' + renderPrecedentSeverityBadge(p.severity) + '</div><p class="text-xs text-ah-text">' + escHtml(p.description || '') + '</p>' + (p.sanction ? '<p class="text-[10px] mt-2 px-2 py-0.5 rounded inline-block ' + sevInfo.className + '">Sancion: ' + escHtml(p.sanction) + '</p>' : '') + '<div class="mt-2">' + sectionLink + '</div></div>';
                 }).join('');
                 list.dataset.loaded = 'true';
             } catch(e) {
