@@ -193,7 +193,7 @@
         } catch(e) {
             console.error('[Rankings] jugadores:', e);
             var tbody = document.getElementById('players-tbody');
-            if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-red-400">Error: ' + e.message + '</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-red-400">Error: ' + e.message + '</td></tr>';
         }
     }
 
@@ -214,7 +214,7 @@
         var tbody = document.getElementById('players-tbody');
         if (!tbody) return;
         if (playersData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-ah-muted">Sin datos de rankings publicos</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-ah-muted">Sin datos de rankings publicos</td></tr>';
             return;
         }
 
@@ -223,7 +223,9 @@
             var penalty = getPenaltyPct(p);
             var killClass = penalty > 0 ? 'kill-nullified' : '';
             var badge = penalty > 0 ? '<span class="text-[10px] px-1 py-0.5 rounded font-bold ml-1 bg-red-500/20 text-red-400">-' + penalty + '%</span>' : '';
-            return '<tr class="border-b border-indigo-900"><td class="p-3 font-bold text-ah-muted">' + (i+1) + '</td><td class="p-3 font-medium"><a href="player.html?id=' + p[pc.id] + '" class="text-amber-400">' + escapeHtml(p[pc.currentUsername]) + '</a>' + badge + '</td><td class="p-3 text-ah-muted">' + escapeHtml(getAllianceTag(p[pc.currentAllianceId])) + '</td><td class="p-3 text-right text-ah-muted">' + (p[pc.gamesPlayed] || 0) + '</td><td class="p-3 text-right font-bold ' + killClass + ' ' + (eff > 0 ? 'text-green-500' : 'text-ah-muted') + ';">' + eff + '</td><td class="p-3 text-right text-ah-muted">' + (p[pc.deaths] || 0) + '</td><td class="p-3 text-right font-bold">' + (p[pc.deaths] > 0 ? (eff / p[pc.deaths]).toFixed(2) : (eff > 0 ? eff.toFixed(2) : '0')) + '</td><td class="p-3 text-right">' + (penalty > 0 ? '<span title="Penalizacion por strikes/sanciones" class="text-red-400">&#9889;</span>' : '') + '</td></tr>';
+            var games = p[pc.gamesPlayed] || 0;
+            var avg = games > 0 ? (eff / games).toFixed(1) : '0.0';
+            return '<tr class="border-b border-indigo-900"><td class="p-3 font-bold text-ah-muted">' + (i+1) + '</td><td class="p-3 font-medium"><a href="player.html?id=' + p[pc.id] + '" class="text-amber-400">' + escapeHtml(p[pc.currentUsername]) + '</a>' + badge + '</td><td class="p-3 text-ah-muted">' + escapeHtml(getAllianceTag(p[pc.currentAllianceId])) + '</td><td class="p-3 text-right text-ah-muted">' + games + '</td><td class="p-3 text-right font-bold ' + killClass + ' ' + (eff > 0 ? 'text-green-500' : 'text-ah-muted') + ';">' + eff + '</td><td class="p-3 text-right text-ah-muted">' + (p[pc.deaths] || 0) + '</td><td class="p-3 text-right font-bold">' + (p[pc.deaths] > 0 ? (eff / p[pc.deaths]).toFixed(2) : (eff > 0 ? eff.toFixed(2) : '0')) + '</td><td class="p-3 text-right text-amber-300/90">' + avg + '</td><td class="p-3 text-right">' + (penalty > 0 ? '<span title="Penalizacion por strikes/sanciones" class="text-red-400">&#9889;</span>' : '') + '</td></tr>';
         }).join('');
     }
 

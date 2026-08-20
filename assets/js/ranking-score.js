@@ -136,13 +136,15 @@
      *  - 'score': KD ajustado Bayes C=3 (orden por defecto, identico al historico)
      *  - 'eff':   kills validas/efectivas desc (quien hizo mas kills aunque su KD sea menor)
      *  - 'games': partidas desc (actividad)
+     *  - 'avg':   kills efectivas POR PARTIDA desc (consistencia, no volumen)
      * compareBy() SIEMPRE cierra con el desempate de 5 niveles como tiebreak
      * final, por lo que TODOS los modos son totales y deterministicos.
      */
     var SORT_MODES = [
         { id: 'score', label: 'KD ajustado' },
         { id: 'eff', label: 'Kills validas' },
-        { id: 'games', label: 'Partidas' }
+        { id: 'games', label: 'Partidas' },
+        { id: 'avg', label: 'Kills por partida' }
     ];
 
     var SORT_STORAGE_KEY = 'ah_ranking_sort';
@@ -157,6 +159,16 @@
             return function(a, b) {
                 var k = safeNum(acc.eff(b)) - safeNum(acc.eff(a));
                 return k !== 0 ? k : tiebreak(a, b);
+            };
+        }
+        if (modeId === 'avg') {
+            function avg(p) {
+                var g = safeNum(acc.games(p));
+                return g > 0 ? safeNum(acc.eff(p)) / g : 0;
+            }
+            return function(a, b) {
+                var d = avg(b) - avg(a);
+                return d !== 0 ? d : tiebreak(a, b);
             };
         }
         if (modeId === 'games') {
