@@ -132,8 +132,9 @@
                         // Enlace directo a la partida en Supremacy 1914 (pagina de info con boton de unirse)
                         var joinLink = document.getElementById('cred-join-link');
                         var joinHint = document.getElementById('cred-join-hint');
-                        if (joinLink && match.game_id) {
-                            joinLink.href = 'https://www.supremacy1914.es/game.php?bust=1#/game_info/:gameID=' + encodeURIComponent(String(match.game_id).trim());
+                        var gidClean = String(match.game_id || '').trim();
+                        if (joinLink && /^\d{5,}$/.test(gidClean)) {
+                            joinLink.href = 'https://www.supremacy1914.es/game.php?bust=1#/game_info/:gameID=' + gidClean;
                             joinLink.classList.remove('hidden');
                             if (joinHint) joinHint.classList.remove('hidden');
                         }
