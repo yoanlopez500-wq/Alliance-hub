@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e27">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="manifest" href="../manifest.json">
+<title>Auditoria de Admins - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/css/theme.css">
+<script src="../assets/js/cache-buster.js"></script>
+<script src="../assets/js/loader.js"></script>
+<script>
+AHLoader.init({
+    role: 'admin',
+    extraScripts: ['../assets/js/admin-base.js'],
+    pageScript: '../assets/js/pages/admin-audit-log.js'
+});
+</script>
+<style>
+html, body { overflow-x: hidden; }
+#audit-list p, #audit-list span, #audit-list pre { overflow-wrap: anywhere; word-break: break-word; }
+pre.diff { max-height: 220px; overflow: auto; font-size: 11px; line-height: 1.4; }
+</style>
+</head>
+<body class="min-h-screen" data-role="admin">
+<div id="admin-nav"></div>
+<div class="max-w-6xl mx-auto px-4 py-8">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
+<div><h1 class="text-2xl font-bold">&#128737;&#65039; Auditoria de Admins</h1><p class="text-sm text-slate-400">Quien cambio que, cuando y con que valores. Solo visible para superadmins. El log es inmutable.</p></div>
+<div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+<input id="filter-actor" oninput="debouncedLoad()" placeholder="Buscar por admin..." class="w-full sm:w-auto px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none">
+<select id="filter-table" onchange="loadAudit()" class="w-full sm:w-auto px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="">Todas las tablas</option></select>
+<select id="filter-action" onchange="loadAudit()" class="w-full sm:w-auto px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="">Todas las acciones</option><option value="INSERT">Creaciones</option><option value="UPDATE">Ediciones</option><option value="DELETE">Borrados</option></select>
+</div>
+</div>
+<div id="audit-list">Cargando...</div>
+<div class="text-center mt-4"><button id="load-more" onclick="loadAudit(true)" class="hidden px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 border border-indigo-900 hover:opacity-80">Cargar mas</button></div>
+</div>
+</body>
+</html>

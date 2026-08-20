@@ -26,6 +26,7 @@ var ROLE_PANELS = {
             { href: 'admin/reports.html', label: '&#128680; Reportes', section: 'tools' },
             { href: 'admin/rules-editor.html', label: '&#128220; Reglas', section: 'tools' },
             { href: 'admin/sanctions-engine.html', label: '&#9881;&#65039; Sanciones', section: 'tools' },
+            { href: 'admin/audit-log.html', label: '&#128737;&#65039; Auditoria', section: 'tools' },
             { href: 'admin/leader-requests.html', label: '&#128203; Solicitudes Lider', section: 'tools' },
             { href: 'chat.html', label: '&#128172; Chat', section: 'comms' },
         ],
