@@ -19,14 +19,13 @@ Plataforma de torneos, rankings y ligas para comunidades de **Supremacy 1914**.
 ```
 assets/js/
 ├── config.js          # Supabase client init
-├── base.js            # Utilidades globales (formatDate, showToast, etc.)
+├── base.js            # Utilidades globales (formatDate, showToast, escHtml, etc.)
 ├── db-schema.js       # Centralizador de schema DB (v19) - DB.from(), DB.select(), DB.col()
 ├── auth-core.js       # Autenticacion (login/logout/session/roles)
 ├── roles-data.js      # Jerarquia de roles y paneles de navegacion
 ├── nav-engine.js      # Navegacion dual (admin/jugador)
 ├── messaging.js       # Chat y mensajeria
 ├── notifications.js   # Notificaciones push
-├── training.js        # Sistema de capacitacion
 ├── components.js      # Componentes UI reutilizables
 ├── theme.js           # Tema oscuro/claro
 ├── pwa-utils.js       # Instalacion PWA
@@ -52,6 +51,7 @@ assets/js/
 | `player_reports` | Reportes de jugadores |
 | `chat_messages` | Chat de partidas |
 | `admin_users` | Administradores |
+| `admin_audit_log` | Auditoria inmutable de cambios admin (solo superadmin) |
 
 ## Jerarquia de Roles
 
@@ -61,7 +61,7 @@ superadmin > event_admin > moderator > alliance_leader > co_leader > officer
 
 | Rol | Capacidades |
 |-----|------------|
-| superadmin | Todo CRUD, editar/eliminar precedentes, gestion de admins |
+| superadmin | Todo CRUD, editar/eliminar precedentes, gestion de admins, auditoria |
 | event_admin | Crear partidas, gestionar torneos, importar CSV, comite de revision |
 | moderator | Gestionar reportes, aplicar strikes, moderar chat, comite de revision |
 | alliance_leader | Panel de alianza, crear partidas internas, gestionar miembros |
@@ -123,4 +123,4 @@ Si montas tu propia instancia: crea tu proyecto Supabase, aplica `schema.sql` co
 
 ## Licencia
 
-Proyecto de comunidad. No oficial. No afiliado a Bytro Games.
+Proyecto de comunidad, independiente y sin animo de lucro. No oficial. **No afiliado, asociado, patrocinado ni respaldado por Bytro Labs GmbH ni Stillfront Group AB.** Supremacy 1914 es marca de sus respectivos titulares. Alliance Hub no usa ninguna API ni dato interno del juego: las estadisticas deportivas se calculan con herramientas externas de terceros y datos aportados por la comunidad, en cumplimiento del EULA de Supremacy 1914. Ver [aviso-legal.html](aviso-legal.html).
