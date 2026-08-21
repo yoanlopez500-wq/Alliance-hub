@@ -1,5 +1,10 @@
 /**
- * api-importer.js - Importador de estadisticas K/D desde Excel 42-columnas
+ * api-importer.js - Importador de estadisticas K/D desde Excel 42-columnas.
+ *
+ * NOTA LEGAL: los datos provienen de una herramienta externa de terceros
+ * (exportador comunitario de Excel) y de aportes de la propia comunidad.
+ * Alliance Hub NO usa ninguna API, dato interno ni recurso oficial de
+ * Supremacy 1914 / Bytro Labs / Stillfront. Ver aviso-legal.html.
  *
  * Expone el modulo global window.ApiKdImporter (script clasico, sin ES modules).
  *

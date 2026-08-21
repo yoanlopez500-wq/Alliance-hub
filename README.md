@@ -123,4 +123,4 @@ Si montas tu propia instancia: crea tu proyecto Supabase, aplica `schema.sql` co
 
 ## Licencia
 
-Proyecto de comunidad. No oficial. No afiliado a Bytro Games.
+Proyecto de comunidad, independiente y sin animo de lucro. No oficial. **No afiliado, asociado, patrocinado ni respaldado por Bytro Labs GmbH ni Stillfront Group AB.** Supremacy 1914 es marca de sus respectivos titulares. Alliance Hub no usa ninguna API ni dato interno del juego: las estadisticas deportivas se calculan con herramientas externas de terceros y datos aportados por la comunidad, en cumplimiento del EULA de Supremacy 1914. Ver [aviso-legal.html](aviso-legal.html).
