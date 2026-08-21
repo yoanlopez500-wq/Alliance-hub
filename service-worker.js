@@ -1,4 +1,4 @@
-// Alliance Hub Service Worker - v16.5
+// Alliance Hub Service Worker - v16.6
 // Workbox-powered with automatic cache cleanup - v16.5 estable (sw-register v2, sin unregister)
 // v16.5: diagnóstico push (IndexedDB lastPush + GET_LAST_PUSH) y limpieza de cachés.
 // v16.1: JS/CSS a NetworkFirst para evitar versiones stale (especialmente chat).
@@ -9,9 +9,9 @@ workbox.setConfig({ debug: false });
 
 // ===== PRECACHE - Assets that change rarely (icons, fonts) =====
 workbox.precaching.precacheAndRoute([
-  { url: 'assets/icons/icon-192x192.png', revision: '1' },
-  { url: 'assets/icons/icon-512x512.png', revision: '1' },
-  { url: 'manifest.json', revision: '16.5' }
+  { url: 'assets/icons/icon-192x192.png', revision: '2' },
+  { url: 'assets/icons/icon-512x512.png', revision: '2' },
+  { url: 'manifest.json', revision: '16.6' }
 ]);
 
 // ===== HTML PAGES - Network First (ALWAYS fresh) =====
