@@ -160,6 +160,14 @@
             });
 
             if (error) {
+                if (error.message && error.message.indexOf('sesion de jugador invalida') !== -1) {
+                    // Sesion caducada o de otro dispositivo: re-login y volver aqui
+                    errorMsg.innerHTML = '&#9888; Tu sesion caduco. Te llevamos a entrar de nuevo...';
+                    errorMsg.classList.remove('hidden');
+                    try { localStorage.setItem('ah_redirect_after_login', window.location.href); } catch(e) {}
+                    setTimeout(function() { window.location.href = '../login-player.html'; }, 1800);
+                    return;
+                }
                 errorMsg.textContent = '\u2716 Error: ' + error.message;
                 errorMsg.classList.remove('hidden');
             } else {

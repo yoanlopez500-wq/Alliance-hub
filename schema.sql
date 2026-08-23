@@ -131,7 +131,9 @@
 --   is_authenticated_admin(), is_valid_player(player_id), is_setup_complete()
 -- Sesion de jugador (SECURITY DEFINER, ejecutables por anon):
 --   player_login(player_id, display_name) -> token
---   verify_player_token(player_id, token) -> bool
+--     (multi-sesion desde 2026-08-23: cada login emite token nuevo SIN matar
+--      otras sesiones; limpia tokens con >30 dias sin uso)
+--   verify_player_token(player_id, token) -> bool (refresca last_used)
 --   player_register_match(match_id, player_id, token) -> status
 --   player_unregister_match(match_id, player_id, token) -> bool
 --   generate_transfer_code(player_id, token) / claim_transfer_code(code)
@@ -167,6 +169,9 @@
 --   public = false (privados desde 2026-08-19)
 --   SELECT solo admin (policy evidence_select_admin, is_admin())
 --   Cliente: storage-utils.js firma URLs (createSignedUrl, expira 1h)
+-- public-assets (2026-08-23)
+--   Bucket publico de lectura para documentos (guias PDF, etc.)
+--   SELECT publico; INSERT solo authenticated
 
 -- ============================================================================
 -- NOTAS DE DISENO (decisiones deliberadas, no huecos)
