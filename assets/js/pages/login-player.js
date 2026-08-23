@@ -31,8 +31,13 @@
                     try {
                         var r = await window.supabase.rpc('player_login', { p_player_id: parseInt(playerId), p_display_name: displayName || '' });
                         if (!r.error && r.data) token = r.data;
-                    } catch(eRpc) { console.warn('player_login RPC fallo, token local de respaldo:', eRpc); }
-                    if (!token) token = 'ah_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now();
+                    } catch(eRpc) { console.warn('player_login RPC fallo:', eRpc); }
+                    if (!token) {
+                        // Sin token del servidor NO hay sesion valida: abortar en vez de
+                        // crear un token local que el servidor rechazaria despues.
+                        console.error('player_login no devolvio token');
+                        return false;
+                    }
                     localStorage.setItem('ah_v2_player_id', String(playerId));
                     localStorage.setItem('ah_v2_player_token', token);
                     localStorage.setItem('ah_v2_player_name', displayName || '');
