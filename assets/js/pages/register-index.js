@@ -110,6 +110,11 @@
             var batBanner = document.getElementById('batallon-banner');
             if (batBanner) {
                 batBanner.classList.remove('hidden');
+                var waBtn = document.getElementById('batallon-whatsapp');
+                if (waBtn && match.whatsapp_url) {
+                    waBtn.href = match.whatsapp_url;
+                    waBtn.classList.remove('hidden');
+                }
                 if (match.description) {
                     var rulesWrap = document.getElementById('batallon-rules-wrap');
                     var rulesBox = document.getElementById('batallon-rules');

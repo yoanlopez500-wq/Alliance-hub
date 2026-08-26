@@ -71,6 +71,7 @@
 --   created_at timestamptz, status text, match_type text, league_id uuid,
 --   winner_alliance_id uuid,
 --   category text NOT NULL DEFAULT 'alliance_hub'   -- 2026-08-27
+--   whatsapp_url text                               -- 2026-08-27 (boton WhatsApp en partidas batallon)
 --     CHECK (category IN ('alliance_hub','batallon'))
 --     ('batallon' = Comunidad Batallon: inscripcion externa por WhatsApp,
 --      badge/filtro en listados, importador de inscritos en admin)
