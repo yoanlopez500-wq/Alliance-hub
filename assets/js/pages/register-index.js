@@ -102,6 +102,11 @@
         // se oculta el formulario de registro directo y se muestran las reglas del evento.
         if (match.category === 'batallon') {
             document.getElementById('register-form').classList.add('hidden');
+            if (match.status !== 'open') {
+                document.getElementById('error-msg').textContent = '✖ Esta partida no esta abierta para registro.';
+                document.getElementById('error-msg').classList.remove('hidden');
+                return;
+            }
             var batBanner = document.getElementById('batallon-banner');
             if (batBanner) {
                 batBanner.classList.remove('hidden');

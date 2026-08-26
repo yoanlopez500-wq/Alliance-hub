@@ -835,7 +835,7 @@ function renderRegImportPreview(){
     var capWarn=document.getElementById('ri-capacity-warning');
     var toInsert=s.nuevos+s.existentes;
     var maxP=currentMatch&&currentMatch.max_players?parseInt(currentMatch.max_players,10):null;
-    var currentCount=parseInt((document.getElementById('reg-count')||{}).textContent||'0',10)||0;
+    var currentCount=cachedRegistrations.filter(function(x){return x.status==='confirmed'||x.status==='approved';}).length;
     if(maxP&&(currentCount+toInsert)>maxP){
         capWarn.textContent='ADVERTENCIA: la lista supera el cupo de la partida ('+(currentCount+toInsert)+' inscritos tras importar, maximo '+maxP+'). Revisa la lista antes de confirmar.';
         capWarn.classList.remove('hidden');
