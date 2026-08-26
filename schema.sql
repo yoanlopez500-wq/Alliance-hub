@@ -69,7 +69,11 @@
 --   share_token uuid, referee_id bigint, auto_delete_at timestamptz,
 --   created_by uuid, csv_imported bool, notifications_sent bool,
 --   created_at timestamptz, status text, match_type text, league_id uuid,
---   winner_alliance_id uuid
+--   winner_alliance_id uuid,
+--   category text NOT NULL DEFAULT 'alliance_hub'   -- 2026-08-27
+--     CHECK (category IN ('alliance_hub','batallon'))
+--     ('batallon' = Comunidad Batallon: inscripcion externa por WhatsApp,
+--      badge/filtro en listados, importador de inscritos en admin)
 -- RLS: SELECT public | INSERT is_admin() |
 --      UPDATE/DELETE: superadmin/moderator/event_admin, o alliance_leader de
 --      la alianza de la partida, o created_by = auth.uid()
@@ -78,8 +82,18 @@
 -- match_registrations: inscripciones a partidas
 --   id uuid PK, match_id uuid, player_id bigint, nation text,
 --   registered_at/confirmed_at timestamptz, confirmed_by uuid, notes, status
+--   UNIQUE (match_id, player_id)   -- 2026-08-27: un jugador no se registra
+--     dos veces en la misma partida (constraint
+--     match_registrations_match_player_unique)
 -- RLS: SELECT public | escritura SOLO via RPCs player_register_match /
 --      player_unregister_match (validan token de sesion en servidor) o admin
+
+-- public_matches_view (vista publica de partidas, sin credenciales):
+--   id, name, match_type, status, alliance_id, alliance_a_id, alliance_b_id,
+--   league_id, max_players, winners_declared, requires_approval, is_private,
+--   created_at, category   -- category anadida 2026-08-27 (AL FINAL)
+--   WHERE status NOT IN ('draft','finished','archived')
+--     AND match_type <> 'internal' AND is_private = false
 
 -- match_results | RLS: SELECT public | INSERT is_admin() |
 --   UPDATE/DELETE: superadmin/moderator/event_admin o lider de la alianza

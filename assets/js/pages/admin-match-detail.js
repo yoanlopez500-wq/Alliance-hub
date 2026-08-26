@@ -11,7 +11,7 @@ var currentEditResultId=null;
 // Estado de los ultimos resultados cargados (re-orden sin refetch al cambiar el modo)
 var lastResultsState=null;
 
-async function loadMatch(){if(action==='new'){showCreateForm();return;}if(!matchId){document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">No se especifico ID</div>';return;}try{var{data:m,error}=await window.supabase.from('matches').select('*').eq('id',matchId).single();if(error||!m){document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">Partida no encontrada</div>';return;}currentMatch=m;var alliance=null;if(m.alliance_id){var{data:a}=await window.supabase.from('alliances').select('name,tag').eq('id',m.alliance_id).single();alliance=a;}var alLabel=alliance?' ['+alliance.tag+']':'';var shareUrl=window.location.origin+window.__AH_BASE_PATH+'game.html?id='+matchId+(m.share_token?'&token='+m.share_token:'');document.getElementById('match-header').innerHTML='<div class="rounded-xl p-5 bg-slate-900 border border-indigo-900"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3"><div><h1 class="text-2xl font-bold text-slate-100">&#127918; '+(m.name||'Partida')+alLabel+'</h1><div class="flex gap-2 mt-1 flex-wrap">'+window.getStatusBadge(m.status)+' '+window.getTypeBadge(m.match_type||m.type)+' '+(m.csv_imported?'<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-500/15 text-green-500">&#10003; CSV</span>':'')+'</div></div><a href="matches.html" class="px-3 py-1.5 rounded-lg font-bold text-sm self-start bg-indigo-900 text-slate-100">&larr; Volver</a></div><div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm"><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">ID Juego</p><p class="font-bold">'+(m.game_id||'-')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Max</p><p class="font-bold">'+(m.max_players||'-')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Creada</p><p class="font-bold">'+window.formatDate(m.created_at)+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Alianza</p><p class="font-bold">'+(alliance?alliance.name:'Ninguna')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Password</p><p class="font-bold">'+(m.password||'-')+'</p></div></div>'+(m.description?'<div class="mt-3 p-3 rounded-lg text-sm bg-slate-950 text-slate-400">'+m.description+'</div>':'')+'</div>';document.getElementById('share-section').classList.remove('hidden');document.getElementById('share-link').value=shareUrl;document.getElementById('admin-actions-section').classList.remove('hidden');await initAdminRole();await Promise.all([loadRegistrations(),loadResults()]);}catch(e){console.error(e);document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">Error: '+e.message+'</div>';}}
+async function loadMatch(){if(action==='new'){showCreateForm();return;}if(!matchId){document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">No se especifico ID</div>';return;}try{var{data:m,error}=await window.supabase.from('matches').select('*').eq('id',matchId).single();if(error||!m){document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">Partida no encontrada</div>';return;}currentMatch=m;var alliance=null;if(m.alliance_id){var{data:a}=await window.supabase.from('alliances').select('name,tag').eq('id',m.alliance_id).single();alliance=a;}var alLabel=alliance?' ['+alliance.tag+']':'';var shareUrl=window.location.origin+window.__AH_BASE_PATH+'game.html?id='+matchId+(m.share_token?'&token='+m.share_token:'');document.getElementById('match-header').innerHTML='<div class="rounded-xl p-5 bg-slate-900 border border-indigo-900"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3"><div><h1 class="text-2xl font-bold text-slate-100">&#127918; '+(m.name||'Partida')+alLabel+'</h1><div class="flex gap-2 mt-1 flex-wrap">'+window.getStatusBadge(m.status)+' '+window.getTypeBadge(m.match_type||m.type)+' '+(m.category==='batallon'?'<span class="px-2 py-0.5 rounded text-xs font-bold bg-purple-500/15 text-purple-400">BATALLON</span>':'')+' '+(m.csv_imported?'<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-500/15 text-green-500">&#10003; CSV</span>':'')+'</div></div><a href="matches.html" class="px-3 py-1.5 rounded-lg font-bold text-sm self-start bg-indigo-900 text-slate-100">&larr; Volver</a></div><div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm"><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">ID Juego</p><p class="font-bold">'+(m.game_id||'-')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Max</p><p class="font-bold">'+(m.max_players||'-')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Creada</p><p class="font-bold">'+window.formatDate(m.created_at)+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Alianza</p><p class="font-bold">'+(alliance?alliance.name:'Ninguna')+'</p></div><div class="rounded-lg p-3 bg-slate-950"><p class="text-xs text-slate-400">Password</p><p class="font-bold">'+(m.password||'-')+'</p></div></div>'+(m.description?'<div class="mt-3 p-3 rounded-lg text-sm bg-slate-950 text-slate-400">'+m.description+'</div>':'')+'</div>';document.getElementById('share-section').classList.remove('hidden');document.getElementById('share-link').value=shareUrl;document.getElementById('admin-actions-section').classList.remove('hidden');var btnImpReg=document.getElementById('btn-import-registrations');if(btnImpReg){if(m.category==='batallon'){btnImpReg.classList.remove('hidden');}else{btnImpReg.classList.add('hidden');}}await initAdminRole();await Promise.all([loadRegistrations(),loadResults()]);}catch(e){console.error(e);document.getElementById('match-header').innerHTML='<div class="text-center py-8 text-red-400">Error: '+e.message+'</div>';}}
 
 async function initAdminRole(){
     try{
@@ -67,7 +67,7 @@ function showCreateForm(){document.getElementById('match-header').classList.add(
 
 async function loadAllianceSelect(selectId,selectedId){try{var{data:alliances}=await window.supabase.from('alliances').select('id,name').order('name');var html='<option value="">-- Sin alianza --</option>';(alliances||[]).forEach(function(a){html+='<option value="'+a.id+'"'+(a.id===selectedId?' selected':'')+'>'+a.name+'</option>';});document.getElementById(selectId).innerHTML=html;}catch(e){}}
 
-document.getElementById('create-match-form').addEventListener('submit',async function(e){e.preventDefault();var name=document.getElementById('cm-name').value.trim();var gameId=document.getElementById('cm-game-id').value.trim()||null;var password=document.getElementById('cm-password').value.trim()||null;var allianceId=document.getElementById('cm-alliance').value||null;var type=document.getElementById('cm-type').value;var maxPlayers=parseInt(document.getElementById('cm-max').value)||null;var desc=document.getElementById('cm-desc').value.trim()||null;if(!name){window.showToast('Nombre obligatorio','warning');return;}try{var{data:{session}}=await window.supabase.auth.getSession();var{data,error}=await window.supabase.from('matches').insert({name,game_id:gameId,password:password,alliance_id:allianceId,match_type:type,max_players:maxPlayers,description:desc,status:'draft',created_by:session.user.id}).select().single();if(error)throw error;window.showToast('Partida creada','success');setTimeout(function(){window.location.href='match-detail.html?id='+data.id;},800);}catch(e){window.showToast('Error: '+e.message,'error');}});
+document.getElementById('create-match-form').addEventListener('submit',async function(e){e.preventDefault();var name=document.getElementById('cm-name').value.trim();var gameId=document.getElementById('cm-game-id').value.trim()||null;var password=document.getElementById('cm-password').value.trim()||null;var allianceId=document.getElementById('cm-alliance').value||null;var type=document.getElementById('cm-type').value;var category=(document.getElementById('cm-category')||{}).value||'alliance_hub';var maxPlayers=parseInt(document.getElementById('cm-max').value)||null;var desc=document.getElementById('cm-desc').value.trim()||null;if(!name){window.showToast('Nombre obligatorio','warning');return;}try{var{data:{session}}=await window.supabase.auth.getSession();var{data,error}=await window.supabase.from('matches').insert({name,game_id:gameId,password:password,alliance_id:allianceId,match_type:type,category:category,max_players:maxPlayers,description:desc,status:'draft',created_by:session.user.id}).select().single();if(error)throw error;window.showToast('Partida creada','success');setTimeout(function(){window.location.href='match-detail.html?id='+data.id;},800);}catch(e){window.showToast('Error: '+e.message,'error');}});
 
 function getSanctionBadgeAndText(player){
     if(!window.AHSanctions || !player)return {badge:'',text:''};
@@ -619,5 +619,288 @@ async function confirmAPIImport(){
         btn.innerHTML='&#10003; Confirmar importacion';
     }
 }
+
+// ===================== IMPORTADOR DE INSCRITOS (WHATSAPP / EXCEL) =====================
+// Solo para partidas de categoria 'batallon' (el boton se muestra en loadMatch).
+// Flujo OBLIGATORIO: entrada (texto pegado o archivo .csv/.xlsx) -> vista previa
+// (nuevo/existente/duplicado/invalida + aviso de cupo) -> confirmacion del admin.
+// JAMAS se escribe en la BD sin pasar por la vista previa.
+// SheetJS se carga de forma perezosa (mismo patron que assets/js/api-importer.js).
+var regImportState={
+    rows:null,          // [{username, playerId, status, reason}] status: new|existing|duplicate|invalid
+    summary:null
+};
+
+var REG_IMPORT_NOTE='Inscrito por WhatsApp (importado por admin)';
+var RI_XLSX_CDN='https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+var riXlsxPromise=null;
+function riLoadXLSX(){
+    if(window.XLSX)return Promise.resolve(window.XLSX);
+    if(riXlsxPromise)return riXlsxPromise;
+    riXlsxPromise=new Promise(function(resolve,reject){
+        var sc=document.createElement('script');
+        sc.src=RI_XLSX_CDN;
+        sc.async=true;
+        sc.onload=function(){
+            if(window.XLSX)resolve(window.XLSX);
+            else{riXlsxPromise=null;reject(new Error('La libreria XLSX no se inicializo correctamente.'));}
+        };
+        sc.onerror=function(){
+            riXlsxPromise=null;
+            reject(new Error('No se pudo cargar la libreria XLSX desde el CDN. Revisa tu conexion.'));
+        };
+        document.head.appendChild(sc);
+    });
+    return riXlsxPromise;
+}
+
+function openRegImportModal(){
+    if(!currentMatch){window.showToast('Espera a que cargue la partida','warning');return;}
+    if(currentMatch.category!=='batallon'){window.showToast('El importador de inscritos solo esta disponible en partidas de la Comunidad Batallon','warning');return;}
+    document.getElementById('ri-text').value='';
+    document.getElementById('ri-file').value='';
+    document.getElementById('ri-error').classList.add('hidden');
+    document.getElementById('ri-preview-section').classList.add('hidden');
+    var btn=document.getElementById('ri-confirm-btn');
+    btn.disabled=true;
+    btn.innerHTML='&#10003; Confirmar importacion';
+    regImportState.rows=null;regImportState.summary=null;
+    document.getElementById('reg-import-modal').classList.add('active');
+}
+
+function closeRegImportModal(){
+    document.getElementById('reg-import-modal').classList.remove('active');
+    regImportState.rows=null;regImportState.summary=null;
+}
+
+function riShowError(msg){
+    var box=document.getElementById('ri-error');
+    box.textContent=msg;
+    box.classList.remove('hidden');
+}
+
+// Parser tolerante de lineas de texto: admite "Nombre - ID", "ID Nombre",
+// "Nombre,ID", tab-separado, con o sin numeracion ("1. Nombre - 12345678").
+// ID = primer run de 6+ digitos; el resto = username.
+function riParseTextLines(text){
+    var out=[];
+    (text||'').split(/\r?\n/).forEach(function(line,idx){
+        var raw=line.trim();
+        if(!raw)return;
+        var v=raw.replace(/^\d+[.)]\s*/,''); // numeracion opcional
+        // Separadores explicitos: coma, tab, guion, pipe
+        var parts=v.split(/[,\t]| [-\u2013|] /);
+        if(parts.length<2)parts=[v];
+        var username=null,idStr=null;
+        for(var i=0;i<parts.length;i++){
+            var t=parts[i].trim();
+            if(!t)continue;
+            var dm=t.match(/\d{6,}/);
+            if(dm&&idStr===null){
+                idStr=dm[0];
+                var rest=t.replace(dm[0],'').replace(/^[-\u2013|,;\s]+|[-\u2013|,;\s]+$/g,'');
+                if(rest&&username===null)username=rest;
+            }else if(username===null){
+                username=t;
+            }
+        }
+        // Ignora encabezados tipicos (fila sin ID numerico y texto de cabecera)
+        if(idStr===null&&/^(nombre|username|jugador|name|player|id|n[°o])\b/i.test(v))return;
+        out.push({row:idx+1,username:username,idStr:idStr});
+    });
+    return out;
+}
+
+// Convierte filas crudas (arrays de celdas, de CSV/XLSX) a {username,idStr}
+function riParseSheetRows(rows){
+    var out=[];
+    (rows||[]).forEach(function(cells,idx){
+        var username=null,idStr=null;
+        (cells||[]).forEach(function(c){
+            if(c===null||c===undefined)return;
+            var t=String(c).trim();
+            if(!t)return;
+            var dm=t.match(/\d{6,}/);
+            if(dm&&idStr===null){
+                idStr=dm[0];
+                var rest=t.replace(dm[0],'').replace(/^[-\u2013|,;\s]+|[-\u2013|,;\s]+$/g,'');
+                if(rest&&username===null)username=rest;
+            }else if(username===null){
+                username=t;
+            }
+        });
+        if(username||idStr)out.push({row:idx+1,username:username,idStr:idStr});
+    });
+    return out;
+}
+
+async function handleRegImportFile(input){
+    var f=input.files&&input.files[0];
+    if(!f)return;
+    document.getElementById('ri-error').classList.add('hidden');
+    try{
+        if(/\.csv$/i.test(f.name)){
+            var text=await f.text();
+            var lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
+            // Si parece tener cabecera (primera linea sin ID de 6+ digitos), se descarta
+            if(lines.length&&riParseTextLines(lines[0]).length&&riParseTextLines(lines[0])[0].idStr===null)lines.shift();
+            document.getElementById('ri-text').value=lines.join('\n');
+            window.showToast('CSV cargado. Genera la vista previa.','success');
+        }else if(/\.xlsx$/i.test(f.name)){
+            await riLoadXLSX();
+            var buf=await f.arrayBuffer();
+            var wb=window.XLSX.read(buf,{type:'array'});
+            var first=wb.SheetNames[0];
+            var rows=window.XLSX.utils.sheet_to_json(wb.Sheets[first],{header:1,raw:true,defval:null,blankrows:false});
+            var parsed=riParseSheetRows(rows);
+            if(parsed.length&&parsed[0].idStr===null)parsed.shift(); // cabecera probable
+            document.getElementById('ri-text').value=parsed.map(function(r){
+                return (r.username||'')+(r.username&&r.idStr?' - ':'')+(r.idStr||'');
+            }).join('\n');
+            window.showToast('Excel cargado. Genera la vista previa.','success');
+        }else{
+            riShowError('Formato no soportado. Usa .csv o .xlsx (o pega el texto).');
+        }
+    }catch(e){
+        riShowError('Error leyendo el archivo: '+(e.message||e));
+    }
+}
+
+// Vista previa: clasifica cada fila y cruza con players y match_registrations.
+async function previewRegImport(){
+    document.getElementById('ri-error').classList.add('hidden');
+    var parsed=riParseTextLines(document.getElementById('ri-text').value);
+    if(parsed.length===0){riShowError('No hay lineas para procesar.');return;}
+    var rows=[];
+    var seenIds={};
+    var validIds=[];
+    parsed.forEach(function(r){
+        var pid=r.idStr?parseInt(r.idStr,10):NaN;
+        if(!r.idStr||isNaN(pid)||pid<=0||String(pid)!==r.idStr){
+            rows.push({username:r.username,playerId:null,status:'invalid',reason:'ID no numerico o ausente'});
+            return;
+        }
+        if(seenIds[pid]){
+            rows.push({username:r.username,playerId:pid,status:'duplicate',reason:'Duplicado dentro de la lista'});
+            return;
+        }
+        seenIds[pid]=true;
+        validIds.push(pid);
+        rows.push({username:r.username,playerId:pid,status:'pending'});
+    });
+    try{
+        // Cruce con jugadores existentes (lotes de 200)
+        var existingPlayers={};
+        for(var off=0;off<validIds.length;off+=200){
+            var q=await window.supabase.from('players').select('id').in('id',validIds.slice(off,off+200));
+            if(q.error)throw q.error;
+            (q.data||[]).forEach(function(p){existingPlayers[String(p.id)]=true;});
+        }
+        // Cruce con inscritos ya registrados en ESTA partida (lotes de 200)
+        var existingRegs={};
+        for(var off2=0;off2<validIds.length;off2+=200){
+            var q2=await window.supabase.from('match_registrations').select('player_id').eq('match_id',matchId).in('player_id',validIds.slice(off2,off2+200));
+            if(q2.error)throw q2.error;
+            (q2.data||[]).forEach(function(r2){existingRegs[String(r2.player_id)]=true;});
+        }
+        var summary={nuevos:0,existentes:0,duplicados:0,invalidas:0};
+        rows.forEach(function(r){
+            if(r.status==='invalid'){summary.invalidas++;return;}
+            if(r.status==='duplicate'){summary.duplicados++;return;}
+            if(existingRegs[String(r.playerId)]){
+                r.status='duplicate';r.reason='Ya inscrito en la partida';summary.duplicados++;return;
+            }
+            if(existingPlayers[String(r.playerId)]){r.status='existing';summary.existentes++;}
+            else{r.status='new';summary.nuevos++;}
+        });
+        regImportState.rows=rows;
+        regImportState.summary=summary;
+        renderRegImportPreview();
+    }catch(e){
+        riShowError('Error generando la vista previa: '+(e.message||e));
+    }
+}
+
+function renderRegImportPreview(){
+    var sec=document.getElementById('ri-preview-section');
+    var rows=regImportState.rows||[];
+    var s=regImportState.summary||{nuevos:0,existentes:0,duplicados:0,invalidas:0};
+    sec.classList.remove('hidden');
+    document.getElementById('ri-preview-stats').innerHTML=
+        '<span class="px-2 py-1 rounded bg-cyan-500/15 text-cyan-400">'+s.nuevos+' jugadores nuevos (se crearan)</span>'+
+        '<span class="px-2 py-1 rounded bg-green-500/15 text-green-500">'+s.existentes+' existentes (se reutilizan)</span>'+
+        '<span class="px-2 py-1 rounded bg-slate-500/15 text-slate-400">'+s.duplicados+' duplicados (se omiten)</span>'+
+        '<span class="px-2 py-1 rounded '+(s.invalidas?'bg-amber-500/15 text-amber-400':'bg-slate-500/15 text-slate-400')+'">'+s.invalidas+' filas invalidas</span>';
+    // Aviso (no bloqueante) de cupo (max_players)
+    var capWarn=document.getElementById('ri-capacity-warning');
+    var toInsert=s.nuevos+s.existentes;
+    var maxP=currentMatch&&currentMatch.max_players?parseInt(currentMatch.max_players,10):null;
+    var currentCount=cachedRegistrations.filter(function(x){return x.status==='confirmed'||x.status==='approved';}).length;
+    if(maxP&&(currentCount+toInsert)>maxP){
+        capWarn.textContent='ADVERTENCIA: la lista supera el cupo de la partida ('+(currentCount+toInsert)+' inscritos tras importar, maximo '+maxP+'). Revisa la lista antes de confirmar.';
+        capWarn.classList.remove('hidden');
+    }else{
+        capWarn.classList.add('hidden');
+    }
+    var badge=function(r){
+        if(r.status==='new')return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400">Nuevo</span>';
+        if(r.status==='existing')return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-500">Existente</span>';
+        if(r.status==='duplicate')return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-500/15 text-slate-400">Duplicado</span>';
+        return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400">Invalida</span>';
+    };
+    var html='<table class="w-full text-sm"><thead><tr class="bg-slate-950"><th class="p-2 text-left">Username</th><th class="p-2 text-left">ID</th><th class="p-2 text-left">Estado</th></tr></thead><tbody>';
+    rows.slice(0,50).forEach(function(r){
+        html+='<tr class="border-b border-indigo-900"><td class="p-2 font-medium">'+apiEscapeHtml(r.username||'-')+'</td><td class="p-2 font-mono text-xs">'+(r.playerId||'-')+'</td><td class="p-2">'+badge(r)+(r.reason?' <span class="text-slate-500">'+apiEscapeHtml(r.reason)+'</span>':'')+'</td></tr>';
+    });
+    if(rows.length>50)html+='<tr><td colspan="3" class="p-2 text-center text-slate-400">... y '+(rows.length-50)+' mas</td></tr>';
+    html+='</tbody></table>';
+    document.getElementById('ri-preview-content').innerHTML=html;
+    document.getElementById('ri-confirm-btn').disabled=toInsert===0;
+}
+
+// Confirmacion: unica funcion que escribe en la BD. Requiere vista previa previa.
+async function confirmRegImport(){
+    if(!regImportState.rows){window.showToast('Genera primero la vista previa','warning');return;}
+    if(!matchId){window.showToast('No hay partida seleccionada','error');return;}
+    var toImport=regImportState.rows.filter(function(r){return r.status==='new'||r.status==='existing';});
+    if(toImport.length===0){window.showToast('No hay filas validas para importar','warning');return;}
+    var btn=document.getElementById('ri-confirm-btn');
+    btn.disabled=true;btn.textContent='Importando...';
+    try{
+        // 1) Upsert a players de los nuevos (equivalente a ON CONFLICT (id) DO NOTHING)
+        var nuevos=toImport.filter(function(r){return r.status==='new';}).map(function(np){
+            return {id:np.playerId,current_username:np.username||('Jugador '+np.playerId),status:'active',last_seen:new Date().toISOString()};
+        });
+        for(var i=0;i<nuevos.length;i+=200){
+            var ins=await window.supabase.from('players').upsert(nuevos.slice(i,i+200),{onConflict:'id',ignoreDuplicates:true});
+            if(ins.error)throw ins.error;
+        }
+        // 2) Upsert a match_registrations como confirmed con nota de importacion
+        var now=new Date().toISOString();
+        var regs=toImport.map(function(r){
+            return {match_id:matchId,player_id:r.playerId,status:'confirmed',confirmed_at:now,notes:REG_IMPORT_NOTE};
+        });
+        for(var j=0;j<regs.length;j+=200){
+            var insR=await window.supabase.from('match_registrations').upsert(regs.slice(j,j+200),{onConflict:'match_id,player_id',ignoreDuplicates:true});
+            if(insR.error)throw insR.error;
+        }
+        // 3) Resumen + refresco de la lista en pantalla
+        var s=regImportState.summary;
+        window.showToast(toImport.length+' registrados, '+s.duplicados+' duplicados omitidos, '+s.invalidas+' invalidas','success');
+        closeRegImportModal();
+        loadRegistrations();
+        loadMatch();
+    }catch(e){
+        window.showToast('Error: '+(e.message||e),'error');
+        btn.disabled=false;
+        btn.innerHTML='&#10003; Confirmar importacion';
+    }
+}
+
+window.openRegImportModal=openRegImportModal;
+window.closeRegImportModal=closeRegImportModal;
+window.handleRegImportFile=handleRegImportFile;
+window.previewRegImport=previewRegImport;
+window.confirmRegImport=confirmRegImport;
 
 loadMatch();

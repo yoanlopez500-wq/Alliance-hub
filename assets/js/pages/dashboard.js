@@ -9,11 +9,55 @@
  *     se anaden al final las partidas de SU alianza (incluidas internas/privadas)
  *     con badge "DE TU ALIANZA". Las de alianza van AL FINAL para conservar
  *     el orden actual de las publicas (decision: append, lo mas simple).
+ * v4: badge de categoria ("COMUNIDAD BATALLON") y chips de filtro
+ *     Todas/Alliance Hub/Batallon, persistidos en localStorage ah_match_filter.
  */
 (function() {
     'use strict';
 
     var allAlliances = [];
+
+    // ---- Filtro por categoria (persistente) ----
+    var FILTER_KEY = 'ah_match_filter';
+    var FILTERS = [
+        { value: 'all', label: 'Todas' },
+        { value: 'alliance_hub', label: 'Alliance Hub' },
+        { value: 'batallon', label: 'Batallon' }
+    ];
+
+    function getCategoryFilter() {
+        try {
+            var v = localStorage.getItem(FILTER_KEY);
+            return (v === 'alliance_hub' || v === 'batallon') ? v : 'all';
+        } catch(e) { return 'all'; }
+    }
+
+    function renderCategoryChips() {
+        var box = document.getElementById('match-category-filter');
+        if (!box) return;
+        var current = getCategoryFilter();
+        box.innerHTML = FILTERS.map(function(f) {
+            var active = f.value === current;
+            var cls = active
+                ? 'px-3 py-1.5 rounded-lg text-xs font-bold min-h-[32px] bg-gradient-to-r from-orange-600 to-amber-500 text-white'
+                : 'px-3 py-1.5 rounded-lg text-xs font-bold min-h-[32px] bg-slate-900 border border-indigo-900 text-slate-400 hover:opacity-80 transition';
+            return '<button onclick="window.setMatchFilter(\'' + f.value + '\')" class="' + cls + '">' + f.label + '</button>';
+        }).join('');
+    }
+
+    window.setMatchFilter = function(value) {
+        try { localStorage.setItem(FILTER_KEY, value); } catch(e) {}
+        renderCategoryChips();
+        loadMatches();
+    };
+
+    // Badge de categoria: solo se muestra para Batallon (Alliance Hub es el default)
+    function getCategoryBadge(category) {
+        if (category === 'batallon') {
+            return '<span class="px-2 py-0.5 rounded text-xs font-bold bg-purple-500/15 text-purple-400 ml-1">COMUNIDAD BATALLON</span>';
+        }
+        return '';
+    }
 
     // Escapar HTML para datos renderizados con innerHTML
     function escapeHtml(str) {
@@ -69,6 +113,7 @@
     // Cargar lista de partidas
     async function loadMatches() {
         try {
+            renderCategoryChips();
             await loadAlliancesMap();
             var mc = window.DB.tableCols('matches');
             var { data, error } = await window.DB.from('publicMatches')
@@ -91,6 +136,15 @@
                         m._fromAlliance = true;
                         data.push(m);
                     }
+                });
+            }
+
+            // Filtro por categoria (persistente en localStorage ah_match_filter);
+            // se aplica tras fusionar publicas + alianza para que afecte a ambas.
+            var catFilter = getCategoryFilter();
+            if (catFilter !== 'all') {
+                data = data.filter(function(m) {
+                    return (m[mc.category] || 'alliance_hub') === catFilter;
                 });
             }
 
@@ -122,12 +176,13 @@
                 } else if (m[mc.matchType] === 'internal') {
                     typeBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-500/15 text-blue-500 ml-1">INTERNA</span>';
                 }
+                var categoryBadge = getCategoryBadge(m[mc.category]);
                 // Badge extra para partidas que vienen solo de la alianza del jugador
                 var allianceBadge = '';
                 if (m._fromAlliance) {
                     allianceBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-cyan-500/15 text-cyan-400 ml-1">DE TU ALIANZA</span>';
                 }
-                return '<a href="game.html?id=' + encodeURIComponent(m[mc.id] || m.id) + '" class="block rounded-xl p-4 transition hover:opacity-90 bg-slate-900 border border-indigo-900"><div class="flex items-center justify-between mb-2"><div>' + statusBadge + typeBadge + allianceBadge + '</div></div><h3 class="font-bold text-lg text-slate-100">' + escapeHtml(m[mc.name] || 'Partida') + allianceLabel + '</h3><p class="text-xs mt-1 text-slate-400">' + window.formatDate(m[mc.createdAt]) + ' | Max: ' + escapeHtml(m[mc.maxPlayers] || '-') + '</p></a>';
+                return '<a href="game.html?id=' + encodeURIComponent(m[mc.id] || m.id) + '" class="block rounded-xl p-4 transition hover:opacity-90 bg-slate-900 border border-indigo-900"><div class="flex items-center justify-between mb-2"><div>' + statusBadge + typeBadge + categoryBadge + allianceBadge + '</div></div><h3 class="font-bold text-lg text-slate-100">' + escapeHtml(m[mc.name] || 'Partida') + allianceLabel + '</h3><p class="text-xs mt-1 text-slate-400">' + window.formatDate(m[mc.createdAt]) + ' | Max: ' + escapeHtml(m[mc.maxPlayers] || '-') + '</p></a>';
             }).join('') + '</div>';
         } catch(e) {
             console.error('[Dashboard]', e);

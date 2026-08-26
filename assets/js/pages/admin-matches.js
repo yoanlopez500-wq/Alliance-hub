@@ -49,7 +49,8 @@
             var allianceLabel = alliance ? ' [' + alliance.tag + ']' : '';
             var typeBadge = m.match_type === 'duel' ? '<span class="px-2 py-0.5 rounded text-xs font-bold ml-1 bg-red-500/15 text-red-400">DUELO</span>' : m.match_type === 'internal' ? '<span class="px-2 py-0.5 rounded text-xs font-bold ml-1 bg-blue-500/15 text-blue-500">INTERNA</span>' : '<span class="px-2 py-0.5 rounded text-xs font-bold ml-1 bg-purple-500/15 text-purple-400">GLOBAL</span>';
             var statusBadge = window.getStatusBadge(m.status);
-            return '<a href="match-detail.html?id=' + m.id + '" class="block rounded-xl p-4 transition hover:opacity-90 bg-ah-card border border-indigo-900"><div class="flex items-center justify-between"><div><h3 class="font-bold">' + (m.name || 'Partida') + allianceLabel + '</h3><p class="text-xs mt-1 text-ah-muted">' + window.formatDate(m.created_at) + ' | Max: ' + (m.max_players || '-') + ' jugadores</p></div><div class="flex items-center gap-1">' + statusBadge + typeBadge + '</div></div></a>';
+            var categoryBadge = m.category === 'batallon' ? '<span class="px-2 py-0.5 rounded text-xs font-bold ml-1 bg-purple-500/15 text-purple-400">BATALLON</span>' : '';
+            return '<a href="match-detail.html?id=' + m.id + '" class="block rounded-xl p-4 transition hover:opacity-90 bg-ah-card border border-indigo-900"><div class="flex items-center justify-between"><div><h3 class="font-bold">' + (m.name || 'Partida') + allianceLabel + '</h3><p class="text-xs mt-1 text-ah-muted">' + window.formatDate(m.created_at) + ' | Max: ' + (m.max_players || '-') + ' jugadores</p></div><div class="flex items-center gap-1">' + statusBadge + typeBadge + categoryBadge + '</div></div></a>';
         }).join('') + '</div>';
     }
 

@@ -25,6 +25,49 @@ interface PushSubscriptionRow {
   alliance_id: string | null
 }
 
+// deno-lint-ignore no-explicit-any
+type Supabase = any
+
+// Loop de envio + limpieza de endpoints 404/410. Reutilizado por todos los eventos.
+async function sendToSubs(
+  supabase: Supabase,
+  subs: PushSubscriptionRow[],
+  payload: string,
+): Promise<{ sent: number; failed: number }> {
+  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')
+  const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')
+  const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@alliancehub.app'
+  if (!vapidPrivateKey) throw new Error('missing env VAPID_PRIVATE_KEY')
+  if (!vapidPublicKey) throw new Error('missing env VAPID_PUBLIC_KEY')
+  webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey)
+
+  let sent = 0
+  let failed = 0
+  const staleEndpoints: string[] = []
+
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        payload,
+      )
+      sent++
+    } catch (err: unknown) {
+      failed++
+      const statusCode = (err as { statusCode?: number })?.statusCode
+      if (statusCode === 404 || statusCode === 410) {
+        staleEndpoints.push(sub.endpoint)
+      }
+    }
+  }
+
+  if (staleEndpoints.length > 0) {
+    await supabase.from('push_subscriptions').delete().in('endpoint', staleEndpoints)
+  }
+
+  return { sent, failed }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -50,26 +93,120 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'unauthorized' }, 401)
   }
 
-  let body: { match_id?: string; event?: string; dry_run?: boolean }
+  let body: { match_id?: string; event?: string; slot?: string; dry_run?: boolean }
   try {
     body = await req.json()
   } catch {
     return json({ error: 'invalid JSON body' }, 400)
   }
-  const { match_id, event, dry_run } = body
-  if (!match_id || !event) {
-    return json({ error: 'match_id and event are required' }, 400)
+  const { match_id, event, slot, dry_run } = body
+  if (!event) {
+    return json({ error: 'event is required' }, 400)
   }
-  if (event !== 'new_match' && event !== 'status_change') {
-    return json({ error: 'event must be new_match or status_change' }, 400)
+  if (event !== 'new_match' && event !== 'status_change' && event !== 'batallon_reminder') {
+    return json({ error: 'event must be new_match, status_change or batallon_reminder' }, 400)
+  }
+  if (event !== 'batallon_reminder' && !match_id) {
+    return json({ error: 'match_id and event are required' }, 400)
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey) // public schema (default)
 
+  // batallon_reminder: recordatorios 2x/dia (slot morning|afternoon) a jugadores
+  // NO inscritos en partidas batallon abiertas. match_id es opcional: si viene,
+  // procesa solo esa partida; si no, todas las batallon abiertas.
+  if (event === 'batallon_reminder') {
+    if (slot !== 'morning' && slot !== 'afternoon') {
+      return json({ error: "slot must be 'morning' or 'afternoon'" }, 400)
+    }
+    let matchesQuery = supabase
+      .from('matches')
+      .select('id, name, category, status')
+      .eq('category', 'batallon')
+      .eq('status', 'open')
+    if (match_id) matchesQuery = matchesQuery.eq('id', match_id)
+    const { data: bMatches, error: bErr } = await matchesQuery
+    if (bErr) return json({ error: `matches query failed: ${bErr.message}` }, 500)
+    if (!bMatches || bMatches.length === 0) {
+      return json({ skipped: true, reason: 'no open batallon matches' })
+    }
+
+    const today = new Date().toISOString().slice(0, 10)
+    const logEvent = `batallon_reminder:${today}:${slot}`
+    const results = []
+
+    for (const m of bMatches) {
+      // Dedupe por dia+slot (mismo patron: check antes, insert DESPUES de enviar)
+      if (!dry_run) {
+        const { data: already, error: logCheckErr } = await supabase
+          .from('push_notification_log')
+          .select('match_id')
+          .eq('match_id', m.id)
+          .eq('event', logEvent)
+          .maybeSingle()
+        if (logCheckErr) {
+          return json({ error: `log check failed: ${logCheckErr.message}` }, 500)
+        }
+        if (already) {
+          results.push({ match_id: m.id, name: m.name, skipped: true })
+          continue
+        }
+      }
+
+      // Destinatarios: subs con player_id NO nulo que NO tengan registro (cualquier
+      // status) en esta partida. Volumenes pequenos: filtrado en memoria.
+      const { data: regs, error: regErr } = await supabase
+        .from('match_registrations')
+        .select('player_id')
+        .eq('match_id', m.id)
+      if (regErr) return json({ error: `registrations query failed: ${regErr.message}` }, 500)
+      const registeredIds = new Set((regs ?? []).map((r) => r.player_id).filter((id) => id != null))
+
+      const { data: allSubs, error: subErr } = await supabase
+        .from('push_subscriptions')
+        .select('endpoint, p256dh, auth, player_id, alliance_id')
+        .not('player_id', 'is', null)
+      if (subErr) return json({ error: `subscriptions query failed: ${subErr.message}` }, 500)
+      const subs = ((allSubs ?? []) as PushSubscriptionRow[]).filter(
+        (s) => !registeredIds.has(s.player_id),
+      )
+
+      if (dry_run) {
+        results.push({ match_id: m.id, name: m.name, dry_run: true, recipients: subs.length })
+        continue
+      }
+
+      const payload = JSON.stringify({
+        title: `⚔ ${m.name}: inscripcion abierta`,
+        body: 'Aun no te inscribes. La inscripcion es por el grupo de WhatsApp del Batallon.',
+        data: { url: `/game.html?id=${m.id}` },
+        tag: `match-${m.id}-batallon-reminder-${today}-${slot}`,
+      })
+
+      try {
+        const { sent, failed } = await sendToSubs(supabase, subs, payload)
+        // Marcar como enviado SOLO tras el envio (mismo criterio que el flujo principal)
+        if (sent > 0 || subs.length === 0) {
+          await supabase
+            .from('push_notification_log')
+            .insert({ match_id: m.id, event: logEvent })
+            .then(({ error }) => {
+              if (error && error.code !== '23505') console.error('log insert failed', error)
+            })
+        }
+        results.push({ match_id: m.id, name: m.name, sent, failed, total: subs.length })
+      } catch (e) {
+        return json({ error: (e as Error).message }, 500)
+      }
+    }
+
+    return json({ success: true, event: logEvent, results })
+  }
+
   // Load match
   const { data: match, error: matchErr } = await supabase
     .from('matches')
-    .select('id, name, match_type, status, alliance_id')
+    .select('id, name, match_type, status, alliance_id, category')
     .eq('id', match_id)
     .maybeSingle()
   if (matchErr) return json({ error: `match query failed: ${matchErr.message}` }, 500)
@@ -123,24 +260,26 @@ Deno.serve(async (req: Request) => {
     return json({ dry_run: true, recipients: subs.length, event, match: match.name })
   }
 
-  // From here we actually send: VAPID env is required
-  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')
-  const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')
-  const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@alliancehub.app'
-  if (!vapidPrivateKey) return json({ error: 'missing env VAPID_PRIVATE_KEY' }, 500)
-  if (!vapidPublicKey) return json({ error: 'missing env VAPID_PUBLIC_KEY' }, 500)
-
+  const isBatallon = match.category === 'batallon'
   const isAllianceMatch = !!match.alliance_id
   const title =
     event === 'new_match'
-      ? isAllianceMatch
-        ? `Nueva partida de tu alianza: ${match.name}`
-        : `Nueva partida: ${match.name}`
-      : `${match.name}: cambio de estado`
+      ? isBatallon
+        ? `⚔ Nueva partida del Batallon: ${match.name}`
+        : isAllianceMatch
+          ? `Nueva partida de tu alianza: ${match.name}`
+          : `Nueva partida: ${match.name}`
+      : isBatallon && match.status === 'in_progress'
+        ? `⚔ ${match.name} ha comenzado`
+        : `${match.name}: cambio de estado`
   const notificationBody =
     event === 'new_match'
-      ? 'Estado: abierta para registro'
-      : `La partida ahora esta en estado ${match.status}`
+      ? isBatallon
+        ? 'Inscripcion abierta por el grupo de WhatsApp del Batallon.'
+        : 'Estado: abierta para registro'
+      : isBatallon && match.status === 'in_progress'
+        ? 'La partida del Batallon ya inicio y esta en progreso.'
+        : `La partida ahora esta en estado ${match.status}`
 
   const payload = JSON.stringify({
     title,
@@ -149,30 +288,15 @@ Deno.serve(async (req: Request) => {
     tag: `match-${match_id}-${event}`,
   })
 
-  webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey)
-
   let sent = 0
   let failed = 0
-  const staleEndpoints: string[] = []
-
-  for (const sub of subs) {
-    try {
-      await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        payload,
-      )
-      sent++
-    } catch (err: unknown) {
-      failed++
-      const statusCode = (err as { statusCode?: number })?.statusCode
-      if (statusCode === 404 || statusCode === 410) {
-        staleEndpoints.push(sub.endpoint)
-      }
-    }
-  }
-
-  if (staleEndpoints.length > 0) {
-    await supabase.from('push_subscriptions').delete().in('endpoint', staleEndpoints)
+  try {
+    const result = await sendToSubs(supabase, subs, payload)
+    sent = result.sent
+    failed = result.failed
+  } catch (e) {
+    // From here we actually send: VAPID env is required
+    return json({ error: (e as Error).message }, 500)
   }
 
   // Marcar como enviado SOLO tras el envio (si alguno tuvo exito o no habia destinatarios).

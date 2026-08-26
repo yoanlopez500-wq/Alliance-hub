@@ -253,11 +253,12 @@
                 createdBy: 'created_by',
                 csvImported: 'csv_imported',
                 notificationsSent: 'notifications_sent',
+                category: 'category',
                 createdAt: 'created_at'
             },
             selectSets: {
-                basic: 'id, name, match_type, game_id, status, alliance_id, created_at',
-                list: 'id, name, match_type, game_id, status, alliance_id, alliance_a_id, alliance_b_id, league_id, max_players, created_at',
+                basic: 'id, name, match_type, game_id, status, alliance_id, created_at, category',
+                list: 'id, name, match_type, game_id, status, alliance_id, alliance_a_id, alliance_b_id, league_id, max_players, created_at, category',
                 all: '*'
             }
         },
@@ -539,10 +540,11 @@
                 winnersDeclared: 'winners_declared',
                 requiresApproval: 'requires_approval',
                 isPrivate: 'is_private',
+                category: 'category',
                 createdAt: 'created_at'
             },
             selectSets: {
-                basic: 'id, name, match_type, status, alliance_id, alliance_a_id, alliance_b_id, league_id, max_players, winners_declared, requires_approval, is_private, created_at',
+                basic: 'id, name, match_type, status, alliance_id, alliance_a_id, alliance_b_id, league_id, max_players, winners_declared, requires_approval, is_private, created_at, category',
                 all: '*'
             }
         },
