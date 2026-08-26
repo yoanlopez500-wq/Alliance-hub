@@ -98,6 +98,23 @@
 
         document.getElementById('match-info').innerHTML = window.getStatusBadge(match.status) + ' ' + window.getTypeBadge(match.match_type) + ' \u2022 ' + match.name + (allianceName ? ' (' + allianceName + ')' : '');
 
+        // Partidas de categoria Batallon: la inscripcion es externa (WhatsApp),
+        // se oculta el formulario de registro directo y se muestran las reglas del evento.
+        if (match.category === 'batallon') {
+            document.getElementById('register-form').classList.add('hidden');
+            var batBanner = document.getElementById('batallon-banner');
+            if (batBanner) {
+                batBanner.classList.remove('hidden');
+                if (match.description) {
+                    var rulesWrap = document.getElementById('batallon-rules-wrap');
+                    var rulesBox = document.getElementById('batallon-rules');
+                    if (rulesWrap) rulesWrap.classList.remove('hidden');
+                    if (rulesBox) rulesBox.textContent = match.description;
+                }
+            }
+            return;
+        }
+
         if (match.status !== 'open') {
             document.getElementById('register-form').classList.add('hidden');
             document.getElementById('error-msg').textContent = '\u2716 Esta partida no esta abierta para registro.';

@@ -37,6 +37,7 @@ AHLoader.init({
 <div><label class="block text-xs font-medium mb-1 text-slate-400">Contrasena</label><input type="text" id="cm-password" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="Contrasena (opcional)"></div>
 <div><label class="block text-xs font-medium mb-1 text-slate-400">Alianza</label><select id="cm-alliance" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="">-- Sin alianza --</option></select></div>
 <div><label class="block text-xs font-medium mb-1 text-slate-400">Tipo</label><select id="cm-type" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="internal">Interna</option><option value="duel">Duelo</option><option value="public_31">Publica 31</option><option value="public_500">Evento 500</option><option value="public_quick">Rapida</option></select></div>
+<div><label class="block text-xs font-medium mb-1 text-slate-400">Categoria</label><select id="cm-category" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"><option value="alliance_hub" selected>Alliance Hub</option><option value="batallon">Batallon</option></select></div>
 <div><label class="block text-xs font-medium mb-1 text-slate-400">Max Jugadores</label><input type="number" id="cm-max" class="w-full px-3 py-2 rounded-lg border text-sm min-h-[44px] bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="31"></div>
 </div>
 <div><label class="block text-xs font-medium mb-1 text-slate-400">Descripcion</label><textarea id="cm-desc" rows="3" class="w-full px-3 py-2 rounded-lg border text-sm bg-slate-900 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none"></textarea></div>
@@ -58,6 +59,7 @@ AHLoader.init({
 <button onclick="openWinnersModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-amber-500/20 text-amber-400 border border-amber-500/30 min-h-[32px]">&#127942; Ganadores</button>
 <button onclick="openCSVModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-teal-500/20 text-teal-400 border border-teal-500/30 min-h-[32px]">&#128229; Importar CSV</button>
 <button onclick="openAPIImportModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 min-h-[32px]">&#128640; Importar estadisticas K/D (Excel)</button>
+<button id="btn-import-registrations" onclick="openRegImportModal()" class="hidden px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 min-h-[32px]">&#128172; Importar inscritos (WhatsApp / Excel)</button>
 <button onclick="openEditModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-blue-500/20 text-blue-500 border border-blue-500/30 min-h-[32px]">&#9881; Editar</button>
 <button onclick="deleteMatch()" class="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80 transition bg-red-500/20 text-red-400 border border-red-500/30 min-h-[32px]">&#128465; Eliminar</button>
 </div></div></div>
@@ -306,6 +308,33 @@ Strikes (con razon y notas)
 <button type="submit" class="flex-1 font-bold py-2.5 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-blue-700 to-blue-900 text-white">Guardar</button>
 <button type="button" onclick="closeEditModal()" class="px-4 py-2.5 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
 </div></form></div></div>
+
+<!-- Registration Import Modal (WhatsApp / Excel) - solo partidas Batallon -->
+<div id="reg-import-modal" class="modal">
+<div class="rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-900 border border-indigo-900">
+<div class="p-5 border-b flex items-center justify-between rounded-t-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 border-indigo-900">
+<h2 class="text-lg font-bold text-white">&#128172; Importar inscritos (WhatsApp / Excel)</h2>
+<button onclick="closeRegImportModal()" class="text-white hover:opacity-70 text-xl">&#10005;</button>
+</div>
+<div class="p-5 space-y-4">
+<p class="text-xs text-slate-400">Pega la lista que entrega el Batallon (una linea por jugador: <span class="font-mono">Nombre - ID</span>, <span class="font-mono">ID Nombre</span> o <span class="font-mono">Nombre,ID</span>) o sube un archivo <span class="font-mono">.csv</span> / <span class="font-mono">.xlsx</span>. Nada se guarda sin vista previa y confirmacion.</p>
+<textarea id="ri-text" rows="6" class="w-full px-3 py-2 rounded-lg border text-sm bg-slate-950 border-indigo-900 text-slate-100 focus:border-amber-500 outline-none" placeholder="1. Nombre - 12345678&#10;Otro Jugador,87654321"></textarea>
+<div class="flex flex-col sm:flex-row gap-2">
+<input type="file" id="ri-file" accept=".csv,.xlsx" class="hidden" onchange="handleRegImportFile(this)">
+<button onclick="document.getElementById('ri-file').click()" class="px-4 py-2 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">&#128193; Subir CSV / Excel</button>
+<button onclick="previewRegImport()" class="px-4 py-2 rounded-lg font-bold text-sm min-h-[44px] bg-gradient-to-r from-emerald-600 to-emerald-800 text-white hover:opacity-80 transition">Generar vista previa</button>
+</div>
+<div id="ri-error" class="hidden rounded-lg p-3 text-xs bg-red-500/10 text-red-400 border border-red-500/30"></div>
+<div id="ri-preview-section" class="hidden">
+<h3 class="font-bold text-sm mb-2 text-slate-100">Vista previa:</h3>
+<div id="ri-preview-stats" class="flex flex-wrap gap-2 mb-2 text-xs font-bold"></div>
+<div id="ri-capacity-warning" class="hidden rounded-lg p-3 mb-2 text-xs bg-amber-500/10 text-amber-400 border border-amber-500/30"></div>
+<div id="ri-preview-content" class="max-h-60 overflow-y-auto overflow-x-auto rounded-lg p-3 text-xs bg-slate-950 border border-indigo-900"></div>
+<div class="flex gap-3 mt-4">
+<button id="ri-confirm-btn" onclick="confirmRegImport()" disabled class="flex-1 font-bold py-2 rounded-lg hover:opacity-80 transition text-sm min-h-[44px] bg-gradient-to-r from-emerald-600 to-emerald-800 text-white disabled:opacity-50 disabled:cursor-not-allowed">&#10003; Confirmar importacion</button>
+<button onclick="closeRegImportModal()" class="px-4 py-2 rounded-lg font-bold text-sm hover:opacity-80 transition bg-indigo-900 text-slate-100 min-h-[44px]">Cancelar</button>
+</div></div>
+</div></div></div>
 
 </body>
 </html>
