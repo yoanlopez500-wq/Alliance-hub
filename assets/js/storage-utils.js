@@ -14,7 +14,11 @@ var STORAGE_CONFIG = {
 
 // ========== COMPRESION ==========
 
-function compressImage(file) {
+// opts opcional: { maxWidth, quality } para overrides por caso de uso
+// (ej. logos 512px, banners 1600px). Sin opts usa STORAGE_CONFIG.
+function compressImage(file, opts) {
+    var maxW = (opts && opts.maxWidth) || STORAGE_CONFIG.maxWidth;
+    var qual = (opts && opts.quality) || STORAGE_CONFIG.quality;
     return new Promise(function(resolve, reject) {
         if (!file || !file.type.startsWith('image/')) {
             resolve(file); // No es imagen, pasar tal cual
@@ -32,9 +36,9 @@ function compressImage(file) {
                 var h = img.height;
 
                 // Redimensionar si es mas ancha que maxWidth
-                if (w > STORAGE_CONFIG.maxWidth) {
-                    h = Math.round(h * (STORAGE_CONFIG.maxWidth / w));
-                    w = STORAGE_CONFIG.maxWidth;
+                if (w > maxW) {
+                    h = Math.round(h * (maxW / w));
+                    w = maxW;
                 }
 
                 canvas.width = w;
@@ -50,7 +54,7 @@ function compressImage(file) {
                     });
                     console.log('[Storage] Original: ' + (file.size / 1024).toFixed(1) + 'KB -> Comprimido: ' + (compressed.size / 1024).toFixed(1) + 'KB');
                     resolve(compressed);
-                }, 'image/webp', STORAGE_CONFIG.quality);
+                }, 'image/webp', qual);
             };
             img.onerror = function() { reject(new Error('Error cargando imagen')); };
             img.src = e.target.result;
