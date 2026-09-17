@@ -601,7 +601,15 @@
     function toastOk(msg) { if (typeof window.showToast === 'function') window.showToast(msg, 'success'); }
     function toastErr(msg) { if (typeof window.showToast === 'function') window.showToast(msg, 'error'); }
 
-    async function uploadSpaceImage(file, folder) {
+    // kind: 'logo' (512px) | 'banner' (1600px) | 'announcement' (1200px)
+    // Comprime a WebP via storage-utils.compressImage antes de subir al bucket.
+    async function uploadSpaceImage(file, folder, kind) {
+        var maxW = kind === 'logo' ? 512 : (kind === 'banner' ? 1600 : 1200);
+        if (file && file.type && file.type.indexOf('image/') === 0 && window.compressImage) {
+            try {
+                file = await window.compressImage(file, { maxWidth: maxW, quality: 0.75 });
+            } catch(e) { console.warn('[Space] compresion fallo, subiendo original:', e); }
+        }
         var ext = ((file.name.split('.').pop() || 'png').toLowerCase()).replace(/[^a-z0-9]/g, '') || 'png';
         var path = folder + '/' + myAllianceId + '/' + Date.now() + '.' + ext;
         var up = await window.supabase.storage.from('public-assets').upload(path, file, { upsert: true, contentType: file.type });
@@ -665,8 +673,8 @@
             btn.disabled = true;
             var logoFile = document.getElementById('sp-logo-file').files[0];
             var bannerFile = document.getElementById('sp-banner-file').files[0];
-            if (logoFile) spaceProfile.logo_url = await uploadSpaceImage(logoFile, 'alliance-profiles');
-            if (bannerFile) spaceProfile.banner_url = await uploadSpaceImage(bannerFile, 'alliance-profiles');
+            if (logoFile) spaceProfile.logo_url = await uploadSpaceImage(logoFile, 'alliance-profiles', 'logo');
+            if (bannerFile) spaceProfile.banner_url = await uploadSpaceImage(bannerFile, 'alliance-profiles', 'banner');
             spaceProfile.welcome_text = document.getElementById('sp-welcome').value.trim() || null;
             spaceProfile.accent_color = document.getElementById('sp-accent').value;
             spaceProfile.community_links = collectLinks();
@@ -717,7 +725,7 @@
             btn.disabled = true;
             var imageFile = document.getElementById('an-image').files[0];
             var imageUrl = null;
-            if (imageFile) imageUrl = await uploadSpaceImage(imageFile, 'announcements');
+            if (imageFile) imageUrl = await uploadSpaceImage(imageFile, 'announcements', 'announcement');
             var days = parseInt(document.getElementById('an-duration').value) || 30;
             var expires = new Date(Date.now() + days * 86400000).toISOString();
             var res = await window.DB.from('allianceAnnouncements').insert({
