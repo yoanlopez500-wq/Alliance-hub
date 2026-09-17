@@ -1,6 +1,7 @@
-// Alliance Hub Service Worker - v16.11
+// Alliance Hub Service Worker - v16.12
 // Workbox-powered with automatic cache cleanup - v16.5 estable (sw-register v2, sin unregister)
 // v16.5: diagnóstico push (IndexedDB lastPush + GET_LAST_PUSH) y limpieza de cachés.
+// v16.12: fix base path en alliance.html y aviso-legal.html (knownPages) - enlaces del nav ya no dan 404.
 // v16.11: Compresion WebP de imagenes (logo/banner/anuncio) en Mi Espacio antes de subir a storage.
 // v16.10: Alianzas 2.0 (pagina publica alliance.html, Mi Espacio, tablon, push de anuncios).
 // v16.9: rankings ganan modo AH Power Score (kills x raiz KD) + panel de ayuda.
@@ -14,7 +15,7 @@ workbox.setConfig({ debug: false });
 workbox.precaching.precacheAndRoute([
   { url: 'assets/icons/icon-192x192.png', revision: '2' },
   { url: 'assets/icons/icon-512x512.png', revision: '2' },
-  { url: 'manifest.json', revision: '16.11' }
+  { url: 'manifest.json', revision: '16.12' }
 ]);
 
 // ===== HTML PAGES - Network First (ALWAYS fresh) =====
@@ -24,7 +25,7 @@ workbox.routing.registerRoute(
            url.pathname.endsWith('.html');
   },
   new workbox.strategies.NetworkFirst({
-    cacheName: 'ah-pages-v16.11',
+    cacheName: 'ah-pages-v16.12',
     plugins: [
       new workbox.expiration.ExpirationPlugin({
         maxEntries: 50,
@@ -43,7 +44,7 @@ workbox.routing.registerRoute(
     request.destination === 'script' || 
     request.destination === 'style',
   new workbox.strategies.NetworkFirst({
-    cacheName: 'ah-static-v16.11',
+    cacheName: 'ah-static-v16.12',
     networkTimeoutSeconds: 3,
     plugins: [
       new workbox.expiration.ExpirationPlugin({
@@ -61,7 +62,7 @@ workbox.routing.registerRoute(
 workbox.routing.registerRoute(
   ({ request }) => request.destination === 'image',
   new workbox.strategies.CacheFirst({
-    cacheName: 'ah-images-v16.11',
+    cacheName: 'ah-images-v16.12',
     plugins: [
       new workbox.expiration.ExpirationPlugin({
         maxEntries: 100,
@@ -75,7 +76,7 @@ workbox.routing.registerRoute(
 workbox.routing.registerRoute(
   ({ request }) => request.destination === 'font',
   new workbox.strategies.CacheFirst({
-    cacheName: 'ah-fonts-v16.11',
+    cacheName: 'ah-fonts-v16.12',
     plugins: [
       new workbox.expiration.ExpirationPlugin({
         maxEntries: 20,
@@ -98,7 +99,7 @@ workbox.routing.registerRoute(
     url.hostname.includes('cdn') ||
     url.hostname.includes('gstatic'),
   new workbox.strategies.NetworkFirst({
-    cacheName: 'ah-cdn-v16.11',
+    cacheName: 'ah-cdn-v16.12',
     plugins: [
       new workbox.expiration.ExpirationPlugin({
         maxEntries: 50,
@@ -129,7 +130,7 @@ self.addEventListener('install', function(event) {
     caches.keys().then(function(cacheNames) {
       return Promise.all(
         cacheNames.map(function(cacheName) {
-          if (!cacheName.includes('-v16.11')) {
+          if (!cacheName.includes('-v16.12')) {
             console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
