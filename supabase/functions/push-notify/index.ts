@@ -93,24 +93,90 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'unauthorized' }, 401)
   }
 
-  let body: { match_id?: string; event?: string; slot?: string; dry_run?: boolean }
+  let body: { match_id?: string; event?: string; slot?: string; announcement_id?: string; dry_run?: boolean }
   try {
     body = await req.json()
   } catch {
     return json({ error: 'invalid JSON body' }, 400)
   }
-  const { match_id, event, slot, dry_run } = body
+  const { match_id, event, slot, announcement_id, dry_run } = body
   if (!event) {
     return json({ error: 'event is required' }, 400)
   }
-  if (event !== 'new_match' && event !== 'status_change' && event !== 'batallon_reminder') {
-    return json({ error: 'event must be new_match, status_change or batallon_reminder' }, 400)
+  if (event !== 'new_match' && event !== 'status_change' && event !== 'batallon_reminder' && event !== 'alliance_announcement') {
+    return json({ error: 'unknown event' }, 400)
   }
-  if (event !== 'batallon_reminder' && !match_id) {
+  if (event !== 'batallon_reminder' && event !== 'alliance_announcement' && !match_id) {
     return json({ error: 'match_id and event are required' }, 400)
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey) // public schema (default)
+
+  // alliance_announcement: un lider/oficial publica en el tablon de su alianza
+  // (o AllianceHub publica un anuncio de plataforma con alliance_id NULL).
+  // Destinatarios: subs de ESA alianza; si alliance_id es NULL, todas las subs.
+  if (event === 'alliance_announcement') {
+    if (!announcement_id) return json({ error: 'announcement_id is required' }, 400)
+    const { data: ann, error: annErr } = await supabase
+      .from('alliance_announcements')
+      .select('id, alliance_id, title, body, expires_at')
+      .eq('id', announcement_id)
+      .maybeSingle()
+    if (annErr) return json({ error: `announcement query failed: ${annErr.message}` }, 500)
+    if (!ann) return json({ skipped: true, reason: 'announcement not found' })
+    if (new Date(ann.expires_at) <= new Date()) return json({ skipped: true, reason: 'expired' })
+
+    // Dedupe (mismo patron: log despues de enviar; se reutiliza push_notification_log
+    // con match_id = announcement_id)
+    if (!dry_run) {
+      const { data: already, error: logErr } = await supabase
+        .from('push_notification_log')
+        .select('subject_id')
+        .eq('subject_id', announcement_id)
+        .eq('event', 'alliance_announcement')
+        .maybeSingle()
+      if (logErr) return json({ error: `log check failed: ${logErr.message}` }, 500)
+      if (already) return json({ skipped: true, reason: 'already sent' })
+    }
+
+    let allianceName = 'Alliance Hub'
+    if (ann.alliance_id) {
+      const { data: al } = await supabase.from('alliances').select('name').eq('id', ann.alliance_id).maybeSingle()
+      if (al) allianceName = al.name
+    }
+
+    let subsQuery = supabase.from('push_subscriptions').select('endpoint, p256dh, auth, player_id, alliance_id')
+    if (ann.alliance_id) subsQuery = subsQuery.eq('alliance_id', ann.alliance_id)
+    const { data: subs, error: subErr } = await subsQuery
+    if (subErr) return json({ error: `subs query failed: ${subErr.message}` }, 500)
+    if (!subs || subs.length === 0) return json({ skipped: true, reason: 'no subscriptions' })
+    if (dry_run) return json({ dry_run: true, recipients: subs.length, event, announcement: ann.title })
+
+    const targetUrl = ann.alliance_id ? `/alliance.html?id=${ann.alliance_id}` : '/dashboard.html'
+    const payload = JSON.stringify({
+      title: `📢 ${allianceName}: ${ann.title}`,
+      body: (ann.body || '').slice(0, 120),
+      data: { url: targetUrl },
+      tag: `announcement-${announcement_id}`,
+    })
+
+    let sent = 0
+    let failed = 0
+    try {
+      const result = await sendToSubs(supabase, subs, payload)
+      sent = result.sent
+      failed = result.failed
+    } catch (e) {
+      return json({ error: (e as Error).message }, 500)
+    }
+
+    const { error: insErr } = await supabase
+      .from('push_notification_log')
+      .insert({ subject_id: announcement_id, event: 'alliance_announcement' })
+    if (insErr) return json({ error: `log insert failed: ${insErr.message}`, sent, failed }, 500)
+
+    return json({ sent, failed, recipients: subs.length })
+  }
 
   // batallon_reminder: recordatorios 2x/dia (slot morning|afternoon) a jugadores
   // NO inscritos en partidas batallon abiertas. match_id es opcional: si viene,
@@ -140,8 +206,8 @@ Deno.serve(async (req: Request) => {
       if (!dry_run) {
         const { data: already, error: logCheckErr } = await supabase
           .from('push_notification_log')
-          .select('match_id')
-          .eq('match_id', m.id)
+          .select('subject_id')
+          .eq('subject_id', m.id)
           .eq('event', logEvent)
           .maybeSingle()
         if (logCheckErr) {
@@ -189,7 +255,7 @@ Deno.serve(async (req: Request) => {
         if (sent > 0 || subs.length === 0) {
           await supabase
             .from('push_notification_log')
-            .insert({ match_id: m.id, event: logEvent })
+            .insert({ subject_id: m.id, event: logEvent })
             .then(({ error }) => {
               if (error && error.code !== '23505') console.error('log insert failed', error)
             })
@@ -217,8 +283,8 @@ Deno.serve(async (req: Request) => {
   if (!dry_run) {
     const { data: already, error: logCheckErr } = await supabase
       .from('push_notification_log')
-      .select('match_id')
-      .eq('match_id', match_id)
+      .select('subject_id')
+      .eq('subject_id', match_id)
       .eq('event', event)
       .maybeSingle()
     if (logCheckErr) return json({ error: `log check failed: ${logCheckErr.message}` }, 500)
@@ -304,7 +370,7 @@ Deno.serve(async (req: Request) => {
   if (!dry_run && (sent > 0 || subs.length === 0)) {
     await supabase
       .from('push_notification_log')
-      .insert({ match_id, event })
+      .insert({ subject_id: match_id, event })
       .then(({ error }) => {
         // 23505 = carrera concurrente, otro proceso ya lo marco: ignorar
         if (error && error.code !== '23505') console.error('log insert failed', error)
