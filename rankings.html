@@ -31,7 +31,19 @@
 </div>
 <div id="error-banner" class="hidden mb-4 p-3 rounded-lg text-sm font-bold bg-red-500/15 text-red-400"></div>
 <div id="players-ranking">
-<div class="flex gap-2 mb-4"><select id="filter-alliance" onchange="loadRankings()" class="px-3 py-2 rounded-lg text-sm border bg-ah-card text-ah-text border-indigo-900 min-h-[44px]"><option value="">Todas las alianzas</option></select><select id="sort-mode" onchange="onSortModeChange()" class="px-3 py-2 rounded-lg text-sm border bg-ah-card text-ah-text border-indigo-900 min-h-[44px]"><option value="score">Orden: KD ajustado</option><option value="eff">Orden: Kills validas</option><option value="games">Orden: Partidas</option><option value="avg">Orden: Kills por partida</option></select></div>
+<div class="flex gap-2 mb-4"><select id="filter-alliance" onchange="loadRankings()" class="px-3 py-2 rounded-lg text-sm border bg-ah-card text-ah-text border-indigo-900 min-h-[44px]"><option value="">Todas las alianzas</option></select><select id="sort-mode" onchange="onSortModeChange()" class="px-3 py-2 rounded-lg text-sm border bg-ah-card text-ah-text border-indigo-900 min-h-[44px]"><option value="score">Orden: KD ajustado</option><option value="power">Orden: AH Power Score</option><option value="eff">Orden: Kills validas</option><option value="games">Orden: Partidas</option><option value="avg">Orden: Kills por partida</option></select><button onclick="toggleRankingsHelp()" class="px-3 py-2 rounded-lg text-sm border bg-ah-card text-ah-muted hover:text-ah-text border-indigo-900 min-h-[44px] font-bold" title="Como funcionan los rankings">?</button></div>
+<div id="rankings-help" class="hidden mb-4 p-4 rounded-xl bg-slate-900 border border-indigo-900 text-sm">
+<h3 class="font-bold mb-2 text-ah-text">&#128202; Como funcionan los rankings</h3>
+<p class="text-ah-muted mb-3">Todos los modos usan las <b class="text-ah-text">kills validas</b> (kills totales menos anuladas y penalizaciones por strikes/sanciones). Cambiar el orden no cambia los datos, solo como se ordenan.</p>
+<ul class="space-y-2 text-ah-muted list-none">
+<li><b class="text-amber-400">KD ajustado</b> (por defecto): score Bayesiano con confianza C=3. Jugadores con pocas partidas se acercan al promedio global; con muchas partidas manda su KD real. Premia la eficiencia sin premiar la suerte de una sola partida buena.</li>
+<li><b class="text-amber-400">AH Power Score</b>: <span class="font-mono text-xs">kills validas x &radic;KD</span>. Combina volumen y eficiencia en un solo numero: matar mucho suma, pero el KD multiplica con raiz cuadrada (rendimiento decreciente), asi que ni el que solo spamea kills muriendo el doble ni el que campea con pocas kills dominan el ranking. Ideal para decidir quien "jugo mejor" en conjunto.</li>
+<li><b class="text-amber-400">Kills validas</b>: volumen puro. Quien ha matado mas en total, sin importar cuantas veces murio.</li>
+<li><b class="text-amber-400">Partidas</b>: actividad. Quien ha jugado mas partidas registradas.</li>
+<li><b class="text-amber-400">Kills por partida</b>: consistencia. Promedio de kills validas por partida jugada.</li>
+</ul>
+<p class="text-ah-muted mt-3 text-xs">Empates exactos se resuelven siempre igual: mas partidas &rarr; menos muertes &rarr; mas kills validas &rarr; orden alfabetico.</p>
+</div>
 <div class="overflow-x-auto rounded-xl bg-slate-900 border border-indigo-900">
 <table class="w-full text-sm min-w-full"><thead><tr class="bg-white/[0.02]"><th class="text-left p-3 text-ah-muted">#</th><th class="text-left p-3 text-ah-muted">Jugador</th><th class="text-left p-3 text-ah-muted">Alianza</th><th class="text-right p-3 text-ah-muted">Partidas</th><th class="text-right p-3 text-ah-muted">Bajas</th><th class="text-right p-3 text-ah-muted">Muertes</th><th class="text-right p-3 text-ah-muted">KD</th><th class="text-right p-3 text-ah-muted" title="Kills efectivas por partida jugada">K/P</th><th class="text-right p-3 text-ah-muted">&#9889;</th></tr></thead><tbody id="players-tbody"><tr><td colspan="9" class="text-center py-8 text-ah-muted">Cargando...</td></tr></tbody></table>
 </div></div>

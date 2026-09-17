@@ -142,10 +142,26 @@
      */
     var SORT_MODES = [
         { id: 'score', label: 'KD ajustado' },
+        { id: 'power', label: 'AH Power Score' },
         { id: 'eff', label: 'Kills validas' },
         { id: 'games', label: 'Partidas' },
         { id: 'avg', label: 'Kills por partida' }
     ];
+
+    /**
+     * AH Power Score: combina volumen y eficiencia en un solo numero.
+     *   power = kills_efectivas * sqrt(KD)
+     * donde KD = kills_efectivas / muertes (sin muertes -> KD = kills).
+     * La raiz cuadrada da rendimientos decrecientes a la eficiencia:
+     * pasar de KD 0.5 a 1.0 pesa mas que de 3 a 4, asi ni el volumen
+     * bruto ni el KD inflado dominan solos el ranking.
+     */
+    function powerScore(acc, p) {
+        var k = safeNum(acc.eff(p));
+        var d = safeNum(acc.deaths(p));
+        var kd = d > 0 ? k / d : k;
+        return k * Math.sqrt(kd);
+    }
 
     var SORT_STORAGE_KEY = 'ah_ranking_sort';
 
@@ -169,6 +185,13 @@
             return function(a, b) {
                 var d = avg(b) - avg(a);
                 return d !== 0 ? d : tiebreak(a, b);
+            };
+        }
+        if (modeId === 'power') {
+            return function(a, b) {
+                var s = powerScore(acc, b) - powerScore(acc, a);
+                if (isNaN(s)) s = 0;
+                return s !== 0 ? s : tiebreak(a, b);
             };
         }
         if (modeId === 'games') {
@@ -202,6 +225,7 @@
         compareMatchResults: compareMatchResults,
         SORT_MODES: SORT_MODES,
         compareBy: compareBy,
+        powerScore: powerScore,
         isValidSortMode: isValidSortMode,
         getSavedSortMode: getSavedSortMode,
         saveSortMode: saveSortMode

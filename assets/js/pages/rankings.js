@@ -389,6 +389,12 @@
         });
     };
 
+    // Panel de ayuda "Como funcionan los rankings" (boton ? junto al selector)
+    window.toggleRankingsHelp = function() {
+        var el = document.getElementById('rankings-help');
+        if (el) el.classList.toggle('hidden');
+    };
+
     // Exponer loadRankings para el filtro de alianza
     window.loadRankings = loadRankings;
     // Exponer onSortModeChange para el selector de modo de ordenacion
