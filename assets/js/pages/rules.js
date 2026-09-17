@@ -38,7 +38,7 @@
     // Cargar reglas del reglamento (jerarquia: padres -> subsecciones)
     async function loadRules() {
         try {
-            var { data, error } = await window.supabase.from('rule_sections').select('*').order('order_index');
+            var { data, error } = await window.supabase.from('rule_sections').select('*').is('alliance_id', null).order('order_index');
             if (error) throw error;
             sectionsData = (data || []).filter(canShowSection);
             sectionsData.sort(compareSectionNumber);

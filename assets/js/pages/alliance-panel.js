@@ -44,7 +44,7 @@
 
     async function loadAllianceHeader(alliance) {
         if (!alliance) return;
-        document.getElementById('alliance-header').innerHTML = '<div class="rounded-2xl p-8 text-center" style="background:#11183a;border:1px solid #1a237e;"><div class="text-5xl mb-4">&#127988;</div><h1 class="text-3xl font-bold">' + alliance.name + '</h1><p class="mt-2" style="color:#9fa8da;">[' + alliance.tag + '] ' + (alliance.description || '') + '</p></div>';
+        document.getElementById('alliance-header').innerHTML = '<div class="rounded-2xl p-8 text-center" style="background:#11183a;border:1px solid #1a237e;"><div class="text-5xl mb-4">&#127988;</div><h1 class="text-3xl font-bold">' + alliance.name + '</h1><p class="mt-2" style="color:#9fa8da;">[' + alliance.tag + '] ' + (alliance.description || '') + '</p><a href="alliance.html?id=' + alliance.id + '" class="inline-block mt-3 px-4 py-2 rounded-lg text-sm font-bold" style="background:rgba(255,143,0,0.15);color:#ff8f00;border:1px solid rgba(255,143,0,0.3);">Ver pagina de la alianza &nearr;</a></div>';
     }
 
     async function loadAlliancesToJoin() {

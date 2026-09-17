@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e27">
+<link rel="manifest" href="manifest.json">
+<title>Alianza - Alliance Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="assets/css/theme.css">
+<script src="assets/js/cache-buster.js"></script>
+<script src="assets/js/loader.js"></script>
+<script>AHLoader.init({ role: 'public', pageScript: 'assets/js/pages/alliance.js' });</script>
+<style>
+  details summary::-webkit-details-marker { display: none; }
+  details[open] .chev { transform: rotate(90deg); }
+</style>
+</head>
+<body class="bg-ah-bg min-h-screen text-ah-text" data-role="public">
+<div id="admin-nav"></div>
+
+<!-- HERO (banner + logo + nombre + links de comunidad) -->
+<div id="alliance-hero"><div class="text-center py-16 text-ah-muted">Cargando alianza...</div></div>
+
+<div class="max-w-4xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- TABLON DE ANUNCIOS -->
+  <section id="announcements-section" class="hidden">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-bold">&#128226; Tablon de Anuncios</h2>
+      <span class="text-xs text-ah-muted">Publicado por el liderazgo</span>
+    </div>
+    <div id="announcements-list" class="space-y-3"></div>
+  </section>
+
+  <!-- REGLAMENTO DE LA ALIANZA -->
+  <section id="alliance-rules-section" class="hidden rounded-xl p-4 bg-ah-card border border-indigo-900">
+    <h2 class="text-lg font-bold mb-1">&#128220; Reglamento de la Alianza</h2>
+    <p class="text-xs text-ah-muted mb-3">Reglas propias de esta comunidad. Las partidas de la liga Alliance Hub se rigen por el <a href="rules.html" class="text-ah-accent underline">Reglamento de Alliance Hub</a>.</p>
+    <div id="alliance-rules-list" class="space-y-2"></div>
+  </section>
+
+  <!-- PARTIDAS + MIEMBROS -->
+  <div class="grid md:grid-cols-2 gap-6">
+    <section class="rounded-xl p-4 bg-ah-card border border-indigo-900">
+      <h2 class="text-lg font-bold mb-3">&#9876;&#65039; Partidas</h2>
+      <div id="alliance-matches" class="space-y-2"><div class="text-center py-4 text-ah-muted text-sm">Cargando...</div></div>
+    </section>
+    <section class="rounded-xl p-4 bg-ah-card border border-indigo-900">
+      <h2 class="text-lg font-bold mb-3">&#128101; Miembros <span id="member-count" class="text-sm text-ah-muted font-normal"></span></h2>
+      <div id="alliance-members" class="grid grid-cols-3 gap-2"><div class="text-center py-4 col-span-full text-ah-muted text-sm">Cargando...</div></div>
+    </section>
+  </div>
+
+</div>
+</body>
+</html>

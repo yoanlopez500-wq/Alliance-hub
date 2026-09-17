@@ -181,10 +181,31 @@
                 description: 'description',
                 leaderId: 'leader_id',
                 status: 'status',
+                profile: 'profile',
                 createdAt: 'created_at'
             },
             selectSets: {
                 basic: 'id, name, tag, description, leader_id, status',
+                withProfile: 'id, name, tag, description, leader_id, status, profile',
+                all: '*'
+            }
+        },
+        allianceAnnouncements: {
+            name: 'alliance_announcements',
+            view: 'public_alliance_announcements_view',
+            cols: {
+                id: 'id',
+                allianceId: 'alliance_id',
+                title: 'title',
+                body: 'body',
+                imageUrl: 'image_url',
+                isPinned: 'is_pinned',
+                createdBy: 'created_by',
+                expiresAt: 'expires_at',
+                createdAt: 'created_at'
+            },
+            selectSets: {
+                public: 'id, alliance_id, title, body, image_url, is_pinned, created_at, expires_at',
                 all: '*'
             }
         },

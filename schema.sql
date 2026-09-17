@@ -27,9 +27,28 @@
 
 -- alliances
 --   id uuid PK, name text NOT NULL, tag text NOT NULL, description text,
---   leader_id bigint, status text, created_at timestamptz
--- RLS: SELECT public | INSERT/UPDATE/DELETE admin activo
+--   leader_id bigint, status text, created_at timestamptz,
+--   profile jsonb NOT NULL DEFAULT '{}' -- Alianzas 2.0: {logo_url, banner_url,
+--     accent_color, welcome_text, community_links:[{type,label,url}]}
+-- RLS: SELECT public | INSERT/DELETE admin activo | UPDATE admin activo
+--   + alliances_update_own_profile (lider/admin vinculado actualiza SU alianza)
 -- TRIGGER: trg_sanitize_alliances (anti-XSS en name/tag)
+
+-- alliance_announcements (Alianzas 2.0): tablon de anuncios por alianza
+--   id uuid PK, alliance_id uuid NULL (-> alliances, NULL = anuncio oficial
+--   AllianceHub), title text NOT NULL, body text, image_url text,
+--   is_pinned bool NOT NULL DEFAULT false, created_by bigint,
+--   expires_at timestamptz NOT NULL DEFAULT now()+1 mes, created_at timestamptz
+-- RLS: SELECT/INSERT/UPDATE/DELETE public (validacion lider/oficial a nivel app,
+--   mismo patron que alliance_memberships; admin puede borrar cualquiera)
+-- VISTA: public_alliance_announcements_view (solo vigentes: expires_at > now())
+-- TRIGGER: trg_alliance_announcement_push -> notify_alliance_announcement()
+--   (pg_net POST a push-notify con event alliance_announcement)
+-- STORAGE: subida publica de imagenes solo en public-assets/announcements/
+
+-- rule_sections (Alianzas 2.0): + alliance_id uuid NULL (-> alliances)
+--   NULL = reglamento global de la liga AllianceHub (intacto);
+--   con valor = reglamento propio de esa alianza (independiente, puede diferir)
 
 -- alliance_leader_requests: solicitudes publicas de liderazgo
 --   id uuid PK, player_id bigint NOT NULL, display_name text NOT NULL,

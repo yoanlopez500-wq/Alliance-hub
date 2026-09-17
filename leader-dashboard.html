@@ -36,6 +36,7 @@
 <button id="tab-rankings" class="pb-3 text-sm font-medium whitespace-nowrap transition border-b-2 border-transparent text-ah-muted">&#127942; Rankings</button>
 <button id="tab-duels" class="pb-3 text-sm font-medium whitespace-nowrap transition border-b-2 border-transparent text-ah-muted">&#9876;&#65039; Duelos</button>
 <button id="tab-matches" class="pb-3 text-sm font-medium whitespace-nowrap transition border-b-2 border-transparent text-ah-muted">&#127918; Partidas</button>
+<button id="tab-space" class="pb-3 text-sm font-medium whitespace-nowrap transition border-b-2 border-transparent text-ah-muted">&#128736;&#65039; Mi Espacio</button>
 </div>
 <div id="panel-members" class="fade-in">
 <div class="grid gap-3" id="members-list"><div class="text-center py-8 text-ah-muted">Cargando miembros...</div></div>
@@ -52,6 +53,83 @@
 </div>
 <div id="panel-matches" class="hidden fade-in">
 <div id="matches-list"><div class="text-center py-8 text-ah-muted">Cargando partidas...</div></div>
+</div>
+<div id="panel-space" class="hidden fade-in space-y-6">
+
+<!-- Apariencia y comunidad -->
+<div class="rounded-xl p-5 bg-ah-card border border-indigo-900">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-lg font-bold">&#127912; Apariencia y Comunidad</h2>
+<a id="space-view-page" href="#" target="_blank" rel="noopener" class="text-sm font-bold text-ah-accent">Ver mi pagina &nearr;</a>
+</div>
+<div class="grid md:grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-medium mb-1 text-ah-muted">Descripcion</label>
+<textarea id="sp-desc" rows="2" class="w-full px-3 py-2 rounded-lg text-sm ah-input" placeholder="Quienes son, que buscan..."></textarea>
+</div>
+<div>
+<label class="block text-xs font-medium mb-1 text-ah-muted">Frase de bienvenida</label>
+<input type="text" id="sp-welcome" maxlength="120" class="w-full px-3 py-2 rounded-lg text-sm ah-input" placeholder="Ej: Disciplina, coordinacion y fuego a discrecion">
+</div>
+<div>
+<label class="block text-xs font-medium mb-1 text-ah-muted">Color de acento</label>
+<div class="flex items-center gap-2"><input type="color" id="sp-accent" value="#ff8f00" class="w-12 h-10 rounded cursor-pointer bg-transparent border border-indigo-900"><span class="text-xs text-ah-muted">Se usa en el banner y detalles de tu pagina</span></div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block text-xs font-medium mb-1 text-ah-muted">Logo</label>
+<input type="file" id="sp-logo-file" accept="image/*" class="w-full text-xs text-ah-muted file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-900 file:text-white">
+</div>
+<div>
+<label class="block text-xs font-medium mb-1 text-ah-muted">Banner (portada)</label>
+<input type="file" id="sp-banner-file" accept="image/*" class="w-full text-xs text-ah-muted file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-900 file:text-white">
+</div>
+</div>
+</div>
+<div class="mt-4">
+<label class="block text-xs font-medium mb-2 text-ah-muted">Links de comunidad (hasta 4)</label>
+<div id="sp-links" class="space-y-2"></div>
+<button type="button" id="sp-add-link" class="mt-2 px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-900 bg-white/5 text-ah-text">+ Añadir link</button>
+</div>
+<div class="mt-4 flex justify-end">
+<button type="button" id="sp-save-profile" class="px-5 py-2.5 rounded-lg text-sm font-bold min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#128190; Guardar apariencia</button>
+</div>
+</div>
+
+<!-- Tablon de anuncios -->
+<div class="rounded-xl p-5 bg-ah-card border border-indigo-900">
+<h2 class="text-lg font-bold mb-1">&#128226; Tablon de Anuncios</h2>
+<p class="text-xs text-ah-muted mb-4">Al publicar, tus miembros reciben una notificacion push. Los anuncios expiran solos (por defecto en 1 mes).</p>
+<div class="space-y-3 mb-4">
+<input type="text" id="an-title" maxlength="120" class="w-full px-3 py-2 rounded-lg text-sm ah-input" placeholder="Titulo del anuncio *">
+<textarea id="an-body" rows="3" class="w-full px-3 py-2 rounded-lg text-sm ah-input" placeholder="Texto del anuncio (opcional)"></textarea>
+<div class="flex flex-wrap items-center gap-3">
+<input type="file" id="an-image" accept="image/*" class="text-xs text-ah-muted file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-900 file:text-white">
+<select id="an-duration" class="px-3 py-2 rounded-lg text-sm border bg-ah-card text-ah-text border-indigo-900 min-h-[44px]">
+<option value="1">Visible 1 dia</option>
+<option value="3">Visible 3 dias</option>
+<option value="7">Visible 1 semana</option>
+<option value="30" selected>Visible 1 mes (por defecto)</option>
+</select>
+<label class="flex items-center gap-2 text-sm text-ah-text"><input type="checkbox" id="an-pinned" class="w-4 h-4 rounded border-ah-border bg-ah-card text-amber-500"> Fijar arriba</label>
+<button type="button" id="an-publish" class="px-5 py-2.5 rounded-lg text-sm font-bold min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">&#128226; Publicar</button>
+</div>
+</div>
+<div id="an-list" class="space-y-2"><div class="text-center py-4 text-ah-muted text-sm">Cargando anuncios...</div></div>
+</div>
+
+<!-- Reglamento de la alianza -->
+<div class="rounded-xl p-5 bg-ah-card border border-indigo-900">
+<h2 class="text-lg font-bold mb-1">&#128220; Reglamento de tu Alianza</h2>
+<p class="text-xs text-ah-muted mb-4">Reglas propias de tu comunidad. Son independientes del reglamento de la liga Alliance Hub.</p>
+<div class="space-y-3 mb-4">
+<input type="text" id="rl-title" maxlength="120" class="w-full px-3 py-2 rounded-lg text-sm ah-input" placeholder="Titulo de la regla *">
+<textarea id="rl-content" rows="2" class="w-full px-3 py-2 rounded-lg text-sm ah-input" placeholder="Contenido de la regla"></textarea>
+<button type="button" id="rl-add" class="px-5 py-2.5 rounded-lg text-sm font-bold min-h-[44px] bg-gradient-to-r from-orange-600 to-amber-500 text-white">+ Añadir regla</button>
+</div>
+<div id="rl-list" class="space-y-2"><div class="text-center py-4 text-ah-muted text-sm">Cargando reglamento...</div></div>
+</div>
+
 </div>
 </div>
 

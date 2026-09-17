@@ -451,7 +451,7 @@
     }
 
     function bindTabs() {
-        var tabs = ['members', 'requests', 'rankings', 'duels', 'matches'];
+        var tabs = ['members', 'requests', 'rankings', 'duels', 'matches', 'space'];
         tabs.forEach(function(tab) {
             var btn = document.getElementById('tab-' + tab);
             if (btn) btn.addEventListener('click', function() { switchTab(tab); });
@@ -551,7 +551,7 @@
     }
 
     window.switchTab = function(tab) {
-        var tabs = ['members', 'requests', 'rankings', 'duels', 'matches'];
+        var tabs = ['members', 'requests', 'rankings', 'duels', 'matches', 'space'];
         tabs.forEach(function(t) {
             var panel = document.getElementById('panel-' + t);
             var btn = document.getElementById('tab-' + t);
@@ -574,13 +574,260 @@
         if (tab === 'duels') loadDuels();
         if (tab === 'matches') loadAllianceMatches();
         if (tab === 'requests') loadPendingRequests();
+        if (tab === 'space') loadSpace();
     };
 
     function activateTabFromQuery() {
         var tab = new URLSearchParams(window.location.search).get('tab');
-        if (tab && ['members', 'requests', 'rankings', 'duels', 'matches'].indexOf(tab) !== -1) {
+        if (tab && ['members', 'requests', 'rankings', 'duels', 'matches', 'space'].indexOf(tab) !== -1) {
             switchTab(tab);
         }
+    }
+
+    // ===================== MI ESPACIO (Alianzas 2.0) =====================
+    // Personalizacion de la pagina publica de la alianza (alliance.html):
+    // apariencia (profile jsonb), links de comunidad, tablon de anuncios
+    // (alliance_announcements, expiran solos) y reglamento propio
+    // (rule_sections con alliance_id). Todo scope a myAllianceId.
+    var spaceLoaded = false;
+    var spaceProfile = {};
+    var LINK_TYPES = [
+        { id: 'whatsapp', label: 'WhatsApp' },
+        { id: 'discord', label: 'Discord' },
+        { id: 'telegram', label: 'Telegram' },
+        { id: 'web', label: 'Web' }
+    ];
+
+    function toastOk(msg) { if (typeof window.showToast === 'function') window.showToast(msg, 'success'); }
+    function toastErr(msg) { if (typeof window.showToast === 'function') window.showToast(msg, 'error'); }
+
+    async function uploadSpaceImage(file, folder) {
+        var ext = ((file.name.split('.').pop() || 'png').toLowerCase()).replace(/[^a-z0-9]/g, '') || 'png';
+        var path = folder + '/' + myAllianceId + '/' + Date.now() + '.' + ext;
+        var up = await window.supabase.storage.from('public-assets').upload(path, file, { upsert: true, contentType: file.type });
+        if (up.error) throw up.error;
+        return window.supabase.storage.from('public-assets').getPublicUrl(path).data.publicUrl;
+    }
+
+    async function loadSpace() {
+        if (spaceLoaded || !myAllianceId) return;
+        spaceLoaded = true;
+        var viewLink = document.getElementById('space-view-page');
+        if (viewLink) viewLink.href = 'alliance.html?id=' + myAllianceId;
+        try {
+            var res = await window.DB.from('alliances').select(window.DB.select('alliances', 'withProfile')).eq('id', myAllianceId).single();
+            if (res.error) throw res.error;
+            var a = res.data;
+            spaceProfile = a.profile || {};
+            document.getElementById('sp-desc').value = a.description || '';
+            document.getElementById('sp-welcome').value = spaceProfile.welcome_text || '';
+            document.getElementById('sp-accent').value = /^#[0-9a-f]{6}$/i.test(spaceProfile.accent_color || '') ? spaceProfile.accent_color : '#ff8f00';
+            renderLinkRows(Array.isArray(spaceProfile.community_links) ? spaceProfile.community_links : []);
+        } catch(e) { console.error('[Space] perfil:', e); toastErr('Error cargando espacio: ' + e.message); }
+        bindSpaceButtons();
+        loadAnnouncementsAdmin();
+        loadAllianceRulesAdmin();
+    }
+
+    // ---- Links de comunidad ----
+    function renderLinkRows(links) {
+        var c = document.getElementById('sp-links');
+        if (!c) return;
+        c.innerHTML = links.map(function(l, i) {
+            var opts = LINK_TYPES.map(function(t) { return '<option value="' + t.id + '"' + (l.type === t.id ? ' selected' : '') + '>' + t.label + '</option>'; }).join('');
+            return '<div class="flex gap-2 items-center" data-link-row="' + i + '">' +
+                '<select class="sp-link-type px-2 py-2 rounded-lg text-sm border bg-ah-card text-ah-text border-indigo-900">' + opts + '</select>' +
+                '<input type="text" class="sp-link-label px-2 py-2 rounded-lg text-sm ah-input w-28" placeholder="Etiqueta" maxlength="24" value="' + escapeHtml(l.label || '') + '">' +
+                '<input type="url" class="sp-link-url flex-1 px-2 py-2 rounded-lg text-sm ah-input" placeholder="https://..." value="' + escapeHtml(l.url || '') + '">' +
+                '<button type="button" class="sp-link-del px-2 py-2 rounded-lg text-xs font-bold bg-red-500/15 text-red-400 border border-red-500/30">X</button>' +
+                '</div>';
+        }).join('');
+        c.querySelectorAll('.sp-link-del').forEach(function(btn) {
+            btn.addEventListener('click', function() { btn.parentElement.remove(); });
+        });
+    }
+
+    function collectLinks() {
+        var rows = document.querySelectorAll('#sp-links [data-link-row]');
+        var out = [];
+        rows.forEach(function(r) {
+            var type = r.querySelector('.sp-link-type').value;
+            var label = r.querySelector('.sp-link-label').value.trim();
+            var url = r.querySelector('.sp-link-url').value.trim();
+            if (url && /^https:\/\//i.test(url)) out.push({ type: type, label: label || null, url: url });
+        });
+        return out.slice(0, 4);
+    }
+
+    async function saveSpaceProfile() {
+        try {
+            var btn = document.getElementById('sp-save-profile');
+            btn.disabled = true;
+            var logoFile = document.getElementById('sp-logo-file').files[0];
+            var bannerFile = document.getElementById('sp-banner-file').files[0];
+            if (logoFile) spaceProfile.logo_url = await uploadSpaceImage(logoFile, 'alliance-profiles');
+            if (bannerFile) spaceProfile.banner_url = await uploadSpaceImage(bannerFile, 'alliance-profiles');
+            spaceProfile.welcome_text = document.getElementById('sp-welcome').value.trim() || null;
+            spaceProfile.accent_color = document.getElementById('sp-accent').value;
+            spaceProfile.community_links = collectLinks();
+            var res = await window.DB.from('alliances').update({
+                description: document.getElementById('sp-desc').value.trim() || null,
+                profile: spaceProfile
+            }).eq('id', myAllianceId);
+            if (res.error) throw res.error;
+            toastOk('Espacio guardado');
+        } catch(e) { console.error('[Space] guardar:', e); toastErr('Error: ' + (e.message || e)); }
+        var btn2 = document.getElementById('sp-save-profile');
+        if (btn2) btn2.disabled = false;
+    }
+
+    // ---- Tablon de anuncios (gestion) ----
+    async function loadAnnouncementsAdmin() {
+        var c = document.getElementById('an-list');
+        try {
+            var res = await window.DB.from('allianceAnnouncements').select('*')
+                .eq('alliance_id', myAllianceId)
+                .order('is_pinned', { ascending: false })
+                .order('created_at', { ascending: false })
+                .limit(50);
+            if (res.error) throw res.error;
+            var list = res.data || [];
+            if (list.length === 0) { c.innerHTML = '<div class="text-center py-4 text-ah-muted text-sm">Sin anuncios aun</div>'; return; }
+            c.innerHTML = list.map(function(n) {
+                var expired = new Date(n.expires_at) < new Date();
+                return '<div class="flex items-center gap-3 rounded-lg p-3 bg-white/[0.03] border border-indigo-900">' +
+                    '<div class="flex-1 min-w-0">' +
+                    '<div class="flex items-center gap-2 flex-wrap">' +
+                    (n.is_pinned ? '<span class="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/15 text-amber-400">FIJADO</span>' : '') +
+                    (expired ? '<span class="text-[10px] px-2 py-0.5 rounded font-bold bg-red-500/15 text-red-400">EXPIRADO</span>' : '') +
+                    '<span class="font-bold text-sm truncate">' + escapeHtml(n.title) + '</span></div>' +
+                    '<div class="text-xs text-ah-muted">Expira: ' + new Date(n.expires_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) + '</div>' +
+                    '</div>' +
+                    '<button type="button" onclick="deleteAnnouncement(\'' + n.id + '\')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/15 text-red-400 border border-red-500/30 shrink-0">Borrar</button>' +
+                    '</div>';
+            }).join('');
+        } catch(e) { console.error('[Space] anuncios:', e); if (c) c.innerHTML = '<div class="text-center py-4 text-red-400 text-sm">Error cargando anuncios</div>'; }
+    }
+
+    async function publishAnnouncement() {
+        var title = document.getElementById('an-title').value.trim();
+        if (!title) { toastErr('El titulo es obligatorio'); return; }
+        try {
+            var btn = document.getElementById('an-publish');
+            btn.disabled = true;
+            var imageFile = document.getElementById('an-image').files[0];
+            var imageUrl = null;
+            if (imageFile) imageUrl = await uploadSpaceImage(imageFile, 'announcements');
+            var days = parseInt(document.getElementById('an-duration').value) || 30;
+            var expires = new Date(Date.now() + days * 86400000).toISOString();
+            var res = await window.DB.from('allianceAnnouncements').insert({
+                alliance_id: myAllianceId,
+                title: title,
+                body: document.getElementById('an-body').value.trim() || null,
+                image_url: imageUrl,
+                is_pinned: document.getElementById('an-pinned').checked,
+                expires_at: expires
+            });
+            if (res.error) throw res.error;
+            toastOk('Anuncio publicado');
+            document.getElementById('an-title').value = '';
+            document.getElementById('an-body').value = '';
+            document.getElementById('an-image').value = '';
+            document.getElementById('an-pinned').checked = false;
+            loadAnnouncementsAdmin();
+        } catch(e) { console.error('[Space] publicar:', e); toastErr('Error: ' + (e.message || e)); }
+        var btn2 = document.getElementById('an-publish');
+        if (btn2) btn2.disabled = false;
+    }
+
+    window.deleteAnnouncement = async function(id) {
+        if (!confirm('Borrar este anuncio?')) return;
+        try {
+            var res = await window.DB.from('allianceAnnouncements').delete().eq('id', id).eq('alliance_id', myAllianceId);
+            if (res.error) throw res.error;
+            toastOk('Anuncio borrado');
+            loadAnnouncementsAdmin();
+        } catch(e) { toastErr('Error: ' + (e.message || e)); }
+    };
+
+    // ---- Reglamento de la alianza (gestion) ----
+    async function loadAllianceRulesAdmin() {
+        var c = document.getElementById('rl-list');
+        try {
+            var res = await window.supabase.from('rule_sections')
+                .select('id, title, content, order_index')
+                .eq('alliance_id', myAllianceId)
+                .eq('is_active', true)
+                .order('order_index');
+            if (res.error) throw res.error;
+            var list = res.data || [];
+            if (list.length === 0) { c.innerHTML = '<div class="text-center py-4 text-ah-muted text-sm">Sin reglas propias aun</div>'; return; }
+            c.innerHTML = list.map(function(r, i) {
+                return '<div class="flex items-center gap-3 rounded-lg p-3 bg-white/[0.03] border border-indigo-900">' +
+                    '<span class="text-ah-accent font-bold text-sm shrink-0">' + (i + 1) + '.</span>' +
+                    '<div class="flex-1 min-w-0"><div class="font-bold text-sm">' + escapeHtml(r.title) + '</div>' +
+                    (r.content ? '<div class="text-xs text-ah-muted truncate">' + escapeHtml(r.content) + '</div>' : '') + '</div>' +
+                    '<button type="button" onclick="deleteAllianceRule(\'' + r.id + '\')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/15 text-red-400 border border-red-500/30 shrink-0">Borrar</button>' +
+                    '</div>';
+            }).join('');
+        } catch(e) { console.error('[Space] reglas:', e); if (c) c.innerHTML = '<div class="text-center py-4 text-red-400 text-sm">Error cargando reglamento</div>'; }
+    }
+
+    async function addAllianceRule() {
+        var title = document.getElementById('rl-title').value.trim();
+        if (!title) { toastErr('El titulo de la regla es obligatorio'); return; }
+        try {
+            var existing = await window.supabase.from('rule_sections').select('order_index').eq('alliance_id', myAllianceId).order('order_index', { ascending: false }).limit(1);
+            var nextOrder = (existing.data && existing.data[0] ? existing.data[0].order_index : 0) + 1;
+            var res = await window.supabase.from('rule_sections').insert({
+                alliance_id: myAllianceId,
+                title: title,
+                content: document.getElementById('rl-content').value.trim() || null,
+                section_number: String(nextOrder),
+                order_index: nextOrder,
+                is_active: true,
+                visibility: 'public'
+            });
+            if (res.error) throw res.error;
+            toastOk('Regla añadida');
+            document.getElementById('rl-title').value = '';
+            document.getElementById('rl-content').value = '';
+            loadAllianceRulesAdmin();
+        } catch(e) { console.error('[Space] add regla:', e); toastErr('Error: ' + (e.message || e)); }
+    }
+
+    window.deleteAllianceRule = async function(id) {
+        if (!confirm('Borrar esta regla?')) return;
+        try {
+            var res = await window.supabase.from('rule_sections').delete().eq('id', id).eq('alliance_id', myAllianceId);
+            if (res.error) throw res.error;
+            toastOk('Regla borrada');
+            loadAllianceRulesAdmin();
+        } catch(e) { toastErr('Error: ' + (e.message || e)); }
+    };
+
+    var spaceBound = false;
+    function bindSpaceButtons() {
+        if (spaceBound) return;
+        spaceBound = true;
+        var saveBtn = document.getElementById('sp-save-profile');
+        if (saveBtn) saveBtn.addEventListener('click', saveSpaceProfile);
+        var addLink = document.getElementById('sp-add-link');
+        if (addLink) addLink.addEventListener('click', function() {
+            var current = document.querySelectorAll('#sp-links [data-link-row]').length;
+            if (current >= 4) { toastErr('Maximo 4 links'); return; }
+            var c = document.getElementById('sp-links');
+            var links = [];
+            c.querySelectorAll('[data-link-row]').forEach(function(r) {
+                links.push({ type: r.querySelector('.sp-link-type').value, label: r.querySelector('.sp-link-label').value, url: r.querySelector('.sp-link-url').value });
+            });
+            links.push({ type: 'whatsapp', label: '', url: '' });
+            renderLinkRows(links);
+        });
+        var pubBtn = document.getElementById('an-publish');
+        if (pubBtn) pubBtn.addEventListener('click', publishAnnouncement);
+        var rlBtn = document.getElementById('rl-add');
+        if (rlBtn) rlBtn.addEventListener('click', addAllianceRule);
     }
 
     // Exponer funciones globales necesarias
