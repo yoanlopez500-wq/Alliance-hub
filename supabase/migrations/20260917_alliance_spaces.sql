@@ -57,6 +57,12 @@ SELECT id, alliance_id, title, body, image_url, is_pinned, created_at, expires_a
 FROM alliance_announcements
 WHERE expires_at > now();
 
+-- GRANTs explicitos (obligatorios desde 30-oct-2026: Supabase ya no otorga
+-- acceso API automatico a tablas nuevas del esquema public). En produccion ya
+-- existen (tabla creada antes del cambio); estos garantizan entornos nuevos/reset.
+grant select, insert, update, delete on public.alliance_announcements to anon, authenticated, service_role;
+grant select on public.public_alliance_announcements_view to anon, authenticated, service_role;
+
 -- 4) Imagenes del tablon: subida publica SOLO dentro de announcements/ en public-assets
 --    (mismo patron que report_evidence_public_upload)
 CREATE POLICY announcements_image_upload ON storage.objects
