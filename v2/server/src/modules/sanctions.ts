@@ -36,7 +36,7 @@ export default async function sanctionsRoutes(app: FastifyInstance) {
     }
     const { data, error } = await supabase
       .from('strike_types')
-      .select('id, name, description, severity_default, alliance_id')
+      .select('id, code, name, description, severity, is_ban, alliance_id')
       .or(`alliance_id.is.null,alliance_id.eq.${allianceId}`)
       .order('name');
     if (error) return reply.code(500).send({ error: error.message });
@@ -46,15 +46,20 @@ export default async function sanctionsRoutes(app: FastifyInstance) {
   // Crear tipo de falta propio de la alianza
   app.post('/api/alliances/:allianceId/strike-types', async (req, reply) => {
     const { allianceId } = req.params as { allianceId: string };
-    const { name, description, severity } = req.body as { name?: string; description?: string; severity?: string };
+    const { code, name, description, severity } = req.body as { code?: string; name?: string; description?: string; severity?: string };
     if (!name) return reply.code(400).send({ error: 'name es obligatorio' });
     const viewer = await resolveViewer(req);
     if (!(await canManageAlliance(viewer, allianceId))) {
       return reply.code(403).send({ error: 'requiere lider u oficial de la alianza' });
     }
+    const createdBy = viewer!.kind === 'admin' ? viewer!.userId : null;
     const { data, error } = await supabase
       .from('strike_types')
-      .insert({ name, description: description ?? null, severity_default: severity ?? null, alliance_id: allianceId })
+      .insert({
+        code: code ?? name.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40),
+        name, description: description ?? null, severity: severity ?? 'warning',
+        is_preset: false, alliance_id: allianceId, created_by: createdBy,
+      })
       .select()
       .single();
     if (error) return reply.code(500).send({ error: error.message });
@@ -64,8 +69,8 @@ export default async function sanctionsRoutes(app: FastifyInstance) {
   // Poner un strike (de alianza) a un miembro
   app.post('/api/alliances/:allianceId/strikes', async (req, reply) => {
     const { allianceId } = req.params as { allianceId: string };
-    const { playerId, strikeTypeId, reason, severity } = req.body as {
-      playerId?: number; strikeTypeId?: number; reason?: string; severity?: string;
+    const { playerId, strikeTypeId, reason, notes } = req.body as {
+      playerId?: number; strikeTypeId?: number; reason?: string; notes?: string;
     };
     if (!playerId || !reason) return reply.code(400).send({ error: 'playerId y reason son obligatorios' });
 
@@ -90,16 +95,17 @@ export default async function sanctionsRoutes(app: FastifyInstance) {
       }
     }
 
-    const createdBy = viewer!.kind === 'admin' ? viewer!.userId : null;
+    const appliedBy = viewer!.kind === 'admin' ? viewer!.userId : null;
     const { data, error } = await supabase
       .from('player_strikes')
       .insert({
         player_id: playerId,
         strike_type_id: strikeTypeId ?? null,
         reason,
-        severity: severity ?? 'warning',
+        notes: notes ?? null,
         alliance_id: allianceId,
-        created_by: createdBy,
+        applied_by: appliedBy,
+        is_active: true,
       })
       .select()
       .single();

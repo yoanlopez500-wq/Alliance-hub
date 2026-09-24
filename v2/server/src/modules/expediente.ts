@@ -41,39 +41,39 @@ export default async function expedienteRoutes(app: FastifyInstance) {
     }
     const staffCtx = viewerAlliance ? await canManageAlliance(viewer, viewerAlliance) : false;
 
-    const [matches, strikesRes, allianceInfo] = await Promise.all([
+    const [results, strikesRes, allianceInfo] = await Promise.all([
       supabase
-        .from('match_registrations')
-        .select('match_id, kills, deaths, matches!inner(id, name, match_type, status)')
+        .from('match_results')
+        .select('kills, deaths, matches!inner(id, name, match_type, status)')
         .eq('player_id', playerId),
       // Strikes: globales siempre; de la alianza del viewer solo si es su staff
       supabase
         .from('player_strikes')
-        .select('id, reason, severity, strike_type, alliance_id, created_at')
+        .select('id, reason, status, strike_type_id, alliance_id, applied_at')
         .eq('player_id', playerId)
         .or(staffCtx && viewerAlliance
           ? `alliance_id.is.null,alliance_id.eq.${viewerAlliance}`
           : 'alliance_id.is.null')
-        .order('created_at', { ascending: false }),
+        .order('applied_at', { ascending: false }),
       player.current_alliance_id
         ? supabase.from('alliances').select('id, name, tag, profile').eq('id', player.current_alliance_id).single()
         : Promise.resolve({ data: null }),
     ]);
 
-    const registrations = matches.data ?? [];
-    const kills = registrations.reduce((s: number, r: any) => s + (r.kills ?? 0), 0);
-    const deaths = registrations.reduce((s: number, r: any) => s + (r.deaths ?? 0), 0);
+    const rows = results.data ?? [];
+    const kills = rows.reduce((s: number, r: any) => s + (r.kills ?? 0), 0);
+    const deaths = rows.reduce((s: number, r: any) => s + (r.deaths ?? 0), 0);
 
     return {
       player,
       alliance: allianceInfo.data ?? null,
       estadisticas: {
-        partidas: registrations.length,
+        partidas: rows.length,
         kills,
         deaths,
         kd: deaths > 0 ? kills / deaths : kills,
       },
-      partidas: registrations.map((r: any) => r.matches),
+      partidas: rows.map((r: any) => r.matches),
       strikes: strikesRes.data ?? [],
       // La UI decide mostrar el boton Invitar: solo si no tiene alianza
       puede_ser_invitado: !player.current_alliance_id,
