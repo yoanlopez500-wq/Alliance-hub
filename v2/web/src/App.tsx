@@ -1,8 +1,12 @@
 import { Routes, Route, NavLink } from 'react-router-dom';
+import { serverApi } from './lib/api';
+import { useApi } from './hooks/useApi';
 import JugadoresPage from './features/players/JugadoresPage';
 import SancionesPage from './features/alliance/SancionesPage';
 import InvitacionesBadge from './features/alliance/InvitacionesBadge';
 import MatchTypesPage from './features/admin/MatchTypesPage';
+
+type Me = { kind: 'admin' | 'player'; role?: string; managedAllianceId?: string | null };
 
 const navStyle = ({ isActive }: { isActive: boolean }): React.CSSProperties => ({
   color: isActive ? '#ff8f00' : '#9fa8da',
@@ -12,9 +16,10 @@ const navStyle = ({ isActive }: { isActive: boolean }): React.CSSProperties => (
 });
 
 export default function App() {
-  // TODO(v2-auth): resolver la alianza administrada por la sesion actual
-  // (endpoint server) en lugar de este placeholder de desarrollo.
-  const myAllianceId = (import.meta.env.VITE_DEV_ALLIANCE_ID as string) ?? '';
+  // La alianza administrada por la sesion actual (lider u oficial).
+  // SancionesPage solo se muestra si hay una.
+  const { data: me } = useApi<Me>(() => serverApi.get('/me'), []);
+  const myAllianceId = me?.managedAllianceId ?? null;
 
   return (
     <div style={{ fontFamily: 'system-ui', background: '#0a0e27', color: '#e8eaf6', minHeight: '100vh' }}>
@@ -26,8 +31,8 @@ export default function App() {
           ⛨ AllianceHub 2.0
         </NavLink>
         <NavLink to="/jugadores" style={navStyle}>Jugadores</NavLink>
-        <NavLink to="/alianza/sanciones" style={navStyle}>Sanciones</NavLink>
-        <NavLink to="/admin/match-types" style={navStyle}>Tipos de partida</NavLink>
+        {myAllianceId && <NavLink to="/alianza/sanciones" style={navStyle}>Sanciones</NavLink>}
+        {me?.role === 'superadmin' && <NavLink to="/admin/match-types" style={navStyle}>Tipos de partida</NavLink>}
       </nav>
       <main style={{ maxWidth: 960, margin: '0 auto', padding: '24px 16px' }}>
         <InvitacionesBadge />
@@ -42,7 +47,10 @@ export default function App() {
             </div>
           } />
           <Route path="/jugadores" element={<JugadoresPage />} />
-          <Route path="/alianza/sanciones" element={<SancionesPage allianceId={myAllianceId} />} />
+          <Route path="/alianza/sanciones" element={
+            myAllianceId ? <SancionesPage allianceId={myAllianceId} /> :
+            <p style={{ color: '#9fa8da' }}>Inicia sesión como líder u oficial para ver las sanciones de tu alianza.</p>
+          } />
           <Route path="/admin/match-types" element={<MatchTypesPage />} />
         </Routes>
       </main>

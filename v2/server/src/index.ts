@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import { config } from './config';
+import authRoutes from './modules/auth';
 import expedienteRoutes from './modules/expediente';
 import sanctionsRoutes from './modules/sanctions';
 import invitationsRoutes from './modules/invitations';
@@ -12,6 +13,7 @@ const app = Fastify({ logger: true });
 // y se registra aqui — sin tocar los demas.
 app.get('/api/health', async () => ({ ok: true, service: 'alliancehub-v2', version: '2.0.0-alpha.1' }));
 
+await app.register(authRoutes);
 await app.register(expedienteRoutes);
 await app.register(sanctionsRoutes);
 await app.register(invitationsRoutes);
