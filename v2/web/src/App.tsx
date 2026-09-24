@@ -1,10 +1,13 @@
 import { Routes, Route, NavLink } from 'react-router-dom';
-import { serverApi } from './lib/api';
+import { serverApi, getSessionToken, setSessionToken } from './lib/api';
 import { useApi } from './hooks/useApi';
 import JugadoresPage from './features/players/JugadoresPage';
 import SancionesPage from './features/alliance/SancionesPage';
 import InvitacionesBadge from './features/alliance/InvitacionesBadge';
 import MatchTypesPage from './features/admin/MatchTypesPage';
+import AlianzaPage from './features/alliance/AlianzaPage';
+import MiEspacioPage from './features/alliance/MiEspacioPage';
+import LoginPage from './features/auth/LoginPage';
 
 type Me = { kind: 'admin' | 'player'; role?: string; managedAllianceId?: string | null };
 
@@ -16,10 +19,9 @@ const navStyle = ({ isActive }: { isActive: boolean }): React.CSSProperties => (
 });
 
 export default function App() {
-  // La alianza administrada por la sesion actual (lider u oficial).
-  // SancionesPage solo se muestra si hay una.
-  const { data: me } = useApi<Me>(() => serverApi.get('/me'), []);
+  const { data: me, reload } = useApi<Me>(() => serverApi.get('/me'), []);
   const myAllianceId = me?.managedAllianceId ?? null;
+  const loggedIn = !!getSessionToken();
 
   return (
     <div style={{ fontFamily: 'system-ui', background: '#0a0e27', color: '#e8eaf6', minHeight: '100vh' }}>
@@ -32,7 +34,17 @@ export default function App() {
         </NavLink>
         <NavLink to="/jugadores" style={navStyle}>Jugadores</NavLink>
         {myAllianceId && <NavLink to="/alianza/sanciones" style={navStyle}>Sanciones</NavLink>}
+        {myAllianceId && <NavLink to="/mi-espacio" style={navStyle}>Mi Espacio</NavLink>}
         {me?.role === 'superadmin' && <NavLink to="/admin/match-types" style={navStyle}>Tipos de partida</NavLink>}
+        <span style={{ flex: 1 }} />
+        {loggedIn ? (
+          <button onClick={() => { setSessionToken(null); reload(); }} style={{
+            background: '#1a237e', color: '#9fa8da', border: 'none', padding: '6px 14px',
+            borderRadius: 8, cursor: 'pointer', fontSize: 13,
+          }}>Salir</button>
+        ) : (
+          <NavLink to="/login" style={navStyle}>Entrar</NavLink>
+        )}
       </nav>
       <main style={{ maxWidth: 960, margin: '0 auto', padding: '24px 16px' }}>
         <InvitacionesBadge />
@@ -46,10 +58,16 @@ export default function App() {
               </p>
             </div>
           } />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/jugadores" element={<JugadoresPage />} />
+          <Route path="/alianzas/:id" element={<AlianzaPage />} />
           <Route path="/alianza/sanciones" element={
             myAllianceId ? <SancionesPage allianceId={myAllianceId} /> :
             <p style={{ color: '#9fa8da' }}>Inicia sesión como líder u oficial para ver las sanciones de tu alianza.</p>
+          } />
+          <Route path="/mi-espacio" element={
+            myAllianceId ? <MiEspacioPage allianceId={myAllianceId} /> :
+            <p style={{ color: '#9fa8da' }}>Inicia sesión como líder u oficial para gestionar tu espacio.</p>
           } />
           <Route path="/admin/match-types" element={<MatchTypesPage />} />
         </Routes>

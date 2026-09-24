@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { supabase } from '../lib/supabase';
 import { resolveViewer, canManageAlliance, managedAllianceId } from '../lib/auth';
+import { sendPushToPlayers } from '../lib/push';
 
 /**
  * Mercado de transferencias: invitaciones de alianza a jugadores.
@@ -43,7 +44,17 @@ export default async function invitationsRoutes(app: FastifyInstance) {
       if (error.code === '23505') return reply.code(409).send({ error: 'ya hay una invitacion pendiente de tu alianza a este jugador' });
       return reply.code(500).send({ error: error.message });
     }
-    // TODO(fase push): notificar al jugador (push-notify evento invitation)
+    // Push al jugador invitado (evento nuevo: requiere deploy de push-notify,
+    // autorizacion pendiente del usuario; hasta entonces se omite sin error)
+    const { data: invAlliance } = await supabase.from('alliances').select('name').eq('id', allianceId).single();
+    await sendPushToPlayers({
+      event: 'alliance_invitation',
+      playerIds: [playerId],
+      title: `⛨ ${invAlliance?.name ?? 'Una alianza'} te invita`,
+      body: message ?? 'Toca para ver su perfil y aceptar o rechazar.',
+      url: '/alianzas',
+      dedupeKey: `inv-${data.id}`,
+    });
     return data;
   });
 

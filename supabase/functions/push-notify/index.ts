@@ -1,3 +1,5 @@
+// ⚠️ BIG UPDATE v2 — VERSION EN RAMA, NO DESPLEGADA. Cambio aditivo:
+// evento alliance_invitation. Deploy SOLO con autorizacion del usuario (afecta produccion).
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3'
@@ -93,20 +95,20 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'unauthorized' }, 401)
   }
 
-  let body: { match_id?: string; event?: string; slot?: string; announcement_id?: string; dry_run?: boolean }
+  let body: { match_id?: string; event?: string; slot?: string; announcement_id?: string; dry_run?: boolean; player_ids?: number[]; push_title?: string; push_body?: string; url?: string; dedupe_key?: string }
   try {
     body = await req.json()
   } catch {
     return json({ error: 'invalid JSON body' }, 400)
   }
-  const { match_id, event, slot, announcement_id, dry_run } = body
+  const { match_id, event, slot, announcement_id, dry_run, player_ids, push_title, push_body, url, dedupe_key } = body
   if (!event) {
     return json({ error: 'event is required' }, 400)
   }
-  if (event !== 'new_match' && event !== 'status_change' && event !== 'batallon_reminder' && event !== 'alliance_announcement') {
+  if (event !== 'new_match' && event !== 'status_change' && event !== 'batallon_reminder' && event !== 'alliance_announcement' && event !== 'alliance_invitation') {
     return json({ error: 'unknown event' }, 400)
   }
-  if (event !== 'batallon_reminder' && event !== 'alliance_announcement' && !match_id) {
+  if (event !== 'batallon_reminder' && event !== 'alliance_announcement' && event !== 'alliance_invitation' && !match_id) {
     return json({ error: 'match_id and event are required' }, 400)
   }
 
@@ -176,6 +178,57 @@ Deno.serve(async (req: Request) => {
     if (insErr) return json({ error: `log insert failed: ${insErr.message}`, sent, failed }, 500)
 
     return json({ sent, failed, recipients: subs.length })
+  }
+
+
+  // BIG UPDATE v2: alliance_invitation — el server v2 avisa a un jugador concreto
+  // que una alianza lo invito (mercado de transferencias). Recipients por player_ids.
+  // Llamado por v2/server con push_title/push_body/url; dedupe opcional por dedupe_key.
+  if (event === 'alliance_invitation') {
+    if (!player_ids || player_ids.length === 0) return json({ error: 'player_ids is required' }, 400)
+    if (!dedupe_key) return json({ error: 'dedupe_key is required' }, 400)
+
+    if (!dry_run) {
+      const { data: alreadyInv } = await supabase
+        .from('push_notification_log')
+        .select('subject_id')
+        .eq('subject_id', dedupe_key)
+        .eq('event', 'alliance_invitation')
+        .maybeSingle()
+      if (alreadyInv) return json({ skipped: true, reason: 'already sent' })
+    }
+
+    const { data: subsInv, error: subInvErr } = await supabase
+      .from('push_subscriptions')
+      .select('endpoint, p256dh, auth, player_id, alliance_id')
+      .in('player_id', player_ids)
+    if (subInvErr) return json({ error: `subs query failed: ${subInvErr.message}` }, 500)
+    if (!subsInv || subsInv.length === 0) return json({ skipped: true, reason: 'no subscriptions' })
+    if (dry_run) return json({ dry_run: true, recipients: subsInv.length, event })
+
+    const payloadInv = JSON.stringify({
+      title: push_title ?? 'Invitacion de alianza',
+      body: (push_body || '').slice(0, 120),
+      data: { url: url ?? '/dashboard.html' },
+      tag: dedupe_key,
+    })
+
+    let sentInv = 0
+    let failedInv = 0
+    try {
+      const result = await sendToSubs(supabase, subsInv, payloadInv)
+      sentInv = result.sent
+      failedInv = result.failed
+    } catch (e) {
+      return json({ error: (e as Error).message }, 500)
+    }
+
+    const { error: insInvErr } = await supabase
+      .from('push_notification_log')
+      .insert({ subject_id: dedupe_key, event: 'alliance_invitation' })
+    if (insInvErr) return json({ error: `log insert failed: ${insInvErr.message}`, sent: sentInv, failed: failedInv }, 500)
+
+    return json({ sent: sentInv, failed: failedInv, recipients: subsInv.length })
   }
 
   // batallon_reminder: recordatorios 2x/dia (slot morning|afternoon) a jugadores

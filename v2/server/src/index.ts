@@ -5,6 +5,7 @@ import expedienteRoutes from './modules/expediente';
 import sanctionsRoutes from './modules/sanctions';
 import invitationsRoutes from './modules/invitations';
 import matchTypesRoutes from './modules/match-types';
+import spacesRoutes from './modules/spaces';
 
 const app = Fastify({ logger: true });
 
@@ -18,5 +19,6 @@ await app.register(expedienteRoutes);
 await app.register(sanctionsRoutes);
 await app.register(invitationsRoutes);
 await app.register(matchTypesRoutes);
+await app.register(spacesRoutes);
 
 await app.listen({ port: config.port, host: '0.0.0.0' });
