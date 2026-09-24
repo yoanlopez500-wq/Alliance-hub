@@ -1,27 +1,20 @@
 import Fastify from 'fastify';
-import dotenv from 'dotenv';
-import { createClient } from '@supabase/supabase-js';
-
-dotenv.config();
+import { config } from './config';
+import expedienteRoutes from './modules/expediente';
+import sanctionsRoutes from './modules/sanctions';
+import invitationsRoutes from './modules/invitations';
+import matchTypesRoutes from './modules/match-types';
 
 const app = Fastify({ logger: true });
 
-// Cliente Supabase con service_role: SOLO en el servidor, nunca expuesto al browser.
-const supabase = createClient(
-  process.env.SUPABASE_URL ?? '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
-);
+// Modulos reutilizables: cada feature es un plugin con sus rutas.
+// Para anadir una feature nueva se crea v2/server/src/modules/<nombre>.ts
+// y se registra aqui — sin tocar los demas.
+app.get('/api/health', async () => ({ ok: true, service: 'alliancehub-v2', version: '2.0.0-alpha.1' }));
 
-app.get('/api/health', async () => ({ ok: true, service: 'alliancehub-v2' }));
+await app.register(expedienteRoutes);
+await app.register(sanctionsRoutes);
+await app.register(invitationsRoutes);
+await app.register(matchTypesRoutes);
 
-// Ejemplo futuro: expediente publico de jugador (mercado de transferencias)
-app.get('/api/players/:id/expediente', async (req, reply) => {
-  const { id } = req.params as { id: string };
-  // TODO(v2): partidas, estadisticas, strikes globales. Strikes de alianza solo via auth de lider receptor.
-  const { data, error } = await supabase.from('players').select('*').eq('id', id).single();
-  if (error) return reply.code(404).send({ error: error.message });
-  return data;
-});
-
-const port = Number(process.env.PORT ?? 3001);
-app.listen({ port, host: '0.0.0.0' });
+await app.listen({ port: config.port, host: '0.0.0.0' });

@@ -30,3 +30,39 @@
 ## Pendiente (fases siguientes)
 - Server: endpoints de sanciones por alianza, expediente, invitaciones, match_types.
 - Web: componentes de las 3 features + panel superadmin de match_types.
+
+
+## PLAN DE OPTIMIZACION MASIVA (modulos + componentes)
+Problema del v1: ~15 scripts IIFE con window.* acoplados, logica duplicada
+en cada pagina (fetch + render + toast repetidos N veces), sin tipos.
+
+### Server (Node/Fastify) — modular por dominio
+- v2/server/src/modules/<dominio>.ts: cada feature es un plugin Fastify
+  autocontenido (rutas + reglas). Anadir una feature = 1 archivo + 1 linea
+  en index.ts. Nada de editar 8 archivos como en el v1.
+- v2/server/src/lib/auth.ts: UN punto de verificacion de identidad
+  (admin o jugador). Los guards (canManageAlliance, isPlatformStaff,
+  isApprovedMember) se reutilizan en todos los modulos — en el v1 esa
+  logica estaba reescrita en cada pagina.
+- v2/server/src/lib/supabase.ts: instancia unica service_role.
+
+### Web (React) — componentes reutilizables
+Componentes base a construir (fase siguiente, cada uno reemplaza codigo
+duplicado del v1):
+- <DataTable>     -> tablas de jugadores/strikes/anuncios (v1: ~6 tablas distintas hand-rolled)
+- <Badge>         -> badges de tipo/estado/rol (v1: getTypeBadge/getStatusBadge hardcodeados)
+- <EmptyState> y <Loader> -> estados de carga/vacio uniformes
+- useApi() hook   -> fetch + error + loading en una linea por componente
+- <ExpedienteModal> -> expediente de jugador reutilizado en: mercado, perfil, admin
+- apiClient.ts    -> cliente tipado del server v2 (reemplaza los window.supabase sueltos)
+
+### Seguridad ganada por diseno
+- Toda escritura pasa por el server (validacion central, sin duplicarla en JS del cliente).
+- El service_role nunca toca el browser; la anon key solo lee lo publico.
+- RLS queda como red de respaldo, no como unica barrera.
+
+### Metricas objetivo del rewrite
+- ~50% menos lineas de frontend (componentes vs copia/pega por pagina).
+- Tipado end-to-end (TS en web y server): los errores de "columna inexistente"
+  se detectan al compilar, no en produccion.
+- Cada feature nueva: 1 modulo server + N componentes, sin tocar codigo ajeno.
