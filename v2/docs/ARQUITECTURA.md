@@ -3,18 +3,30 @@
 ## Stack
 - Web: React 18 + Vite + TypeScript + react-router. Los "componentes" reemplazan los IIFE con window.* del v1.
 - Server: Node.js + Fastify. Asume la logica que hoy vive en edge functions + validaciones a nivel app.
-- DB: Supabase (Postgres + RLS + Auth). PROYECTO NUEVO en desarrollo; el proyecto del v1 queda solo para produccion.
+- DB: MISMO proyecto Supabase qkccyjegkgjzwoxytnqp (decision del usuario).
+
+## REGLA ABSOLUTA (base de datos)
+- Lectura de tablas de produccion: libre.
+- Cualquier CAMBIO solo via migracion ADITIVA en v2/supabase/migrations/:
+  columnas nuevas NULLABLE o tablas nuevas. Nada de alterar/borrar lo existente.
+- La migracion 20261001_big_update.sql ya aplicada cumple esto: columnas
+  alliance_id NULL (= comportamiento v1) + tablas match_types y alliance_invitations nuevas.
+- v1 queda intacto: verificado tras aplicar (38 reglas, strikes globales publicos, 4 partidas).
 
 ## Seguridad (heredada del v1, reforzada)
-- RLS en cada tabla: sanciones de alianza aisladas con join a admin_users (patron probado en v1).
-- service_role SOLO en server/. El browser nunca lo ve; las keys anon se usan solo para lecturas publicas.
-- Tipos de partida exclusivos: validacion en dropdown Y trigger BEFORE INSERT (doble candado).
+- RLS en cada tabla: sanciones de alianza aisladas con can_view_alliance_scope()
+  (publico = solo filas globales; staff plataforma = todo; lider = solo su alianza).
+- Oficiales (jugadores, token sellado) acceden via server v2 con service_role,
+  que valida alliance_officers antes de responder. alliance_invitations es
+  100% server-mediated (sin politicas publicas).
+- Tipos de partida exclusivos: filtro en selectores + trigger trg_validate_match_type_scope
+  (doble candado; tipos legacy desconocidos no se bloquean, v1 jamas se rompe).
 
-## Migracion de datos (cutover)
-1. Schema v2 se aplica al proyecto nuevo.
-2. Dump de datos del proyecto v1 -> restore en proyecto nuevo (jugadores, partidas, resultados, strikes globales).
-3. Strikes de alianza y tipos de partida nuevos nacen en v2, sin migracion.
-4. alliancehub.app apunta al build de v2 cuando el usuario lo autorice.
+## Estado del schema v2 (aplicado 2026-10-01)
+1. player_strikes / player_sanctions / strike_types: + alliance_id (NULL = liga).
+2. match_types: 6 seeds (los tipos hardcodeados del v1) + CRUD admin futuro.
+3. alliance_invitations: mercado de transferencias, unique de 1 pendiente por (alianza, jugador).
 
-## Pendiente de decision
-- Proyecto Supabase nuevo: se crea desde el MCP de supabase o lo crea el usuario.
+## Pendiente (fases siguientes)
+- Server: endpoints de sanciones por alianza, expediente, invitaciones, match_types.
+- Web: componentes de las 3 features + panel superadmin de match_types.
