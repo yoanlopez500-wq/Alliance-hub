@@ -66,3 +66,11 @@ duplicado del v1):
 - Tipado end-to-end (TS en web y server): los errores de "columna inexistente"
   se detectan al compilar, no en produccion.
 - Cada feature nueva: 1 modulo server + N componentes, sin tocar codigo ajeno.
+
+
+## PENDIENTE — FASE VISUAL (antes de pulir la UI)
+- Referencia de animaciones: https://batallonsupremacy.web.app/ (proyecto del
+  inge Alejandro; el usuario tiene un fork para revisar a fondo).
+  Inspirarse en sus ANIMACIONES (vividas, con vida) NO en su paleta:
+  la paleta de AllianceHub se mantiene (fondo #0a0e27, acento #ff8f00, indigos).
+- Cuando llegue esa fase: pedir al usuario la URL del fork del inge Alejandro.
