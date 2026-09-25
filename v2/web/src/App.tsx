@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { colors } from './theme';
 import Reveal from './components/Reveal';
-import { serverApi, getSessionToken, signOutAll, hasAdminSessionMarker } from './lib/api';
+import { serverApi, publicDb, getSessionToken, signOutAll, hasAdminSessionMarker } from './lib/api';
 import { useApi } from './hooks/useApi';
 import JugadoresPage from './features/players/JugadoresPage';
 import SancionesPage from './features/alliance/SancionesPage';
@@ -63,7 +63,65 @@ const navStyle = ({ isActive }: { isActive: boolean }): React.CSSProperties => (
   textDecoration: 'none',
   fontWeight: isActive ? 700 : 500,
   fontSize: 14,
+  flexShrink: 0,
+  padding: '6px 8px',
 });
+
+type NavEntry = { to: string; label: string; header?: string };
+
+/**
+ * NavDropdown — boton con menu desplegable pensado para dedo en movil:
+ * se abre/cierra al toque, se cierra solo al navegar o tocar fuera,
+ * y el menu es desplazable si hay muchos elementos.
+ */
+function NavDropdown({ icon, label, items, currentPath }: { icon: string; label: string; items: NavEntry[]; currentPath: string }) {
+  const [open, setOpen] = useState(false);
+  const location = useLocation();
+  useEffect(() => { setOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [open]);
+  const active = items.some((i) => !i.header && i.to.length > 1 && currentPath.startsWith(i.to));
+
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button onClick={(e) => { e.stopPropagation(); setOpen(!open); }} style={{
+        background: open || active ? 'rgba(255,255,255,0.09)' : 'transparent',
+        border: `1px solid ${open || active ? colors.border : 'transparent'}`,
+        color: open || active ? colors.text : colors.muted,
+        borderRadius: 8, padding: '6px 10px', fontSize: 13, fontWeight: active ? 700 : 500,
+        cursor: 'pointer', whiteSpace: 'nowrap',
+      }}>
+        {icon} {label} <span style={{ fontSize: 10, marginLeft: 2 }}>{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: 6, zIndex: 50,
+          background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12,
+          minWidth: 220, maxHeight: '65vh', overflowY: 'auto', padding: 6,
+          boxShadow: '0 14px 34px rgba(0,0,0,0.55)',
+        }}>
+          {items.map((it, idx) => it.header ? (
+            <div key={'h' + idx} style={{
+              fontSize: 11, fontWeight: 700, color: colors.muted, padding: '9px 10px 3px',
+              textTransform: 'uppercase', letterSpacing: 0.5,
+            }}>{it.header}</div>
+          ) : (
+            <NavLink key={it.to + idx} to={it.to} onClick={() => setOpen(false)} style={({ isActive }) => ({
+              display: 'block', padding: '9px 10px', borderRadius: 8, fontSize: 13,
+              textDecoration: 'none',
+              color: isActive ? colors.accent : colors.text, fontWeight: isActive ? 700 : 500,
+              background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
+            })}>{it.label}</NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   const { data: me, reload } = useApi<Me>(() => serverApi.get('/me'), []);
@@ -73,74 +131,143 @@ export default function App() {
   const isAdmin = me?.kind === 'admin';
   // "Panel de lider" visible para lideres y para staff con alianza (doble sesion).
   const isLeader = me?.role === 'alliance_leader' || (!!me?.managedAllianceId && me?.kind === 'admin');
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 760);
+  // Modo de navegacion: cada modo (jugador/admin) tiene su propio set de enlaces.
+  // Con doble sesion se salta al instante; sin sesion del otro tipo manda al login.
+  const [navMode, setNavMode] = useState<'player' | 'admin'>(() =>
+    localStorage.getItem('ah2_nav_mode') === 'admin' ? 'admin' : 'player');
+  const activeMode: 'player' | 'admin' = isAdmin && navMode === 'admin' ? 'admin' : 'player';
 
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 760);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+  function switchMode(m: 'player' | 'admin') {
+    if (m === activeMode) return;
+    if (m === 'player') {
+      if (getSessionToken()) {
+        setNavMode('player');
+        localStorage.setItem('ah2_nav_mode', 'player');
+      } else {
+        window.location.href = '/login?mode=player';
+      }
+    } else {
+      void publicDb.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          setNavMode('admin');
+          localStorage.setItem('ah2_nav_mode', 'admin');
+        } else {
+          window.location.href = '/login?mode=admin';
+        }
+      });
+    }
+  }
 
-  const navLinks = (
+  const commonLinks = (
     <>
       <NavLink to="/partidas" style={navStyle}>Partidas</NavLink>
       <NavLink to="/rankings" style={navStyle}>Rankings</NavLink>
-      <NavLink to="/reglas" style={navStyle}>Reglamento</NavLink>
       <NavLink to="/jugadores" style={navStyle}>Mercado</NavLink>
       <NavLink to="/alianzas" style={navStyle}>Alianzas</NavLink>
       <NavLink to="/lider/solicitud" style={navStyle}>Liderazgo</NavLink>
-      {isLeader && <NavLink to="/admin/leader-dashboard" style={navStyle}>Panel de líder</NavLink>}
-      {isAdmin && <NavLink to="/chat" style={navStyle}>Chat</NavLink>}
-      {loggedIn && <NavLink to="/alianza" style={navStyle}>Mi alianza</NavLink>}
-      {myAllianceId && <NavLink to="/alianza/sanciones" style={navStyle}>Sanciones</NavLink>}
-      {myAllianceId && <NavLink to="/mi-espacio" style={navStyle}>Mi Espacio</NavLink>}
-      {isAdmin && <NavLink to="/admin" style={navStyle}>Panel admin</NavLink>}
-      {me?.role === 'superadmin' && <NavLink to="/admin/match-types" style={navStyle}>Tipos de partida</NavLink>}
+      <NavLink to="/reglas" style={navStyle}>Reglamento</NavLink>
     </>
   );
+
+  const playerLinks = !!getSessionToken() && activeMode === 'player' ? (
+    <>
+      <NavDropdown icon="🚩" label="Mi alianza" currentPath={location.pathname} items={[
+        { to: '/alianza', label: 'Panel de mi alianza' },
+        ...(myAllianceId ? [
+          { to: '/mi-espacio', label: 'Mi Espacio' },
+          { to: '/alianza/sanciones', label: 'Sanciones' },
+        ] : []),
+        ...(isLeader ? [{ to: '/admin/leader-dashboard', label: 'Panel de líder' }] : []),
+      ]} />
+      <NavLink to="/reportar" style={navStyle}>Reportar</NavLink>
+    </>
+  ) : null;
+
+  const adminLinks = isAdmin && activeMode === 'admin' ? (
+    <>
+      <NavLink to="/admin" style={navStyle}>Panel</NavLink>
+      {isLeader && <NavLink to="/admin/leader-dashboard" style={navStyle}>Panel de líder</NavLink>}
+      <NavDropdown icon="🛠" label="Gestión" currentPath={location.pathname} items={[
+        { to: '/admin/jugadores', label: 'Jugadores' },
+        { to: '/admin/partidas', label: 'Partidas' },
+        { to: '/admin/alianzas', label: 'Alianzas' },
+        { to: '/admin/miembros', label: 'Miembros de alianzas' },
+        { to: '/admin/admins', label: 'Administradores' },
+        { to: '/admin/officers', label: 'Oficiales' },
+        { to: '/admin/invites', label: 'Invitaciones' },
+        { to: '/admin/import', label: 'Importar datos' },
+        { to: '/admin/audit-log', label: 'Registro de auditoría' },
+      ]} />
+      <NavDropdown icon="🛡" label="Moderación" currentPath={location.pathname} items={[
+        { to: '/admin/strikes', label: 'Strikes' },
+        { to: '/admin/sanciones', label: 'Sanciones' },
+        { to: '/admin/reportes', label: 'Reportes' },
+        { to: '/admin/comite', label: 'Comité de revisión' },
+        { to: '/admin/chat-reports', label: 'Reportes de chat' },
+        { to: '/admin/solicitudes-lider', label: 'Solicitudes de líder' },
+        { to: '/admin/inbox', label: 'Bandeja de entrada' },
+      ]} />
+      <NavDropdown icon="🏆" label="Competición" currentPath={location.pathname} items={[
+        { to: '/admin/juegos', label: 'Juegos' },
+        { to: '/admin/ligas', label: 'Ligas' },
+        { to: '/admin/duel-manager', label: 'Duelos' },
+        { to: '/admin/rankings', label: 'Rankings' },
+        { to: '/admin/certificaciones', label: 'Certificaciones' },
+        { to: '/admin/reglas', label: 'Editor de reglas' },
+        ...(me?.role === 'superadmin' ? [{ to: '/admin/match-types', label: 'Tipos de partida' }] : []),
+      ]} />
+      <NavLink to="/chat" style={navStyle}>Chat</NavLink>
+    </>
+  ) : null;
+
+  const pillBase: React.CSSProperties = {
+    borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 700,
+    cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+  };
 
   return (
     <div style={{ fontFamily: 'system-ui', background: colors.bg, color: colors.text, minHeight: '100vh' }}>
       <nav style={{
-        display: 'flex', gap: 18, alignItems: 'center', padding: '14px 24px',
         borderBottom: `1px solid ${colors.border}`, position: 'sticky', top: 0, zIndex: 10,
-        backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(13,19,48,0.75)',
-        flexWrap: 'wrap',
+        backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(13,19,48,0.85)',
       }}>
-        <NavLink to="/" style={{ ...navStyle({ isActive: false }), fontWeight: 800, color: colors.accent, fontSize: 16 }}>
-          ⚔️ AllianceHub
-        </NavLink>
-        {isMobile ? (
-          // Nav horizontal deslizable en movil (como el v1): sin menu hamburguesa vertical.
-          <div style={{
-            display: 'flex', gap: 16, alignItems: 'center', flex: 1,
-            overflowX: 'auto', WebkitOverflowScrolling: 'touch', whiteSpace: 'nowrap',
-            paddingBottom: 2, marginLeft: 12,
-          }}>
-            {navLinks}
-            {loggedIn ? (
-              <button onClick={() => { signOutAll().finally(() => reload()); }} style={{
-                background: colors.border, color: colors.muted, border: 'none', padding: '6px 14px',
-                borderRadius: 8, cursor: 'pointer', fontSize: 13, flexShrink: 0,
-              }}>Salir</button>
-            ) : (
-              <NavLink to="/login" style={navStyle}>Entrar</NavLink>
-            )}
-          </div>
-        ) : (
-          <>
-            {navLinks}
-            <span style={{ flex: 1 }} />
-            {loggedIn ? (
-              <button onClick={() => { signOutAll().finally(() => reload()); }} style={{
-                background: colors.border, color: colors.muted, border: 'none', padding: '6px 14px',
-                borderRadius: 8, cursor: 'pointer', fontSize: 13,
-              }}>Salir</button>
-            ) : (
-              <NavLink to="/login" style={navStyle}>Entrar</NavLink>
-            )}
-          </>
-        )}
+        {/* Fila 1: identidad + botones de modo permanentes + entrar/salir */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 16px' }}>
+          <NavLink to="/" style={{ ...navStyle({ isActive: false }), fontWeight: 800, color: colors.accent, fontSize: 16, padding: '6px 0' }}>
+            ⚔️ AllianceHub
+          </NavLink>
+          <button onClick={() => switchMode('player')} style={{
+            ...pillBase,
+            background: activeMode === 'player' ? colors.success : 'transparent',
+            border: `1.5px solid ${colors.success}`,
+            color: activeMode === 'player' ? '#08130a' : colors.success,
+          }}>🎮 Jugador</button>
+          <button onClick={() => switchMode('admin')} style={{
+            ...pillBase,
+            background: activeMode === 'admin' ? colors.warning : 'transparent',
+            border: `1.5px solid ${colors.warning}`,
+            color: activeMode === 'admin' ? '#1a1400' : colors.warning,
+          }}>🛡 Admin</button>
+          <span style={{ flex: 1 }} />
+          {loggedIn ? (
+            <button onClick={() => { signOutAll().finally(() => reload()); }} style={{
+              background: 'transparent', color: colors.muted, border: `1px solid ${colors.border}`,
+              padding: '6px 14px', borderRadius: 20, cursor: 'pointer', fontSize: 13, flexShrink: 0,
+            }}>Salir</button>
+          ) : (
+            <NavLink to="/login" style={{ ...navStyle({ isActive: false }), border: `1px solid ${colors.border}`, borderRadius: 20, padding: '6px 14px' }}>Entrar</NavLink>
+          )}
+        </div>
+        {/* Fila 2: nav horizontal deslizable con los enlaces del modo activo */}
+        <div style={{
+          display: 'flex', gap: 2, alignItems: 'center',
+          overflowX: 'auto', WebkitOverflowScrolling: 'touch', whiteSpace: 'nowrap',
+          padding: '0 12px 8px',
+        }}>
+          {commonLinks}
+          {playerLinks}
+          {adminLinks}
+        </div>
       </nav>
       <main style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 16px' }}>
         <InvitacionesBadge />

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { serverApi, publicDb, setSessionToken, setAdminSessionMarker } from '../../lib/api';
 import Button from '../../components/Button';
 import { Input } from '../../components/Field';
@@ -12,7 +13,14 @@ import { styles, colors } from '../../theme';
  * el password con huella, como antes de la big update).
  */
 export default function LoginPage() {
-  const [mode, setMode] = useState<'player' | 'admin'>('player');
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState<'player' | 'admin'>(searchParams.get('mode') === 'admin' ? 'admin' : 'player');
+
+  // Los botones verde/dorado del nav llegan con ?mode=
+  useEffect(() => {
+    const m = searchParams.get('mode');
+    if (m === 'admin' || m === 'player') setMode(m);
+  }, [searchParams]);
   const [playerId, setPlayerId] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -27,6 +35,7 @@ export default function LoginPage() {
       const r = await serverApi.post('/auth/player', { playerId: Number(playerId), displayName });
       setSessionToken(r.token, r.playerId);
       try { localStorage.setItem('ah2_player_name', displayName.trim()); } catch { /* noop */ }
+      localStorage.setItem('ah2_nav_mode', 'player');
       window.location.href = '/';
     } catch (e2: any) {
       setError(e2.message);
@@ -40,6 +49,7 @@ export default function LoginPage() {
       const { data, error: authErr } = await publicDb.auth.signInWithPassword({ email, password });
       if (authErr || !data.session) throw new Error(authErr?.message ?? 'login rechazado');
       setAdminSessionMarker();
+      localStorage.setItem('ah2_nav_mode', 'admin');
       window.location.href = '/';
     } catch (e2: any) {
       setError(e2.message);
