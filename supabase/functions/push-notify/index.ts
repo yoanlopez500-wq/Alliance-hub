@@ -1,5 +1,5 @@
-// ⚠️ BIG UPDATE v2 — VERSION EN RAMA, NO DESPLEGADA. Cambio aditivo:
-// evento alliance_invitation. Deploy SOLO con autorizacion del usuario (afecta produccion).
+// BIG UPDATE v2: cambio aditivo ya DESPLEGADO en produccion (version 14, 2026-09-25):
+// nuevo evento alliance_invitation. Todo lo demas es identico a la version 13.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3'
