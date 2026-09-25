@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { colors } from './theme';
 import Reveal from './components/Reveal';
-import { serverApi, getSessionToken, setSessionToken } from './lib/api';
+import { serverApi, getSessionToken, signOutAll } from './lib/api';
 import { useApi } from './hooks/useApi';
 import JugadoresPage from './features/players/JugadoresPage';
 import SancionesPage from './features/alliance/SancionesPage';
@@ -26,6 +26,7 @@ import NotFoundPage from './features/legal/NotFoundPage';
 import ResetPasswordPage from './features/auth/ResetPasswordPage';
 import RegisterPage from './features/register/RegisterPage';
 import RegisterLeaderPage from './features/register/RegisterLeaderPage';
+import RegisterOfficerPage from './features/register/RegisterOfficerPage';
 // Admin
 import MatchTypesPage from './features/admin/MatchTypesPage';
 import AdminHomePage from './features/admin/AdminHomePage';
@@ -126,7 +127,7 @@ export default function App() {
             {navLinks}
             <span style={{ flex: 1 }} />
             {loggedIn ? (
-              <button onClick={() => { setSessionToken(null); reload(); }} style={{
+              <button onClick={() => { signOutAll().finally(() => reload()); }} style={{
                 background: colors.border, color: colors.muted, border: 'none', padding: '6px 14px',
                 borderRadius: 8, cursor: 'pointer', fontSize: 13,
               }}>Salir</button>
@@ -144,7 +145,7 @@ export default function App() {
         }}>
           {navLinks}
           {loggedIn ? (
-            <button onClick={() => { setSessionToken(null); reload(); }} style={{
+            <button onClick={() => { signOutAll().finally(() => reload()); }} style={{
               background: colors.border, color: colors.muted, border: 'none', padding: '6px 14px',
               borderRadius: 8, cursor: 'pointer', fontSize: 13, alignSelf: 'flex-start',
             }}>Salir</button>
@@ -173,6 +174,7 @@ export default function App() {
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/registro" element={<RegisterPage />} />
           <Route path="/registro/lider" element={<RegisterLeaderPage />} />
+          <Route path="/registro/oficial" element={<RegisterOfficerPage />} />
           <Route path="/aviso-legal" element={<AvisoLegalPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/alianza/sanciones" element={

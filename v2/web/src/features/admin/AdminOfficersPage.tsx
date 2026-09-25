@@ -10,6 +10,7 @@ import Badge from '../../components/Badge';
 import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
 import { useAdmin } from '../../lib/admin';
+import { generateInviteCode } from '../../lib/invites';
 
 interface Officer {
   id: string;
@@ -89,23 +90,29 @@ function Officers() {
     loadStats();
   }, [isLeader, loadOfficers, loadStats]);
 
+  // Oficiales = usuarios Auth por invitacion (decision del usuario):
+  // el lider genera un codigo vinculado a su alianza + el playerId del
+  // oficial; el oficial crea su cuenta en /registro/oficial con ese codigo.
+  const [inviteResult, setInviteResult] = useState<{ code: string; url: string } | null>(null);
+
   async function appointOfficer() {
     if (!offPlayerId.trim() || !myAllianceId) { setError('Completa los campos'); return; }
+    setError('');
     try {
       const { data: sessData } = await publicDb.auth.getSession();
-      const { error } = await publicDb.from('alliance_officers').insert({
+      const code = generateInviteCode();
+      const { error } = await publicDb.from('admin_invites').insert({
+        code,
+        role: 'officer',
         alliance_id: myAllianceId,
         player_id: parseInt(offPlayerId.trim()),
-        role: offRole,
-        title: offTitle.trim() || (offRole === 'co_leader' ? 'Co-Líder' : 'Oficial'),
-        appointed_by: sessData.session?.user.id,
-        permissions: offRole === 'co_leader' ? CO_LEADER_PERMS : OFFICER_PERMS,
+        created_by: sessData.session?.user.id,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       });
       if (error) { setError(error.message); return; }
+      setInviteResult({ code, url: `/registro/oficial?code=${code}` });
       setOffPlayerId('');
       setOffTitle('');
-      await loadOfficers();
-      await loadStats();
     } catch (e: any) {
       setError(e.message || 'Error');
     }
@@ -183,7 +190,11 @@ function Officers() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 24 }}>
           <div style={{ background: colors.cardAlt, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 20 }}>
-            <h3 style={{ marginTop: 0 }}>Nombrar oficial</h3>
+            <h3 style={{ marginTop: 0 }}>Invitar oficial</h3>
+            <p style={{ fontSize: 13, color: colors.muted, marginTop: 0 }}>
+              Los oficiales crean su cuenta con el código (válido 7 días). El título
+              se asignará al aceptar.
+            </p>
             <label style={labelStyle}>ID del jugador</label>
             <Input value={offPlayerId} onChange={(e) => setOffPlayerId(e.target.value)} style={inputStyle} placeholder="12345" />
             <label style={labelStyle}>Rol</label>
@@ -193,7 +204,16 @@ function Officers() {
             </Select>
             <label style={labelStyle}>Título</label>
             <Input value={offTitle} onChange={(e) => setOffTitle(e.target.value)} style={inputStyle} placeholder="Oficial de reclutamiento…" />
-            <Button onClick={appointOfficer}>Nombrar</Button>
+            <Button onClick={appointOfficer}>Generar invitación</Button>
+            {inviteResult && (
+              <div style={{ marginTop: 14, padding: 12, background: 'rgba(129,199,132,0.1)', borderRadius: 10, fontSize: 13 }}>
+                <div style={{ color: colors.success, fontWeight: 700 }}>✓ Invitación creada</div>
+                <div style={{ color: colors.text, margin: '6px 0', fontFamily: 'monospace', fontSize: 16 }}>{inviteResult.code}</div>
+                <a href={inviteResult.url} style={{ color: colors.accent, wordBreak: 'break-all' }}>
+                  {window.location.origin}{inviteResult.url}
+                </a>
+              </div>
+            )}
           </div>
 
           <div style={{ background: colors.cardAlt, border: `1px solid ${colors.danger}44`, borderRadius: 12, padding: 20 }}>
