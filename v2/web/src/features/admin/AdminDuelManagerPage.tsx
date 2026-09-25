@@ -7,8 +7,8 @@ import { Select } from '../../components/Field';
 import Badge from '../../components/Badge';
 import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
-import { useAdmin } from '../../lib/admin';
-import { internalTypeIdsCached } from '../../lib/matchTypes';
+import { useAdmin, isStaffRole } from '../../lib/admin';
+import { internalTypeIdsCached, notInValue } from '../../lib/matchTypes';
 
 interface Alliance { id: string; name: string; tag: string | null }
 interface Player { id: number; current_username: string }
@@ -41,7 +41,7 @@ async function getValidPlayerStats(playerIds: number[]): Promise<Record<number, 
   const { data: results } = await publicDb.from('match_results')
     .select('player_id, kills, deaths, match_id, matches!inner(match_type)')
     .in('player_id', playerIds)
-    .not('matches.match_type', 'in', internalIds);
+    .not('matches.match_type', 'in', notInValue(internalIds));
   const rows = (results as { player_id: number; kills: number; deaths: number; match_id: string }[]) || [];
   const matchIds = [...new Set(rows.map((r) => r.match_id).filter(Boolean))];
   const valid: Record<string, boolean> = {};
@@ -67,7 +67,7 @@ async function getValidPlayerStats(playerIds: number[]): Promise<Record<number, 
 /** AdminDuelManagerPage — puerto de admin-duel-manager.js (líder de alianza). */
 function DuelManager() {
   const { admin } = useAdmin();
-  const isLeader = admin?.role === 'alliance_leader';
+  const isLeader = admin?.role === 'alliance_leader' || (isStaffRole(admin?.role) && !!admin?.alliance_id);
   const myAllianceId = admin?.alliance_id || null;
 
   const [myAlliance, setMyAlliance] = useState<Alliance | null>(null);

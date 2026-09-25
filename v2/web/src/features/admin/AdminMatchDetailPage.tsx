@@ -374,6 +374,16 @@ function MatchDetail() {
   }
 
   if (notFound) return <p style={{ color: colors.danger, textAlign: 'center', padding: 40 }}>Partida no encontrada</p>;
+  // Sin ?id= ni ?action=new: evita el Loader eterno y ofrece salida.
+  if (!matchId && action !== 'new') {
+    return (
+      <div style={{ maxWidth: 520, margin: '60px auto', padding: 24, textAlign: 'center' }}>
+        <h2 style={{ color: colors.text }}>Selecciona una partida</h2>
+        <p style={{ color: colors.muted }}>Esta vista necesita una partida concreta.</p>
+        <Link to="/admin/partidas" style={{ color: colors.accent }}>← Ir a la lista de partidas</Link>
+      </div>
+    );
+  }
   if (!match) return <Loader />;
 
   const alli = allianceById(alliances, match.alliance_id);

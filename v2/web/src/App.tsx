@@ -52,6 +52,7 @@ import AdminDuelManagerPage from './features/admin/AdminDuelManagerPage';
 import AdminRankingsPage from './features/admin/AdminRankingsPage';
 import AdminImportPage from './features/admin/AdminImportPage';
 import AdminChatReportsPage from './features/admin/AdminChatReportsPage';
+import AdminAuditLogPage from './features/admin/AdminAuditLogPage';
 import AdminChatPage from './features/admin/AdminChatPage';
 import LeaderDashboardPage from './features/admin/LeaderDashboardPage';
 
@@ -70,8 +71,8 @@ export default function App() {
   const myAllianceId = me?.managedAllianceId ?? null;
   const loggedIn = !!getSessionToken();
   const isAdmin = me?.kind === 'admin';
-  const isLeader = me?.role === 'alliance_leader';
-  const [menuOpen, setMenuOpen] = useState(false);
+  // "Panel de lider" visible para lideres y para staff con alianza (doble sesion).
+  const isLeader = me?.role === 'alliance_leader' || (!!me?.managedAllianceId && me?.kind === 'admin');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 760);
 
   useEffect(() => {
@@ -79,8 +80,6 @@ export default function App() {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-
-  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
 
   const navLinks = (
     <>
@@ -112,16 +111,22 @@ export default function App() {
           ⚔️ AllianceHub
         </NavLink>
         {isMobile ? (
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Menú"
-            style={{
-              background: colors.border, color: colors.text, border: 'none',
-              padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 18,
-            }}
-          >
-            {menuOpen ? '✕' : '☰'}
-          </button>
+          // Nav horizontal deslizable en movil (como el v1): sin menu hamburguesa vertical.
+          <div style={{
+            display: 'flex', gap: 16, alignItems: 'center', flex: 1,
+            overflowX: 'auto', WebkitOverflowScrolling: 'touch', whiteSpace: 'nowrap',
+            paddingBottom: 2, marginLeft: 12,
+          }}>
+            {navLinks}
+            {loggedIn ? (
+              <button onClick={() => { signOutAll().finally(() => reload()); }} style={{
+                background: colors.border, color: colors.muted, border: 'none', padding: '6px 14px',
+                borderRadius: 8, cursor: 'pointer', fontSize: 13, flexShrink: 0,
+              }}>Salir</button>
+            ) : (
+              <NavLink to="/login" style={navStyle}>Entrar</NavLink>
+            )}
+          </div>
         ) : (
           <>
             {navLinks}
@@ -137,23 +142,6 @@ export default function App() {
           </>
         )}
       </nav>
-      {isMobile && menuOpen && (
-        <div className="ah-glass-dark" style={{
-          position: 'sticky', top: 53, zIndex: 9, padding: '12px 20px',
-          display: 'flex', flexDirection: 'column', gap: 12,
-          borderBottom: `1px solid ${colors.border}`,
-        }}>
-          {navLinks}
-          {loggedIn ? (
-            <button onClick={() => { signOutAll().finally(() => reload()); }} style={{
-              background: colors.border, color: colors.muted, border: 'none', padding: '6px 14px',
-              borderRadius: 8, cursor: 'pointer', fontSize: 13, alignSelf: 'flex-start',
-            }}>Salir</button>
-          ) : (
-            <NavLink to="/login" style={navStyle}>Entrar</NavLink>
-          )}
-        </div>
-      )}
       <main style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 16px' }}>
         <InvitacionesBadge />
         <Reveal key={location.pathname}>
@@ -212,6 +200,16 @@ export default function App() {
           <Route path="/admin/chat-reports" element={<AdminChatReportsPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
           <Route path="/admin/leader-dashboard" element={<LeaderDashboardPage />} />
+          {/* Alias en ingles: el panel enlaza estas rutas; antes daban 404. */}
+          <Route path="/admin/games" element={<AdminGamesPage />} />
+          <Route path="/admin/leagues" element={<AdminLeaguesPage />} />
+          <Route path="/admin/reports" element={<AdminReportsPage />} />
+          <Route path="/admin/review-committee" element={<AdminReviewCommitteePage />} />
+          <Route path="/admin/alianza-miembros" element={<AdminAllianceMembersPage />} />
+          <Route path="/admin/leader-requests" element={<AdminLeaderRequestsPage />} />
+          <Route path="/admin/certifications" element={<AdminCertificationsPage />} />
+          <Route path="/admin/rules-editor" element={<AdminRulesEditorPage />} />
+          <Route path="/admin/audit-log" element={<AdminAuditLogPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </Reveal>

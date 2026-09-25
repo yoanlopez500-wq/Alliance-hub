@@ -46,6 +46,12 @@ export default function ChatPage() {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [dms, setDms] = useState<{ id: string; lastTs: string | null; unread: number }[]>([]);
   const [curChan, setCurChan] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 760);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 760);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [conn, setConn] = useState<'online' | 'connecting' | 'offline'>('connecting');
   const [typing, setTyping] = useState('');
@@ -146,7 +152,8 @@ export default function ChatPage() {
         .subscribe();
 
       setState('ready');
-      if (visible.length) setCurChan(visible[0].id);
+      // En movil no auto-abrir canal: se muestra primero la lista de canales.
+      if (visible.length && window.innerWidth >= 760) setCurChan(visible[0].id);
     })();
     return () => {
       cancelled = true;
@@ -365,8 +372,8 @@ export default function ChatPage() {
 
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 64px)', background: colors.bg }}>
-      {/* Sidebar */}
-      <div style={{ width: 260, borderRight: `1px solid ${colors.border}`, background: colors.card, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      {/* Sidebar (oculta en movil cuando hay conversacion abierta) */}
+      <div style={{ width: 260, borderRight: `1px solid ${colors.border}`, background: colors.card, display: isMobile && curChan ? 'none' : 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: 12, borderBottom: `1px solid ${colors.border}` }}>
           <div style={{ fontSize: 12, color: colors.muted }}>{ROLE_NAMES[me!.role]}{me!.alliance ? ` - ${me!.alliance}` : ''}</div>
           <button onClick={() => setDmSearchOpen(true)} style={{ ...styles.btnGhost, width: '100%', marginTop: 8, padding: '6px 10px', fontSize: 12 }}>
@@ -417,9 +424,15 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Main */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      {/* Main (en movil solo se muestra cuando hay conversacion) */}
+      <div style={{ flex: 1, display: isMobile && !curChan ? 'none' : 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ padding: '10px 16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+          {isMobile && curChan && (
+            <button onClick={() => setCurChan(null)} style={{
+              background: colors.border, color: colors.text, border: 'none', borderRadius: 8,
+              padding: '4px 10px', cursor: 'pointer', fontSize: 13, flexShrink: 0,
+            }}>← Canales</button>
+          )}
           <strong style={{ color: colors.text }}>
             {curChan && isDM(curChan) ? `💬 ${curAdmin?.display_name || 'Directo'}` : curChannel?.name || curChan || ''}
           </strong>
