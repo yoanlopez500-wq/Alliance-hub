@@ -6,6 +6,16 @@
     <title>AllianceHub 2.0</title>
     <meta name="description" content="Plataforma de gestión de alianzas y torneos de Supremacy 1914" />
     <meta name="theme-color" content="#0a0e27" />
+    <script>
+      // Recupera la ruta original cuando GitHub Pages redirige desde /404.html (truco spa-github-pages)
+      (function () {
+        var q = window.location.search;
+        if (q.indexOf('?/') > -1) {
+          var ruta = q.slice(2).replace(/~and~/g, '&');
+          window.history.replaceState(null, null, '/' + ruta + window.location.hash);
+        }
+      })();
+    </script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
