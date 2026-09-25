@@ -2,10 +2,15 @@
   "name": "alliancehub-v2",
   "private": true,
   "version": "2.0.0-alpha.1",
-  "workspaces": ["web", "server"],
+  "workspaces": [
+    "web",
+    "server"
+  ],
   "scripts": {
     "dev:web": "npm run dev -w web",
     "dev:server": "npm run dev -w server",
-    "build": "npm run build -w web"
+    "build": "npm run build -w web",
+    "start": "npm run start -w server",
+    "typecheck": "npm run build -w server -w web"
   }
 }

@@ -4,6 +4,7 @@ import Reveal from './components/Reveal';
 import { serverApi, getSessionToken, setSessionToken } from './lib/api';
 import { useApi } from './hooks/useApi';
 import JugadoresPage from './features/players/JugadoresPage';
+import AlianzasPage from './features/alliance/AlianzasPage';
 import SancionesPage from './features/alliance/SancionesPage';
 import InvitacionesBadge from './features/alliance/InvitacionesBadge';
 import MatchTypesPage from './features/admin/MatchTypesPage';
@@ -37,6 +38,7 @@ export default function App() {
           ⛨ AllianceHub 2.0
         </NavLink>
         <NavLink to="/jugadores" style={navStyle}>Jugadores</NavLink>
+        <NavLink to="/alianzas" style={navStyle}>Alianzas</NavLink>
         {myAllianceId && <NavLink to="/alianza/sanciones" style={navStyle}>Sanciones</NavLink>}
         {myAllianceId && <NavLink to="/mi-espacio" style={navStyle}>Mi Espacio</NavLink>}
         {me?.role === 'superadmin' && <NavLink to="/admin/match-types" style={navStyle}>Tipos de partida</NavLink>}
@@ -99,6 +101,7 @@ export default function App() {
           } />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/jugadores" element={<JugadoresPage />} />
+          <Route path="/alianzas" element={<AlianzasPage />} />
           <Route path="/alianzas/:id" element={<AlianzaPage />} />
           <Route path="/alianza/sanciones" element={
             myAllianceId ? <SancionesPage allianceId={myAllianceId} /> :

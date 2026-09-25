@@ -45,7 +45,7 @@ export default async function matchTypesRoutes(app: FastifyInstance) {
         id: String(b.id), name: b.name, description: b.description ?? null,
         color: b.color ?? '#9fa8da', icon: b.icon ?? null, scope: b.scope,
         alliance_id: b.alliance_id ?? null, order_index: b.order_index ?? 99,
-        created_by: viewer.userId,
+        created_by: viewer.kind === 'admin' ? viewer.userId : null,
       })
       .select()
       .single();
