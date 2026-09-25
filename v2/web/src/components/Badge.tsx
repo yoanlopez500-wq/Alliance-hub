@@ -11,6 +11,7 @@ export const PALETTE: Record<string, { bg: string; color: string }> = {
   active:          { bg: 'rgba(76,175,80,0.15)',  color: colors.success },
   pending:         { bg: 'rgba(255,193,7,0.15)',  color: colors.warning },
   danger:          { bg: 'rgba(239,83,80,0.15)',  color: colors.danger },
+  purple:          { bg: 'rgba(206,147,216,0.15)', color: colors.purple },
   neutral:         { bg: 'rgba(255,255,255,0.06)', color: colors.muted },
 };
 

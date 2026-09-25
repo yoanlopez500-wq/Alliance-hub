@@ -6,9 +6,9 @@ import { useApi } from './hooks/useApi';
 import JugadoresPage from './features/players/JugadoresPage';
 import SancionesPage from './features/alliance/SancionesPage';
 import InvitacionesBadge from './features/alliance/InvitacionesBadge';
-import MatchTypesPage from './features/admin/MatchTypesPage';
 import AlianzaPage from './features/alliance/AlianzaPage';
 import AlianzasPage from './features/alliance/AlianzasPage';
+import AlliancePanelPage from './features/alliance/AlliancePanelPage';
 import MiEspacioPage from './features/alliance/MiEspacioPage';
 import LoginPage from './features/auth/LoginPage';
 import LandingPage from './features/landing/LandingPage';
@@ -23,6 +23,35 @@ import ChatPage from './features/chat/ChatPage';
 import AvisoLegalPage from './features/legal/AvisoLegalPage';
 import NotFoundPage from './features/legal/NotFoundPage';
 import ResetPasswordPage from './features/auth/ResetPasswordPage';
+import RegisterPage from './features/register/RegisterPage';
+import RegisterLeaderPage from './features/register/RegisterLeaderPage';
+// Admin
+import MatchTypesPage from './features/admin/MatchTypesPage';
+import AdminHomePage from './features/admin/AdminHomePage';
+import AdminPlayersPage from './features/admin/AdminPlayersPage';
+import AdminMatchesPage from './features/admin/AdminMatchesPage';
+import AdminMatchDetailPage from './features/admin/AdminMatchDetailPage';
+import AdminGamesPage from './features/admin/AdminGamesPage';
+import AdminStrikesPage from './features/admin/AdminStrikesPage';
+import AdminSanctionsEnginePage from './features/admin/AdminSanctionsEnginePage';
+import AdminReportsPage from './features/admin/AdminReportsPage';
+import AdminReviewCommitteePage from './features/admin/AdminReviewCommitteePage';
+import AdminInboxPage from './features/admin/AdminInboxPage';
+import AdminLeaderRequestsPage from './features/admin/AdminLeaderRequestsPage';
+import AdminInvitesPage from './features/admin/AdminInvitesPage';
+import AdminOfficersPage from './features/admin/AdminOfficersPage';
+import AdminAdminsPage from './features/admin/AdminAdminsPage';
+import AdminAllianceMembersPage from './features/admin/AdminAllianceMembersPage';
+import AdminAlliancesPage from './features/admin/AdminAlliancesPage';
+import AdminCertificationsPage from './features/admin/AdminCertificationsPage';
+import AdminRulesEditorPage from './features/admin/AdminRulesEditorPage';
+import AdminLeaguesPage from './features/admin/AdminLeaguesPage';
+import AdminDuelManagerPage from './features/admin/AdminDuelManagerPage';
+import AdminRankingsPage from './features/admin/AdminRankingsPage';
+import AdminImportPage from './features/admin/AdminImportPage';
+import AdminChatReportsPage from './features/admin/AdminChatReportsPage';
+import AdminChatPage from './features/admin/AdminChatPage';
+import LeaderDashboardPage from './features/admin/LeaderDashboardPage';
 
 type Me = { kind: 'admin' | 'player'; role?: string; managedAllianceId?: string | null };
 
@@ -39,6 +68,7 @@ export default function App() {
   const myAllianceId = me?.managedAllianceId ?? null;
   const loggedIn = !!getSessionToken();
   const isAdmin = me?.kind === 'admin';
+  const isLeader = me?.role === 'alliance_leader';
 
   return (
     <div style={{ fontFamily: 'system-ui', background: colors.bg, color: colors.text, minHeight: '100vh' }}>
@@ -56,9 +86,12 @@ export default function App() {
         <NavLink to="/reglas" style={navStyle}>Reglamento</NavLink>
         <NavLink to="/alianzas" style={navStyle}>Alianzas</NavLink>
         <NavLink to="/lider/solicitud" style={navStyle}>Liderazgo</NavLink>
+        {isLeader && <NavLink to="/admin/leader-dashboard" style={navStyle}>Panel de líder</NavLink>}
         {isAdmin && <NavLink to="/chat" style={navStyle}>Chat</NavLink>}
+        {myAllianceId && <NavLink to="/alianza" style={navStyle}>Mi alianza</NavLink>}
         {myAllianceId && <NavLink to="/alianza/sanciones" style={navStyle}>Sanciones</NavLink>}
         {myAllianceId && <NavLink to="/mi-espacio" style={navStyle}>Mi Espacio</NavLink>}
+        {isAdmin && <NavLink to="/admin" style={navStyle}>Panel admin</NavLink>}
         {me?.role === 'superadmin' && <NavLink to="/admin/match-types" style={navStyle}>Tipos de partida</NavLink>}
         <span style={{ flex: 1 }} />
         {loggedIn ? (
@@ -85,8 +118,11 @@ export default function App() {
           <Route path="/jugadores" element={<JugadoresPage />} />
           <Route path="/alianzas" element={<AlianzasPage />} />
           <Route path="/alianzas/:id" element={<AlianzaPage />} />
+          <Route path="/alianza" element={<AlliancePanelPage />} />
           <Route path="/lider/solicitud" element={<ApplyLeaderPage />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/registro" element={<RegisterPage />} />
+          <Route path="/registro/lider" element={<RegisterLeaderPage />} />
           <Route path="/aviso-legal" element={<AvisoLegalPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/alianza/sanciones" element={
@@ -97,7 +133,33 @@ export default function App() {
             myAllianceId ? <MiEspacioPage allianceId={myAllianceId} /> :
             <p style={{ color: colors.muted }}>Inicia sesión como líder u oficial para gestionar tu espacio.</p>
           } />
+          {/* Admin */}
+          <Route path="/admin" element={<AdminHomePage />} />
           <Route path="/admin/match-types" element={<MatchTypesPage />} />
+          <Route path="/admin/jugadores" element={<AdminPlayersPage />} />
+          <Route path="/admin/partidas" element={<AdminMatchesPage />} />
+          <Route path="/admin/partida" element={<AdminMatchDetailPage />} />
+          <Route path="/admin/juegos" element={<AdminGamesPage />} />
+          <Route path="/admin/strikes" element={<AdminStrikesPage />} />
+          <Route path="/admin/sanciones" element={<AdminSanctionsEnginePage />} />
+          <Route path="/admin/reportes" element={<AdminReportsPage />} />
+          <Route path="/admin/comite" element={<AdminReviewCommitteePage />} />
+          <Route path="/admin/inbox" element={<AdminInboxPage />} />
+          <Route path="/admin/solicitudes-lider" element={<AdminLeaderRequestsPage />} />
+          <Route path="/admin/invites" element={<AdminInvitesPage />} />
+          <Route path="/admin/officers" element={<AdminOfficersPage />} />
+          <Route path="/admin/admins" element={<AdminAdminsPage />} />
+          <Route path="/admin/miembros" element={<AdminAllianceMembersPage />} />
+          <Route path="/admin/alianzas" element={<AdminAlliancesPage />} />
+          <Route path="/admin/certificaciones" element={<AdminCertificationsPage />} />
+          <Route path="/admin/reglas" element={<AdminRulesEditorPage />} />
+          <Route path="/admin/ligas" element={<AdminLeaguesPage />} />
+          <Route path="/admin/duel-manager" element={<AdminDuelManagerPage />} />
+          <Route path="/admin/rankings" element={<AdminRankingsPage />} />
+          <Route path="/admin/import" element={<AdminImportPage />} />
+          <Route path="/admin/chat-reports" element={<AdminChatReportsPage />} />
+          <Route path="/admin/chat" element={<AdminChatPage />} />
+          <Route path="/admin/leader-dashboard" element={<LeaderDashboardPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </Reveal>
