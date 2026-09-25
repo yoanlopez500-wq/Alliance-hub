@@ -1,5 +1,5 @@
 /* ============================================================
-   AllianceHub 2.0 — Service Worker (v2.2)
+   AllianceHub 2.0 — Service Worker (v2.1)
    Fusion de la estrategia v2 + el arsenal probado del v1:
 
    CACHE (v2):
@@ -15,7 +15,7 @@
    - Mensajes: SKIP_WAITING, CLEAR_ALL_KILL_SWITCH (limpia todo)
    ============================================================ */
 
-const VERSION = 'ah2-v2.2';
+const VERSION = 'ah2-v2.3';
 const SHELL_CACHE = `${VERSION}-shell`;
 const ASSET_CACHE = `${VERSION}-assets`;
 

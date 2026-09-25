@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { serverApi } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import DataTable from '../../components/DataTable';
@@ -14,7 +15,8 @@ type Strike = { id: string; reason: string; status: string; applied_at: string; 
  * el server solo devuelve las de TU alianza.
  */
 export default function SancionesPage({ allianceId }: { allianceId: string }) {
-  const [playerId, setPlayerId] = useState('');
+  const [searchParams] = useSearchParams();
+  const [playerId, setPlayerId] = useState(searchParams.get('prefill_player') ?? '');
   const [reason, setReason] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
 

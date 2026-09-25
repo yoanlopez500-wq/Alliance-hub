@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { publicDb } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
+import { usePlayerSession } from '../../lib/playerSession';
 import Loader from '../../components/Loader';
 import Badge from '../../components/Badge';
 import { MatchTypeBadge } from '../../lib/matchTypes';
 import Section from '../../components/Section';
-import { colors } from '../../theme';
+import { colors, styles } from '../../theme';
 
 type Alliance = {
   id: string; name: string; tag: string; description: string | null;
@@ -16,6 +18,8 @@ type Alliance = {
   } | null;
 };
 
+type Membership = { id: string; alliance_id: string; status: string };
+
 const COMMUNITY_COLORS: Record<string, string> = {
   whatsapp: '#25d366', discord: '#5865f2', telegram: '#229ed9', web: colors.muted, // colores de marca (whatsapp/discord/telegram)
 };
@@ -23,9 +27,14 @@ const COMMUNITY_COLORS: Record<string, string> = {
 /**
  * Perfil publico de alianza (v2): hero, comunidad, tablon (suyo + global),
  * reglamento propio, partidas y miembros. Lectura publica via anon key.
+ * Con sesion de jugador permite solicitar entrada a la alianza.
  */
 export default function AlianzaPage() {
   const { id = '' } = useParams();
+  const { session } = usePlayerSession();
+  const playerId = session?.playerId ?? null;
+  const [joining, setJoining] = useState(false);
+  const [joinMsg, setJoinMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
 
   const { data, loading, error } = useApi(async () => {
     const [a, ann, rules, members, matches] = await Promise.all([
@@ -52,6 +61,37 @@ export default function AlianzaPage() {
     };
   }, [id]);
 
+  // Membresia del jugador para saber que boton mostrar (solo con sesion de jugador)
+  const { data: membership, reload: reloadMembership } = useApi<Membership | null>(async () => {
+    if (!playerId) return null;
+    const { data: m, error: mErr } = await publicDb.from('alliance_memberships')
+      .select('id, alliance_id, status')
+      .eq('player_id', playerId)
+      .order('requested_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (mErr) throw new Error(mErr.message);
+    return (m as Membership) || null;
+  }, [playerId], { skip: !playerId });
+
+  async function requestJoin() {
+    if (!playerId) return;
+    setJoining(true);
+    setJoinMsg(null);
+    try {
+      const { error: e } = await publicDb.from('alliance_memberships').insert({
+        player_id: playerId,
+        alliance_id: id,
+        status: 'pending',
+      });
+      if (e) { setJoinMsg({ tone: 'err', text: e.message }); return; }
+      setJoinMsg({ tone: 'ok', text: '¡Solicitud enviada! El líder la revisará pronto.' });
+      reloadMembership();
+    } finally {
+      setJoining(false);
+    }
+  }
+
   if (loading) return <Loader />;
   if (error || !data) return <p style={{ color: colors.danger }}>{error ?? 'Alianza no encontrada'}</p>;
 
@@ -61,6 +101,42 @@ export default function AlianzaPage() {
   const logo = p.logo_url;
   const accent = /^#[0-9a-f]{6}$/i.test(p.accent_color ?? '') ? p.accent_color! : colors.accent;
   const links = (Array.isArray(p.community_links) ? p.community_links : []).filter((l) => l.url?.startsWith('https://'));
+
+  // Widget de union (solo sesiones de jugador)
+  const mine = membership?.alliance_id === alliance.id ? membership : null;
+  const joinWidget = !playerId ? null : mine?.status === 'approved' ? (
+    <span style={{
+      background: 'rgba(129,199,132,0.15)', border: '1px solid #81c784', color: '#81c784',
+      padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+    }}>✓ Eres miembro de esta alianza</span>
+  ) : mine?.status === 'pending' ? (
+    <span style={{
+      background: 'rgba(255,213,79,0.12)', border: '1px solid #ffd54f', color: '#ffd54f',
+      padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 600,
+    }}>⏳ Solicitud pendiente de aprobación</span>
+  ) : membership && membership.status === 'pending' ? (
+    <span style={{ color: colors.muted, fontSize: 13 }}>
+      Ya tienes una solicitud pendiente en otra alianza. Cancela la anterior para pedir entrar aquí.
+    </span>
+  ) : (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+      <button
+        onClick={requestJoin}
+        disabled={joining}
+        style={{
+          ...styles.btnPrimary, border: 'none', cursor: 'pointer',
+          opacity: joining ? 0.6 : 1, fontSize: 15, padding: '12px 22px', fontWeight: 700,
+        }}
+      >
+        {joining ? 'Enviando…' : '🚩 Solicitar entrada'}
+      </button>
+      {joinMsg && (
+        <span style={{ color: joinMsg.tone === 'ok' ? colors.success : colors.danger, fontSize: 13 }}>
+          {joinMsg.text}
+        </span>
+      )}
+    </div>
+  );
 
   return (
     <div>
@@ -80,7 +156,7 @@ export default function AlianzaPage() {
             <p style={{ margin: '2px 0 0', color: colors.muted }}>[{alliance.tag}] · {members.length} miembros</p>
             {p.welcome_text && <p style={{ margin: '6px 0 0', color: colors.text, fontSize: 14 }}>{p.welcome_text}</p>}
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {links.map((l) => (
               <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer" style={{
                 background: COMMUNITY_COLORS[l.type] ?? colors.muted, color: '#fff',
@@ -88,6 +164,7 @@ export default function AlianzaPage() {
               }}>{l.label || l.type}</a>
             ))}
           </div>
+          {joinWidget}
         </div>
       </div>
 

@@ -36,6 +36,15 @@ export function getStoredPlayerId(): number | null {
   return v ? Number(v) : null;
 }
 
+/* ---------------- Marca de sesion admin (la sesion real la guarda supabase-js) ---------------- */
+// Antes se guardaba el JWT de Supabase en ah2_token y se mezclaba con la sesion de jugador.
+export function setAdminSessionMarker() {
+  localStorage.setItem('ah2_admin_session', '1');
+}
+export function hasAdminSessionMarker(): boolean {
+  return localStorage.getItem('ah2_admin_session') === '1';
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -71,7 +80,8 @@ export type Me = {
 let meCache: Me | null = null;
 
 export async function fetchMe(): Promise<Me> {
-  // 1) Sesion Supabase Auth (admin / lider / oficial)
+  // 1) Sesion Supabase Auth (admin / lider / oficial). Solo cuenta si la cuenta
+  //    tiene rol real; una sesion auth huerfana no debe tapar la sesion de jugador.
   const { data: sess } = await publicDb.auth.getSession();
   if (sess.session) {
     const uid = sess.session.user.id;
@@ -99,8 +109,9 @@ export async function fetchMe(): Promise<Me> {
       meCache = { kind: 'player', managedAllianceId: (off.alliance_id as string | null) ?? null };
       return meCache;
     }
-    meCache = { kind: 'admin', role: undefined, managedAllianceId: null };
-    return meCache;
+    // Sesion auth huerfana (sin rol admin ni officer): NO sombrear la sesion
+    // de jugador que pueda existir. Limpiamos la sesion auth y seguimos abajo.
+    await publicDb.auth.signOut().catch(() => { /* noop */ });
   }
   // 2) Token de jugador
   const pid = getStoredPlayerId();
@@ -116,6 +127,7 @@ export function invalidateMe() { meCache = null; }
 export async function signOutAll() {
   await publicDb.auth.signOut().catch(() => { /* noop */ });
   setSessionToken(null);
+  localStorage.removeItem('ah2_admin_session');
   invalidateMe();
 }
 

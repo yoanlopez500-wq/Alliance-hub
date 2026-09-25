@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { publicDb } from '../../lib/api';
+import { publicDb, getSessionToken } from '../../lib/api';
 import { usePlayerSession } from '../../lib/playerSession';
 import { colors, styles } from '../../theme';
 import Button from '../../components/Button';
@@ -145,6 +145,25 @@ export default function AlliancePanelPage() {
     setMembership(null);
   }
 
+  async function leaveAlliance() {
+    if (!playerId) return;
+    if (!window.confirm('¿Seguro que quieres salir de la alianza? El líder tendrá que aprobarte de nuevo si quieres volver.')) return;
+    try {
+      const { error: e } = await publicDb.rpc('player_leave_alliance', {
+        p_player_id: playerId,
+        p_token: getSessionToken() ?? '',
+      });
+      if (e) { setError(e.message); return; }
+      setError('');
+      setMembership(null);
+      setMyAlliance(null);
+      setMatches(null);
+      setMembers(null);
+    } catch (e: any) {
+      setError(e.message || 'Error');
+    }
+  }
+
   const statusApproved = membership?.status === 'approved';
 
   return (
@@ -202,6 +221,10 @@ export default function AlliancePanelPage() {
             <div style={{ fontSize: 48, marginBottom: 12 }}>🚩</div>
             <h1 style={{ fontSize: 28, margin: 0 }}>{myAlliance.name}</h1>
             <p style={{ color: colors.muted, marginTop: 8 }}>[{myAlliance.tag}] {myAlliance.description || ''}</p>
+            <button onClick={leaveAlliance} style={{
+              marginTop: 12, background: 'transparent', border: `1px solid ${colors.danger}`,
+              color: colors.danger, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 13,
+            }}>Salir de la alianza</button>
           </div>
 
           <h3 style={{ margin: '24px 0 12px' }}>Partidas de la alianza</h3>

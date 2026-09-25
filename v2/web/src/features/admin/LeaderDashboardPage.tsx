@@ -16,11 +16,16 @@ import { fetchMatchTypes, internalTypeIdsCached, notInValue, useMatchTypes, sele
 interface Alliance { id: string; name: string; tag: string | null; description: string | null }
 interface MembershipReq { id: string; player_id: number; requested_at: string }
 interface Player { id: number; current_username: string }
-interface MemberStat { player: Player; kd: number; kills: number; deaths: number; games: number; score: number }
+interface MemberStat { player: Player; kd: number; kills: number; deaths: number; games: number; score: number; membershipId?: string }
 interface Duel { id: string; name: string; status: string; created_at: string; max_players: number | null }
 interface Match { id: string; name: string; status: string; match_type: string; created_at: string; max_players: number | null }
 
 const cardStyle: React.CSSProperties = { background: colors.cardAlt, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 };
+const memberActionStyle: React.CSSProperties = {
+  fontSize: 12, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap',
+  padding: '6px 10px', borderRadius: 8, border: `1px solid ${colors.border}`, color: colors.text,
+  background: 'rgba(255,255,255,0.04)',
+};
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, color: colors.muted, marginBottom: 4 };
 const inputStyle: React.CSSProperties = { width: '100%', marginBottom: 12 };
 
@@ -126,16 +131,18 @@ function LeaderDashboard() {
     if (!myAllianceId) return;
     try {
       const { data: memberships, error } = await publicDb.from('alliance_memberships')
-        .select('player_id').eq('alliance_id', myAllianceId).eq('status', 'approved');
+        .select('id, player_id').eq('alliance_id', myAllianceId).eq('status', 'approved');
       if (error) throw error;
       if (!memberships || memberships.length === 0) { setMembers([]); return; }
+      const membershipIdByPlayer: Record<number, string> = {};
+      for (const m of memberships as { id: string; player_id: number }[]) membershipIdByPlayer[m.player_id] = m.id;
       const playerIds = (memberships as { player_id: number }[]).map((m) => m.player_id);
       const { data: players } = await publicDb.from('players').select('id, current_username').in('id', playerIds);
       const stats = await loadValidStats(playerIds);
       const list: MemberStat[] = ((players as Player[]) || []).map((p) => {
         const s = stats[p.id] || { kills: 0, deaths: 0, games: 0 };
         const kd = s.deaths > 0 ? s.kills / s.deaths : s.kills || 0;
-        return { player: p, kd, kills: s.kills, deaths: s.deaths, games: s.games, score: 0 };
+        return { player: p, kd, kills: s.kills, deaths: s.deaths, games: s.games, score: 0, membershipId: membershipIdByPlayer[p.id] };
       });
       setMembers(list);
     } catch (e) {
@@ -221,6 +228,21 @@ function LeaderDashboard() {
   useEffect(() => {
     if (tab === 'rankings' && members) loadAllianceRankings();
   }, [tab, members, sortMode, loadAllianceRankings]);
+
+  async function kickMember(m: MemberStat) {
+    if (!myAllianceId || !m.membershipId) return;
+    const name = m.player.current_username || `#${m.player.id}`;
+    if (!window.confirm(`¿Expulsar a ${name} de la alianza?`)) return;
+    try {
+      const { error: e1 } = await publicDb.from('alliance_memberships').delete().eq('id', m.membershipId);
+      if (e1) throw e1;
+      await publicDb.from('players').update({ current_alliance_id: null }).eq('id', m.player.id);
+      showToast(`${name} expulsado`);
+      await loadMembers();
+    } catch (e: any) {
+      showToast('Error: ' + e.message);
+    }
+  }
 
   async function approveRequest(membershipId: string, playerId: number) {
     try {
@@ -349,6 +371,14 @@ function LeaderDashboard() {
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: colors.accent }}>{m.kd.toFixed(2)} K/D</p>
                   <p style={{ margin: 0, fontSize: 12, color: colors.muted }}>{m.kills}K / {m.deaths}D</p>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Link to={`/jugador/${m.player.id}`} title="Ver perfil" style={memberActionStyle}>👤 Perfil</Link>
+                  <Link to={`/alianza/sanciones?prefill_player=${m.player.id}`} title="Poner strike" style={memberActionStyle}>⚡ Strike</Link>
+                  <Link to="/reportar" title="Reportar a plataforma" style={memberActionStyle}>🚩 Reportar</Link>
+                  <button onClick={() => kickMember(m)} title="Expulsar de la alianza" style={{
+                    ...memberActionStyle, border: `1px solid ${colors.danger}`, color: colors.danger, cursor: 'pointer',
+                  }}>✗ Expulsar</button>
                 </div>
               </div>
             ))}

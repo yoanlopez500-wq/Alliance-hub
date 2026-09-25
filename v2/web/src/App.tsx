@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { colors } from './theme';
 import Reveal from './components/Reveal';
-import { serverApi, getSessionToken, signOutAll } from './lib/api';
+import { serverApi, getSessionToken, signOutAll, hasAdminSessionMarker } from './lib/api';
 import { useApi } from './hooks/useApi';
 import JugadoresPage from './features/players/JugadoresPage';
 import SancionesPage from './features/alliance/SancionesPage';
@@ -69,7 +69,7 @@ export default function App() {
   const { data: me, reload } = useApi<Me>(() => serverApi.get('/me'), []);
   const location = useLocation();
   const myAllianceId = me?.managedAllianceId ?? null;
-  const loggedIn = !!getSessionToken();
+  const loggedIn = !!getSessionToken() || hasAdminSessionMarker();
   const isAdmin = me?.kind === 'admin';
   // "Panel de lider" visible para lideres y para staff con alianza (doble sesion).
   const isLeader = me?.role === 'alliance_leader' || (!!me?.managedAllianceId && me?.kind === 'admin');

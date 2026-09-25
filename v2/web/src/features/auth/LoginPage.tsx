@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { serverApi, publicDb, setSessionToken } from '../../lib/api';
+import { serverApi, publicDb, setSessionToken, setAdminSessionMarker } from '../../lib/api';
 import Button from '../../components/Button';
 import { Input } from '../../components/Field';
 import { styles, colors } from '../../theme';
 
 /**
  * Login dual: jugador (id + nombre, RPC sellada del v1) o
- * admin (email + password, Supabase Auth). Un solo token en localStorage.
+ * admin (email + password, Supabase Auth).
+ * La sesion persiste sola: el token de jugador vive 30 dias en localStorage
+ * y la sesion Auth la guarda supabase-js (el autofill del SO puede rellenar
+ * el password con huella, como antes de la big update).
  */
 export default function LoginPage() {
   const [mode, setMode] = useState<'player' | 'admin'>('player');
@@ -36,7 +39,7 @@ export default function LoginPage() {
     try {
       const { data, error: authErr } = await publicDb.auth.signInWithPassword({ email, password });
       if (authErr || !data.session) throw new Error(authErr?.message ?? 'login rechazado');
-      setSessionToken(data.session.access_token);
+      setAdminSessionMarker();
       window.location.href = '/';
     } catch (e2: any) {
       setError(e2.message);
@@ -64,8 +67,8 @@ export default function LoginPage() {
           </form>
         ) : (
           <form onSubmit={loginAdmin}>
-            <Input type="email" placeholder="Email admin" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <Input type="password" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <Input type="email" placeholder="Email admin" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+            <Input type="password" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
             <Button type="submit" disabled={busy} style={{ width: '100%' }}>Entrar como admin</Button>
           </form>
         )}
