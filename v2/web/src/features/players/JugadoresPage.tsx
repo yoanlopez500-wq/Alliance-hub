@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { publicDb, serverApi } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
+import { colors } from '../../theme';
+import { Input } from '../../components/Field';
 import DataTable from '../../components/DataTable';
 import ExpedienteModal from '../../components/ExpedienteModal';
 
@@ -40,21 +42,18 @@ export default function JugadoresPage() {
 
   return (
     <div>
-      <h1 style={{ color: '#fff' }}>Jugadores</h1>
-      <p style={{ color: '#9fa8da', marginTop: -8 }}>Toca un jugador para ver su expediente completo.</p>
-      <input
+      <h1 style={{ color: colors.text }}>Jugadores</h1>
+      <p style={{ color: colors.muted, marginTop: -8 }}>Toca un jugador para ver su expediente completo.</p>
+      <Input
         placeholder="Buscar por nombre…"
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
-        style={{
-          width: '100%', maxWidth: 380, marginBottom: 16, padding: '10px 14px',
-          borderRadius: 10, border: '1px solid #1a237e', background: '#11183a', color: '#e8eaf6',
-        }}
+        style={{ maxWidth: 380, marginBottom: 16 }}
       />
-      {error && <p style={{ color: '#ef5350' }}>{error}</p>}
+      {error && <p style={{ color: colors.danger }}>{error}</p>}
       {inviteMsg && (
         <p onClick={() => setInviteMsg(null)} style={{
-          background: 'rgba(76,175,80,0.12)', color: '#81c784', padding: '10px 14px',
+          background: 'rgba(129,199,132,0.12)', color: colors.success, padding: '10px 14px',
           borderRadius: 10, cursor: 'pointer',
         }}>{inviteMsg}</p>
       )}
@@ -69,8 +68,8 @@ export default function JugadoresPage() {
           {
             key: 'current_alliance_id', header: 'Alianza',
             render: (p) => p.current_alliance_id
-              ? <span style={{ color: '#ff8f00' }}>⛨ Miembro</span>
-              : <span style={{ color: '#81c784' }}>Libre — invitable</span>,
+              ? <span style={{ color: colors.accent }}>⛨ Miembro</span>
+              : <span style={{ color: colors.success }}>Libre — invitable</span>,
           },
         ]}
       />

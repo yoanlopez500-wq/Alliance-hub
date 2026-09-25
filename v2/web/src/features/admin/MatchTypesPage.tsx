@@ -3,6 +3,9 @@ import { serverApi } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import DataTable from '../../components/DataTable';
 import Badge from '../../components/Badge';
+import Button from '../../components/Button';
+import { Input, TextArea, Select } from '../../components/Field';
+import { styles, colors } from '../../theme';
 
 type MatchType = {
   id: string; name: string; description: string | null; color: string;
@@ -40,40 +43,33 @@ export default function MatchTypesPage() {
     }
   }
 
-  async function toggle(t: MatchType) {
-    await serverApi.put(`/match-types/${t.id}`, { ...t, is_active: true /* placeholder */ });
-    reload();
+  if (error && /superadmin/.test(error)) {
+    return <p style={{ color: colors.muted }}>Este panel es exclusivo del superadmin.</p>;
   }
 
   return (
     <div>
-      <h1 style={{ color: '#fff' }}>Tipos de partida</h1>
-      <p style={{ color: '#9fa8da', marginTop: -8 }}>
+      <h1 style={{ color: colors.text }}>Tipos de partida</h1>
+      <p style={{ color: colors.muted, marginTop: -8 }}>
         Superadmin. Las exclusivas solo las usa la alianza asignada (el servidor y la base lo validan).
       </p>
-      {error && <p style={{ color: '#ef5350' }}>{error}</p>}
-      {feedback && <p style={{ color: '#4fc3f7' }}>{feedback}</p>}
+      {error && <p style={{ color: colors.danger }}>{error}</p>}
+      {feedback && <p style={{ color: colors.info }}>{feedback}</p>}
 
-      <form onSubmit={crear} style={{
-        display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap',
-        background: '#11183a', padding: 14, borderRadius: 12, border: '1px solid #1a237e',
-      }}>
-        <input placeholder="slug (ej: guerra_32)" value={nuevo.id} onChange={(e) => setNuevo({ ...nuevo, id: e.target.value })}
-          style={{ flex: 1, minWidth: 140, padding: '10px 12px', borderRadius: 8, border: '1px solid #1a237e', background: '#0d1330', color: '#e8eaf6' }} />
-        <input placeholder="Nombre" value={nuevo.name} onChange={(e) => setNuevo({ ...nuevo, name: e.target.value })}
-          style={{ flex: 1, minWidth: 140, padding: '10px 12px', borderRadius: 8, border: '1px solid #1a237e', background: '#0d1330', color: '#e8eaf6' }} />
-        <input placeholder="Descripción" value={nuevo.description} onChange={(e) => setNuevo({ ...nuevo, description: e.target.value })}
-          style={{ flex: 2, minWidth: 200, padding: '10px 12px', borderRadius: 8, border: '1px solid #1a237e', background: '#0d1330', color: '#e8eaf6' }} />
-        <select value={nuevo.scope} onChange={(e) => setNuevo({ ...nuevo, scope: e.target.value as MatchType['scope'] })}
-          style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #1a237e', background: '#0d1330', color: '#e8eaf6' }}>
+      <form onSubmit={crear} style={{ ...styles.card, display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+        <Input placeholder="slug (ej: guerra_32)" value={nuevo.id} onChange={(e) => setNuevo({ ...nuevo, id: e.target.value })}
+          style={{ flex: 1, minWidth: 140, marginBottom: 0 }} />
+        <Input placeholder="Nombre" value={nuevo.name} onChange={(e) => setNuevo({ ...nuevo, name: e.target.value })}
+          style={{ flex: 1, minWidth: 140, marginBottom: 0 }} />
+        <Input placeholder="Descripción" value={nuevo.description} onChange={(e) => setNuevo({ ...nuevo, description: e.target.value })}
+          style={{ flex: 2, minWidth: 200, marginBottom: 0 }} />
+        <Select value={nuevo.scope} onChange={(e) => setNuevo({ ...nuevo, scope: e.target.value as MatchType['scope'] })}
+          style={{ width: 170, marginBottom: 0 }}>
           <option value="global">Global</option>
           <option value="internal_standard">Interna estándar</option>
           <option value="exclusive">Exclusiva</option>
-        </select>
-        <button type="submit" style={{
-          background: 'linear-gradient(90deg,#ff6f00,#ff8f00)', color: '#fff',
-          border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 700, cursor: 'pointer',
-        }}>Crear</button>
+        </Select>
+        <Button type="submit">Crear</Button>
       </form>
 
       <DataTable<MatchType>

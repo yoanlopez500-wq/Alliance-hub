@@ -3,6 +3,9 @@ import { serverApi } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import DataTable from '../../components/DataTable';
 import Badge from '../../components/Badge';
+import Button from '../../components/Button';
+import { Input } from '../../components/Field';
+import { styles, colors } from '../../theme';
 
 type Strike = { id: string; reason: string; status: string; applied_at: string; players?: { current_username: string } };
 
@@ -36,29 +39,23 @@ export default function SancionesPage({ allianceId }: { allianceId: string }) {
 
   return (
     <div>
-      <h1 style={{ color: '#fff' }}>Sanciones de la alianza</h1>
-      <p style={{ color: '#9fa8da', marginTop: -8 }}>
+      <h1 style={{ color: colors.text }}>Sanciones de la alianza</h1>
+      <p style={{ color: colors.muted, marginTop: -8 }}>
         Aisladas: ninguna otra alianza puede verlas. Puedes usar los tipos de falta estándar de la liga o los tuyos.
       </p>
-      {error && <p style={{ color: '#ef5350' }}>{error}</p>}
-      {feedback && <p style={{ color: '#4fc3f7' }}>{feedback}</p>}
+      {error && <p style={{ color: colors.danger }}>{error}</p>}
+      {feedback && <p style={{ color: colors.info }}>{feedback}</p>}
 
-      <form onSubmit={ponerStrike} style={{
-        display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap',
-        background: '#11183a', padding: 14, borderRadius: 12, border: '1px solid #1a237e',
-      }}>
-        <input
+      <form onSubmit={ponerStrike} style={{ ...styles.card, display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+        <Input
           placeholder="ID del jugador miembro" value={playerId} onChange={(e) => setPlayerId(e.target.value)}
-          style={{ flex: 1, minWidth: 180, padding: '10px 12px', borderRadius: 8, border: '1px solid #1a237e', background: '#0d1330', color: '#e8eaf6' }}
+          style={{ flex: 1, minWidth: 180, marginBottom: 0 }}
         />
-        <input
+        <Input
           placeholder="Motivo" value={reason} onChange={(e) => setReason(e.target.value)}
-          style={{ flex: 3, minWidth: 240, padding: '10px 12px', borderRadius: 8, border: '1px solid #1a237e', background: '#0d1330', color: '#e8eaf6' }}
+          style={{ flex: 3, minWidth: 240, marginBottom: 0 }}
         />
-        <button type="submit" style={{
-          background: 'linear-gradient(90deg,#ff6f00,#ff8f00)', color: '#fff',
-          border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 700, cursor: 'pointer',
-        }}>Registrar strike</button>
+        <Button type="submit">Registrar strike</Button>
       </form>
 
       <DataTable<Strike>

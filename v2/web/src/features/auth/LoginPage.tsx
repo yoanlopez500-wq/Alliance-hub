@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { serverApi, publicDb, setSessionToken } from '../../lib/api';
+import Button from '../../components/Button';
+import { Input } from '../../components/Field';
+import { styles, colors } from '../../theme';
 
 /**
  * Login dual: jugador (id + nombre, RPC sellada del v1) o
@@ -39,42 +42,30 @@ export default function LoginPage() {
     } finally { setBusy(false); }
   }
 
-  const card: React.CSSProperties = {
-    background: '#11183a', border: '1px solid #1a237e', borderRadius: 16, padding: 24, maxWidth: 380, width: '100%',
-  };
-  const input: React.CSSProperties = {
-    width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #1a237e',
-    background: '#0d1330', color: '#e8eaf6', marginBottom: 10, boxSizing: 'border-box',
-  };
-
   return (
     <div style={{ display: 'flex', justifyContent: 'center' }}>
-      <div style={card}>
+      <div style={{ ...styles.card, maxWidth: 380, width: '100%' }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           {(['player', 'admin'] as const).map((m) => (
             <button key={m} onClick={() => { setMode(m); setError(null); }} style={{
               flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700,
-              background: mode === m ? 'linear-gradient(90deg,#ff6f00,#ff8f00)' : '#1a237e',
-              color: mode === m ? '#fff' : '#9fa8da',
+              background: mode === m ? colors.accentGradient : colors.border,
+              color: mode === m ? '#fff' : colors.muted,
             }}>{m === 'player' ? 'Jugador' : 'Admin'}</button>
           ))}
         </div>
-        {error && <p style={{ color: '#ef5350', fontSize: 13 }}>{error}</p>}
+        {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
         {mode === 'player' ? (
           <form onSubmit={loginPlayer}>
-            <input placeholder="Tu ID de jugador" value={playerId} onChange={(e) => setPlayerId(e.target.value)} style={input} required />
-            <input placeholder="Nombre visible" value={displayName} onChange={(e) => setDisplayName(e.target.value)} style={input} required />
-            <button disabled={busy} style={{ ...input, background: 'linear-gradient(90deg,#ff6f00,#ff8f00)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
-              Entrar como jugador
-            </button>
+            <Input placeholder="Tu ID de jugador" value={playerId} onChange={(e) => setPlayerId(e.target.value)} required />
+            <Input placeholder="Nombre visible" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+            <Button type="submit" disabled={busy} style={{ width: '100%' }}>Entrar como jugador</Button>
           </form>
         ) : (
           <form onSubmit={loginAdmin}>
-            <input type="email" placeholder="Email admin" value={email} onChange={(e) => setEmail(e.target.value)} style={input} required />
-            <input type="password" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} style={input} required />
-            <button disabled={busy} style={{ ...input, background: 'linear-gradient(90deg,#ff6f00,#ff8f00)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
-              Entrar como admin
-            </button>
+            <Input type="email" placeholder="Email admin" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input type="password" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <Button type="submit" disabled={busy} style={{ width: '100%' }}>Entrar como admin</Button>
           </form>
         )}
       </div>

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { colors } from '../theme';
 import Loader from './Loader';
 import EmptyState from './EmptyState';
 
@@ -24,12 +25,12 @@ export default function DataTable<T extends { id?: unknown }>({
   if (loading) return <Loader />;
   if (!rows || rows.length === 0) return <EmptyState message={empty ?? 'Sin datos'} />;
   return (
-    <div style={{ overflowX: 'auto', border: '1px solid #1a237e', borderRadius: 12 }}>
+    <div style={{ overflowX: 'auto', border: `1px solid ${colors.border}`, borderRadius: 12 }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
-          <tr style={{ background: '#11183a', textAlign: 'left' }}>
+          <tr style={{ background: colors.cardAlt, textAlign: 'left' }}>
             {columns.map((c) => (
-              <th key={c.key} style={{ padding: '10px 14px', color: '#9fa8da', fontWeight: 600 }}>{c.header}</th>
+              <th key={c.key} style={{ padding: '10px 14px', color: colors.muted, fontWeight: 600 }}>{c.header}</th>
             ))}
           </tr>
         </thead>
@@ -39,7 +40,7 @@ export default function DataTable<T extends { id?: unknown }>({
               key={(row as any).id ?? i}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
               style={{
-                borderTop: '1px solid #1a237e',
+                borderTop: `1px solid ${colors.border}`,
                 cursor: onRowClick ? 'pointer' : undefined,
                 transition: 'background 0.15s',
               }}
@@ -47,7 +48,7 @@ export default function DataTable<T extends { id?: unknown }>({
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
             >
               {columns.map((c) => (
-                <td key={c.key} style={{ padding: '10px 14px', color: '#e8eaf6' }}>
+                <td key={c.key} style={{ padding: '10px 14px', color: colors.text }}>
                   {c.render ? c.render(row) : String((row as any)[c.key] ?? '—')}
                 </td>
               ))}

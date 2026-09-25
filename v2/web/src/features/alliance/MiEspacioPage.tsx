@@ -2,7 +2,10 @@ import { useRef, useState } from 'react';
 import { serverApi } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import Loader from '../../components/Loader';
+import Button from '../../components/Button';
+import { Input, TextArea, Select } from '../../components/Field';
 import { compressImage, IMAGE_KINDS } from '../../lib/image';
+import { styles, colors } from '../../theme';
 
 type SpaceData = {
   alliance: { id: string; name: string; description: string | null; profile: any };
@@ -11,10 +14,6 @@ type SpaceData = {
 };
 
 const LINK_TYPES = ['whatsapp', 'discord', 'telegram', 'web'];
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #1a237e',
-  background: '#0d1330', color: '#e8eaf6', marginBottom: 10, boxSizing: 'border-box',
-};
 
 /**
  * Mi Espacio (v2): panel del lider/oficial. Apariencia + Tablon + Reglamento.
@@ -27,7 +26,7 @@ export default function MiEspacioPage({ allianceId }: { allianceId: string }) {
   );
   const [tab, setTab] = useState<'apariencia' | 'tablon' | 'reglamento'>('apariencia');
   const [msg, setMsg] = useState<string | null>(null);
-  const [profile, setProfile] = useState({ description: '', welcome_text: '', accent_color: '#ff8f00', links: [] as any[] });
+  const [profile, setProfile] = useState({ description: '', welcome_text: '', accent_color: colors.accent, links: [] as any[] });
   const logoRef = useRef<HTMLInputElement>(null);
   const bannerRef = useRef<HTMLInputElement>(null);
   const [ann, setAnn] = useState({ title: '', body: '', days: 30, pinned: false, image: null as File | null });
@@ -40,7 +39,7 @@ export default function MiEspacioPage({ allianceId }: { allianceId: string }) {
     setProfile({
       description: data.alliance.description ?? '',
       welcome_text: p.welcome_text ?? '',
-      accent_color: p.accent_color ?? '#ff8f00',
+      accent_color: p.accent_color ?? colors.accent,
       links: Array.isArray(p.community_links) ? p.community_links : [],
     });
   }
@@ -83,88 +82,89 @@ export default function MiEspacioPage({ allianceId }: { allianceId: string }) {
   }
 
   if (loading) return <Loader />;
-  if (error || !data) return <p style={{ color: '#ef5350' }}>{error ?? 'Error cargando el espacio'}</p>;
+  if (error || !data) return <p style={{ color: colors.danger }}>{error ?? 'Error cargando el espacio'}</p>;
+
+  const labelStyle: React.CSSProperties = { color: colors.muted, fontSize: 13 };
 
   return (
     <div>
-      <h1 style={{ color: '#fff' }}>Mi Espacio — {data.alliance.name}</h1>
-      <a href={`/alianzas/${allianceId}`} style={{ color: '#4fc3f7', fontSize: 14 }}>Ver página pública ↗</a>
-      {msg && <p style={{ color: '#4fc3f7' }}>{msg}</p>}
+      <h1 style={{ color: colors.text }}>Mi Espacio — {data.alliance.name}</h1>
+      <a href={`/alianzas/${allianceId}`} style={{ color: colors.info, fontSize: 14 }}>Ver página pública ↗</a>
+      {msg && <p style={{ color: colors.info }}>{msg}</p>}
 
       <div style={{ display: 'flex', gap: 8, margin: '16px 0' }}>
         {(['apariencia', 'tablon', 'reglamento'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, textTransform: 'capitalize',
-            background: tab === t ? 'linear-gradient(90deg,#ff6f00,#ff8f00)' : '#1a237e',
-            color: tab === t ? '#fff' : '#9fa8da',
-          }}>{t}</button>
+          <Button
+            key={t}
+            variant={tab === t ? 'primary' : 'ghost'}
+            onClick={() => setTab(t)}
+            style={{ textTransform: 'capitalize' }}
+          >{t}</Button>
         ))}
       </div>
 
       {tab === 'apariencia' && (
-        <div style={{ background: '#11183a', border: '1px solid #1a237e', borderRadius: 12, padding: 16 }}>
-          <label style={{ color: '#9fa8da', fontSize: 13 }}>Descripción</label>
-          <textarea rows={2} value={profile.description} onChange={(e) => setProfile({ ...profile, description: e.target.value })} style={inputStyle} />
-          <label style={{ color: '#9fa8da', fontSize: 13 }}>Texto de bienvenida</label>
-          <textarea rows={2} value={profile.welcome_text} onChange={(e) => setProfile({ ...profile, welcome_text: e.target.value })} style={inputStyle} />
-          <label style={{ color: '#9fa8da', fontSize: 13 }}>Color de acento</label>
-          <input type="color" value={profile.accent_color} onChange={(e) => setProfile({ ...profile, accent_color: e.target.value })} style={{ ...inputStyle, height: 42, padding: 4 }} />
-          <label style={{ color: '#9fa8da', fontSize: 13 }}>Logo (se comprime a 512px WebP)</label>
-          <input ref={logoRef} type="file" accept="image/*" style={{ color: '#9fa8da', marginBottom: 10 }} />
-          <label style={{ color: '#9fa8da', fontSize: 13 }}>Banner (1600px WebP)</label>
-          <input ref={bannerRef} type="file" accept="image/*" style={{ color: '#9fa8da', marginBottom: 10 }} />
+        <div style={styles.card}>
+          <label style={labelStyle}>Descripción</label>
+          <TextArea rows={2} value={profile.description} onChange={(e) => setProfile({ ...profile, description: e.target.value })} />
+          <label style={labelStyle}>Texto de bienvenida</label>
+          <TextArea rows={2} value={profile.welcome_text} onChange={(e) => setProfile({ ...profile, welcome_text: e.target.value })} />
+          <label style={labelStyle}>Color de acento</label>
+          <Input type="color" value={profile.accent_color} onChange={(e) => setProfile({ ...profile, accent_color: e.target.value })} style={{ height: 42, padding: 4 }} />
+          <label style={labelStyle}>Logo (se comprime a 512px WebP)</label>
+          <input ref={logoRef} type="file" accept="image/*" style={{ color: colors.muted, marginBottom: 10 }} />
+          <label style={labelStyle}>Banner (1600px WebP)</label>
+          <input ref={bannerRef} type="file" accept="image/*" style={{ color: colors.muted, marginBottom: 10 }} />
 
-          <label style={{ color: '#9fa8da', fontSize: 13 }}>Enlaces de comunidad (máx. 4, https)</label>
+          <label style={labelStyle}>Enlaces de comunidad (máx. 4, https)</label>
           {profile.links.map((l: any, i: number) => (
             <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <select value={l.type} onChange={(e) => { const links = [...profile.links]; links[i] = { ...l, type: e.target.value }; setProfile({ ...profile, links }); }} style={{ ...inputStyle, width: 120, marginBottom: 0 }}>
+              <Select value={l.type} onChange={(e) => { const links = [...profile.links]; links[i] = { ...l, type: e.target.value }; setProfile({ ...profile, links }); }} style={{ width: 120, marginBottom: 0 }}>
                 {LINK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <input placeholder="https://…" value={l.url} onChange={(e) => { const links = [...profile.links]; links[i] = { ...l, url: e.target.value }; setProfile({ ...profile, links }); }} style={{ ...inputStyle, flex: 1, marginBottom: 0 }} />
-              <button onClick={() => setProfile({ ...profile, links: profile.links.filter((_: any, j: number) => j !== i) })} style={{ background: '#1a237e', color: '#ef5350', border: 'none', borderRadius: 8, padding: '0 12px', cursor: 'pointer' }}>✕</button>
+              </Select>
+              <Input placeholder="https://…" value={l.url} onChange={(e) => { const links = [...profile.links]; links[i] = { ...l, url: e.target.value }; setProfile({ ...profile, links }); }} style={{ flex: 1, marginBottom: 0 }} />
+              <Button variant="danger" onClick={() => setProfile({ ...profile, links: profile.links.filter((_: any, j: number) => j !== i) })}>✕</Button>
             </div>
           ))}
           {profile.links.length < 4 && (
-            <button onClick={() => setProfile({ ...profile, links: [...profile.links, { type: 'discord', label: '', url: '' }] })} style={{ ...inputStyle, background: '#1a237e', color: '#9fa8da', cursor: 'pointer' }}>
+            <Button variant="ghost" onClick={() => setProfile({ ...profile, links: [...profile.links, { type: 'discord', label: '', url: '' }] })} style={{ width: '100%' }}>
               + Añadir enlace
-            </button>
+            </Button>
           )}
 
-          <button onClick={saveProfile} disabled={busy} style={{ ...inputStyle, background: 'linear-gradient(90deg,#ff6f00,#ff8f00)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+          <Button onClick={saveProfile} disabled={busy} style={{ width: '100%', marginTop: 10 }}>
             Guardar perfil
-          </button>
+          </Button>
         </div>
       )}
 
       {tab === 'tablon' && (
         <div>
-          <div style={{ background: '#11183a', border: '1px solid #1a237e', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <input placeholder="Título del anuncio" value={ann.title} onChange={(e) => setAnn({ ...ann, title: e.target.value })} style={inputStyle} />
-            <textarea placeholder="Cuerpo (opcional)" rows={3} value={ann.body} onChange={(e) => setAnn({ ...ann, body: e.target.value })} style={inputStyle} />
+          <div style={{ ...styles.card, marginBottom: 16 }}>
+            <Input placeholder="Título del anuncio" value={ann.title} onChange={(e) => setAnn({ ...ann, title: e.target.value })} />
+            <TextArea placeholder="Cuerpo (opcional)" rows={3} value={ann.body} onChange={(e) => setAnn({ ...ann, body: e.target.value })} />
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
-              <input type="file" accept="image/*" onChange={(e) => setAnn({ ...ann, image: e.target.files?.[0] ?? null })} style={{ color: '#9fa8da' }} />
-              <select value={ann.days} onChange={(e) => setAnn({ ...ann, days: Number(e.target.value) })} style={{ ...inputStyle, width: 150, marginBottom: 0 }}>
+              <input type="file" accept="image/*" onChange={(e) => setAnn({ ...ann, image: e.target.files?.[0] ?? null })} style={{ color: colors.muted }} />
+              <Select value={ann.days} onChange={(e) => setAnn({ ...ann, days: Number(e.target.value) })} style={{ width: 150, marginBottom: 0 }}>
                 {[1, 3, 7, 30].map((d) => <option key={d} value={d}>{d} días visible</option>)}
-              </select>
-              <label style={{ color: '#9fa8da', fontSize: 13 }}>
+              </Select>
+              <label style={{ color: colors.muted, fontSize: 13 }}>
                 <input type="checkbox" checked={ann.pinned} onChange={(e) => setAnn({ ...ann, pinned: e.target.checked })} /> Fijado
               </label>
-              <button onClick={publishAnnouncement} disabled={busy || !ann.title} style={{ ...inputStyle, width: 'auto', marginBottom: 0, background: 'linear-gradient(90deg,#ff6f00,#ff8f00)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
-                Publicar
-              </button>
+              <Button onClick={publishAnnouncement} disabled={busy || !ann.title}>Publicar</Button>
             </div>
           </div>
           {data.announcements.map((a) => (
-            <div key={a.id} style={{ background: '#11183a', border: '1px solid #1a237e', borderRadius: 12, padding: 12, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div key={a.id} style={{ ...styles.card, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <strong style={{ color: '#fff' }}>{a.title}</strong>
-                <span style={{ color: '#9fa8da', fontSize: 12, marginLeft: 8 }}>
+                <strong style={{ color: colors.text }}>{a.title}</strong>
+                <span style={{ color: colors.muted, fontSize: 12, marginLeft: 8 }}>
                   expira {new Date(a.expires_at).toLocaleDateString('es')}
                   {new Date(a.expires_at) < new Date() ? ' · EXPIRADO' : ''}
                   {a.is_pinned ? ' · fijado' : ''}
                 </span>
               </div>
-              <button onClick={async () => { await serverApi.delete(`/alliances/${allianceId}/announcements/${a.id}`); reload(); }} style={{ background: 'none', border: 'none', color: '#ef5350', cursor: 'pointer' }}>Borrar</button>
+              <Button variant="danger" onClick={async () => { await serverApi.delete(`/alliances/${allianceId}/announcements/${a.id}`); reload(); }}>Borrar</Button>
             </div>
           ))}
         </div>
@@ -172,21 +172,21 @@ export default function MiEspacioPage({ allianceId }: { allianceId: string }) {
 
       {tab === 'reglamento' && (
         <div>
-          <div style={{ background: '#11183a', border: '1px solid #1a237e', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <input placeholder="Título de la sección" value={rule.title} onChange={(e) => setRule({ ...rule, title: e.target.value })} style={inputStyle} />
-            <textarea placeholder="Contenido" rows={4} value={rule.content} onChange={(e) => setRule({ ...rule, content: e.target.value })} style={inputStyle} />
-            <button onClick={async () => {
+          <div style={{ ...styles.card, marginBottom: 16 }}>
+            <Input placeholder="Título de la sección" value={rule.title} onChange={(e) => setRule({ ...rule, title: e.target.value })} />
+            <TextArea placeholder="Contenido" rows={4} value={rule.content} onChange={(e) => setRule({ ...rule, content: e.target.value })} />
+            <Button onClick={async () => {
               await serverApi.post(`/alliances/${allianceId}/rules`, rule);
               setRule({ title: '', content: '' });
               reload();
-            }} disabled={!rule.title || !rule.content} style={{ ...inputStyle, background: 'linear-gradient(90deg,#ff6f00,#ff8f00)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+            }} disabled={!rule.title || !rule.content} style={{ width: '100%' }}>
               Añadir sección
-            </button>
+            </Button>
           </div>
           {data.rules.map((r) => (
-            <div key={r.id} style={{ background: '#11183a', border: '1px solid #1a237e', borderRadius: 12, padding: 12, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ color: '#ff8f00' }}>{r.title}</strong>
-              <button onClick={async () => { await serverApi.delete(`/alliances/${allianceId}/rules/${r.id}`); reload(); }} style={{ background: 'none', border: 'none', color: '#ef5350', cursor: 'pointer' }}>Borrar</button>
+            <div key={r.id} style={{ ...styles.card, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <strong style={{ color: colors.accent }}>{r.title}</strong>
+              <Button variant="danger" onClick={async () => { await serverApi.delete(`/alliances/${allianceId}/rules/${r.id}`); reload(); }}>Borrar</Button>
             </div>
           ))}
         </div>

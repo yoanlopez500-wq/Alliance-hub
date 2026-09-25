@@ -2,6 +2,9 @@ import { serverApi } from '../lib/api';
 import { useApi } from '../hooks/useApi';
 import Badge from './Badge';
 import Loader from './Loader';
+import Button from './Button';
+import Section from './Section';
+import { colors } from '../theme';
 
 type Expediente = {
   player: { id: number; current_username: string; created_at: string };
@@ -33,25 +36,25 @@ export default function ExpedienteModal({ playerId, onClose, onInvitar }: {
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
     }} onClick={onClose}>
       <div style={{
-        background: '#0d1330', border: '1px solid #1a237e', borderRadius: 16,
+        background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 16,
         maxWidth: 640, width: '100%', maxHeight: '85vh', overflowY: 'auto', padding: 24,
       }} onClick={(e) => e.stopPropagation()}>
         {loading && <Loader label="Abriendo expediente…" />}
-        {error && <p style={{ color: '#ef5350' }}>{error}</p>}
+        {error && <p style={{ color: colors.danger }}>{error}</p>}
         {data && (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 8, flexWrap: 'wrap' }}>
               <div>
                 <h2 style={{ margin: 0, color: '#fff' }}>{data.player.current_username}</h2>
-                <p style={{ margin: '4px 0 0', color: '#9fa8da', fontSize: 13 }}>
+                <p style={{ margin: '4px 0 0', color: colors.muted, fontSize: 13 }}>
                   {data.alliance ? `⛨ ${data.alliance.name} [${data.alliance.tag}]` : 'Sin alianza'}
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {data.puede_ser_invitado && onInvitar && (
-                  <button onClick={() => onInvitar(playerId)} style={btnAccent}>Invitar</button>
+                  <Button onClick={() => onInvitar(playerId)}>Invitar</Button>
                 )}
-                <button onClick={onClose} style={btnGhost}>Cerrar</button>
+                <Button variant="ghost" onClick={onClose}>Cerrar</Button>
               </div>
             </div>
 
@@ -75,7 +78,7 @@ export default function ExpedienteModal({ playerId, onClose, onInvitar }: {
             </Section>
 
             <Section title={`Strikes (${data.strikes.length})`}>
-              {data.strikes.length === 0 && <p style={{ color: '#9fa8da', fontSize: 13 }}>Sin strikes registrados.</p>}
+              {data.strikes.length === 0 && <p style={{ color: colors.muted, fontSize: 13 }}>Sin strikes registrados.</p>}
               {data.strikes.map((s) => (
                 <div key={s.id} style={rowStyle}>
                   <span>{s.reason}</span>
@@ -95,33 +98,16 @@ export default function ExpedienteModal({ playerId, onClose, onInvitar }: {
   );
 }
 
-const btnAccent: React.CSSProperties = {
-  background: 'linear-gradient(90deg,#ff6f00,#ff8f00)', color: '#fff', border: 'none',
-  padding: '8px 16px', borderRadius: 8, fontWeight: 700, cursor: 'pointer',
-};
-const btnGhost: React.CSSProperties = {
-  background: '#1a237e', color: '#e8eaf6', border: 'none',
-  padding: '8px 16px', borderRadius: 8, fontWeight: 600, cursor: 'pointer',
-};
 const rowStyle: React.CSSProperties = {
   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  padding: '8px 0', borderBottom: '1px solid #1a237e', color: '#e8eaf6', fontSize: 14,
+  padding: '8px 0', borderBottom: `1px solid ${colors.border}`, color: colors.text, fontSize: 14,
 };
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div style={{ background: '#11183a', borderRadius: 10, padding: '10px 8px', textAlign: 'center' }}>
-      <div style={{ fontSize: 18, fontWeight: 800, color: '#ff8f00' }}>{value}</div>
-      <div style={{ fontSize: 11, color: '#9fa8da' }}>{label}</div>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <h3 style={{ fontSize: 13, color: '#9fa8da', textTransform: 'uppercase', letterSpacing: 1 }}>{title}</h3>
-      {children}
+    <div style={{ background: colors.cardAlt, borderRadius: 10, padding: '10px 8px', textAlign: 'center' }}>
+      <div style={{ fontSize: 18, fontWeight: 800, color: colors.accent }}>{value}</div>
+      <div style={{ fontSize: 11, color: colors.muted }}>{label}</div>
     </div>
   );
 }

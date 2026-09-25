@@ -3,6 +3,8 @@ import { publicDb } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import Loader from '../../components/Loader';
 import Badge from '../../components/Badge';
+import Section from '../../components/Section';
+import { colors } from '../../theme';
 
 type Alliance = {
   id: string; name: string; tag: string; description: string | null;
@@ -14,7 +16,7 @@ type Alliance = {
 };
 
 const COMMUNITY_COLORS: Record<string, string> = {
-  whatsapp: '#25d366', discord: '#5865f2', telegram: '#229ed9', web: '#9fa8da',
+  whatsapp: '#25d366', discord: '#5865f2', telegram: '#229ed9', web: colors.muted, // colores de marca (whatsapp/discord/telegram)
 };
 
 /**
@@ -23,7 +25,6 @@ const COMMUNITY_COLORS: Record<string, string> = {
  */
 export default function AlianzaPage() {
   const { id = '' } = useParams();
-  const accent = '#ff8f00';
 
   const { data, loading, error } = useApi(async () => {
     const [a, ann, rules, members, matches] = await Promise.all([
@@ -51,36 +52,37 @@ export default function AlianzaPage() {
   }, [id]);
 
   if (loading) return <Loader />;
-  if (error || !data) return <p style={{ color: '#ef5350' }}>{error ?? 'Alianza no encontrada'}</p>;
+  if (error || !data) return <p style={{ color: colors.danger }}>{error ?? 'Alianza no encontrada'}</p>;
 
   const { alliance, announcements, rules, members, matches } = data;
   const p = alliance.profile ?? {};
   const banner = p.banner_url;
   const logo = p.logo_url;
-  const links = Array.isArray(p.community_links) ? p.community_links : [];
+  const accent = /^#[0-9a-f]{6}$/i.test(p.accent_color ?? '') ? p.accent_color! : colors.accent;
+  const links = (Array.isArray(p.community_links) ? p.community_links : []).filter((l) => l.url?.startsWith('https://'));
 
   return (
     <div>
       <div style={{
-        borderRadius: 16, overflow: 'hidden', border: '1px solid #1a237e', marginBottom: 20,
-        background: banner ? `center/cover url(${banner})` : '#11183a',
+        borderRadius: 16, overflow: 'hidden', border: `1px solid ${colors.border}`, marginBottom: 20,
+        background: banner ? `center/cover url(${banner})` : colors.cardAlt,
         minHeight: 180, display: 'flex', alignItems: 'flex-end',
       }}>
         <div style={{
           width: '100%', padding: 20,
           background: 'linear-gradient(transparent, rgba(4,6,20,0.92))',
-          display: 'flex', gap: 16, alignItems: 'center',
+          display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap',
         }}>
           {logo && <img src={logo} alt={alliance.name} style={{ width: 64, height: 64, borderRadius: 12, border: `2px solid ${accent}` }} />}
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
             <h1 style={{ margin: 0, color: '#fff' }}>{alliance.name}</h1>
-            <p style={{ margin: '2px 0 0', color: '#9fa8da' }}>[{alliance.tag}] · {members.length} miembros</p>
-            {p.welcome_text && <p style={{ margin: '6px 0 0', color: '#e8eaf6', fontSize: 14 }}>{p.welcome_text}</p>}
+            <p style={{ margin: '2px 0 0', color: colors.muted }}>[{alliance.tag}] · {members.length} miembros</p>
+            {p.welcome_text && <p style={{ margin: '6px 0 0', color: colors.text, fontSize: 14 }}>{p.welcome_text}</p>}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {links.filter((l) => l.url?.startsWith('https://')).map((l) => (
+            {links.map((l) => (
               <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer" style={{
-                background: COMMUNITY_COLORS[l.type] ?? '#9fa8da', color: '#fff',
+                background: COMMUNITY_COLORS[l.type] ?? colors.muted, color: '#fff',
                 padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: 'none',
               }}>{l.label || l.type}</a>
             ))}
@@ -89,20 +91,20 @@ export default function AlianzaPage() {
       </div>
 
       {alliance.description && (
-        <p style={{ color: '#9fa8da', marginTop: -8 }}>{alliance.description}</p>
+        <p style={{ color: colors.muted, marginTop: -8 }}>{alliance.description}</p>
       )}
 
       <Section title="Tablón de anuncios">
-        {announcements.length === 0 && <p style={{ color: '#9fa8da' }}>Sin anuncios vigentes.</p>}
+        {announcements.length === 0 && <p style={{ color: colors.muted }}>Sin anuncios vigentes.</p>}
         {announcements.map((an: any) => (
-          <div key={an.id} style={{ background: '#11183a', border: '1px solid #1a237e', borderRadius: 12, padding: 14, marginBottom: 10 }}>
+          <div key={an.id} style={{ ...stylesCard, marginBottom: 10 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
               {an.is_pinned && <Badge label="fijado" tone="internal_standard" />}
               {!an.alliance_id && <Badge label="AllianceHub" tone="global" />}
               <h3 style={{ margin: 0, color: '#fff', fontSize: 16 }}>{an.title}</h3>
             </div>
             {an.image_url && <img src={an.image_url} alt="" style={{ width: '100%', borderRadius: 8, marginBottom: 8 }} />}
-            {an.body && <p style={{ color: '#e8eaf6', margin: 0, fontSize: 14, whiteSpace: 'pre-wrap' }}>{an.body}</p>}
+            {an.body && <p style={{ color: colors.text, margin: 0, fontSize: 14, whiteSpace: 'pre-wrap' }}>{an.body}</p>}
           </div>
         ))}
       </Section>
@@ -110,19 +112,19 @@ export default function AlianzaPage() {
       {rules.length > 0 && (
         <Section title="Reglamento de la alianza">
           {rules.map((r: any) => (
-            <details key={r.id} style={{ background: '#11183a', border: '1px solid #1a237e', borderRadius: 12, padding: '10px 14px', marginBottom: 8 }}>
-              <summary style={{ color: '#ff8f00', fontWeight: 700, cursor: 'pointer' }}>{r.title}</summary>
-              <p style={{ color: '#e8eaf6', fontSize: 14, whiteSpace: 'pre-wrap' }}>{r.content}</p>
+            <details key={r.id} style={{ ...stylesCard, marginBottom: 8 }}>
+              <summary style={{ color: accent, fontWeight: 700, cursor: 'pointer' }}>{r.title}</summary>
+              <p style={{ color: colors.text, fontSize: 14, whiteSpace: 'pre-wrap' }}>{r.content}</p>
             </details>
           ))}
         </Section>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
         <Section title={`Partidas (${matches.length})`}>
           {matches.map((m: any) => (
-            <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1a237e', fontSize: 14 }}>
-              <span style={{ color: '#e8eaf6' }}>{m.name}</span>
+            <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${colors.border}`, fontSize: 14 }}>
+              <span style={{ color: colors.text }}>{m.name}</span>
               <Badge label={m.match_type} />
             </div>
           ))}
@@ -131,8 +133,8 @@ export default function AlianzaPage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {(members as any[]).map((m) => (
               <span key={m.player_id} style={{
-                background: '#11183a', border: '1px solid #1a237e', borderRadius: 20,
-                padding: '6px 12px', fontSize: 13, color: '#e8eaf6',
+                background: colors.cardAlt, border: `1px solid ${colors.border}`, borderRadius: 20,
+                padding: '6px 12px', fontSize: 13, color: colors.text,
               }}>{m.players?.current_username ?? `#${m.player_id}`}</span>
             ))}
           </div>
@@ -142,11 +144,6 @@ export default function AlianzaPage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <h2 style={{ fontSize: 13, color: '#9fa8da', textTransform: 'uppercase', letterSpacing: 1 }}>{title}</h2>
-      {children}
-    </div>
-  );
-}
+const stylesCard: React.CSSProperties = {
+  background: colors.cardAlt, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 14,
+};

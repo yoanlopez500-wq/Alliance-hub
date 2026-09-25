@@ -1,5 +1,7 @@
 import { serverApi } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
+import Button from '../../components/Button';
+import { colors } from '../../theme';
 
 type Invitacion = {
   id: string;
@@ -24,25 +26,23 @@ export default function InvitacionesBadge() {
     <div style={{ marginBottom: 20 }}>
       {data.map((inv) => (
         <div key={inv.id} style={{
-          border: '2px solid #ff8f00', borderRadius: 14, padding: 16,
+          border: `2px solid ${colors.accent}`, borderRadius: 14, padding: 16,
           background: 'rgba(255,143,0,0.08)',
           animation: 'ah2-pulse 2s ease-in-out infinite',
         }}>
           <style>{'@keyframes ah2-pulse { 0%,100% { box-shadow: 0 0 0 rgba(255,143,0,0); } 50% { box-shadow: 0 0 24px rgba(255,143,0,0.35); } }'}</style>
-          <h3 style={{ margin: 0, color: '#ff8f00' }}>
+          <h3 style={{ margin: 0, color: colors.accent }}>
             ⛨ ¡{inv.alliances?.name ?? 'Una alianza'} te ha invitado!
           </h3>
-          {inv.message && <p style={{ color: '#e8eaf6', fontSize: 14 }}>{inv.message}</p>}
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button
-              onClick={async () => { await serverApi.post(`/invitations/${inv.id}/respond`, { action: 'accept' }); reload(); }}
-              style={{ background: 'linear-gradient(90deg,#ff6f00,#ff8f00)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}
-            >Aceptar y unirme</button>
-            <button
-              onClick={async () => { await serverApi.post(`/invitations/${inv.id}/respond`, { action: 'decline' }); reload(); }}
-              style={{ background: '#1a237e', color: '#e8eaf6', border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
-            >Rechazar</button>
-            <a href={`/alianzas/${inv.alliances?.id}`} style={{ color: '#4fc3f7', alignSelf: 'center', fontSize: 14 }}>
+          {inv.message && <p style={{ color: colors.text, fontSize: 14 }}>{inv.message}</p>}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Button onClick={async () => { await serverApi.post(`/invitations/${inv.id}/respond`, { action: 'accept' }); reload(); }}>
+              Aceptar y unirme
+            </Button>
+            <Button variant="ghost" onClick={async () => { await serverApi.post(`/invitations/${inv.id}/respond`, { action: 'decline' }); reload(); }}>
+              Rechazar
+            </Button>
+            <a href={`/alianzas/${inv.alliances?.id}`} style={{ color: colors.info, fontSize: 14 }}>
               Ver perfil de la alianza →
             </a>
           </div>
