@@ -91,7 +91,7 @@ export default function App() {
       <NavLink to="/lider/solicitud" style={navStyle}>Liderazgo</NavLink>
       {isLeader && <NavLink to="/admin/leader-dashboard" style={navStyle}>Panel de líder</NavLink>}
       {isAdmin && <NavLink to="/chat" style={navStyle}>Chat</NavLink>}
-      {myAllianceId && <NavLink to="/alianza" style={navStyle}>Mi alianza</NavLink>}
+      {loggedIn && <NavLink to="/alianza" style={navStyle}>Mi alianza</NavLink>}
       {myAllianceId && <NavLink to="/alianza/sanciones" style={navStyle}>Sanciones</NavLink>}
       {myAllianceId && <NavLink to="/mi-espacio" style={navStyle}>Mi Espacio</NavLink>}
       {isAdmin && <NavLink to="/admin" style={navStyle}>Panel admin</NavLink>}
