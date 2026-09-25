@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AllianceHub — Redirigiendo…</title>
+    <style>
+      body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+             background: #0a0e27; color: #e2e8f0; font-family: system-ui, sans-serif; text-align: center; }
+      .box { padding: 32px; }
+      h1 { font-size: 20px; margin: 0 0 8px; }
+      p { color: #94a3b8; font-size: 14px; margin: 0; }
+    </style>
+    <script>
+      // GitHub Pages sirve este archivo para rutas desconocidas (deep links / refresh en la PWA).
+      // Redirigimos al shell de la SPA preservando la ruta original.
+      (function () {
+        var segmentosARetener = 0;
+        var l = window.location;
+        l.replace(
+          l.protocol + '//' + l.hostname +
+          (l.port ? ':' + l.port : '') +
+          l.pathname.split('/').slice(0, 1 + segmentosARetener).join('/') +
+          '/?/' +
+          l.pathname.slice(1).split('/').slice(segmentosARetener).join('/').replace(/&/g, '~and~') +
+          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash
+        );
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="box">
+      <h1>AllianceHub</h1>
+      <p>Redirigiendo…</p>
+    </div>
+  </body>
+</html>
