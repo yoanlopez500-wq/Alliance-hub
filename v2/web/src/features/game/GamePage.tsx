@@ -10,6 +10,7 @@ import {
 import { compareMatchResults } from '../../lib/ranking';
 import { colors, styles } from '../../theme';
 import { formatDate, STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, badgeStyle } from '../../lib/format';
+import { MatchTypeBadge } from '../../lib/matchTypes';
 import Loader from '../../components/Loader';
 import DataTable from '../../components/DataTable';
 import Button from '../../components/Button';
@@ -115,8 +116,7 @@ export default function GamePage() {
             const st = STATUS_COLORS[m.status] ?? { bg: 'rgba(255,193,7,0.15)', color: '#ffd54f' };
             return <span style={badgeStyle(st.bg, st.color)}>{STATUS_LABELS[m.status] ?? m.status}</span>;
           })()}
-          {m.match_type === 'duel' && <span style={badgeStyle('rgba(239,83,80,0.15)', colors.danger)}>{TYPE_LABELS.duel}</span>}
-          {m.match_type === 'internal' && <span style={badgeStyle('rgba(33,150,243,0.15)', colors.info)}>{TYPE_LABELS.internal}</span>}
+          <MatchTypeBadge typeId={m.match_type} />
           {(m.password || m.game_password) && <span style={badgeStyle('rgba(255,193,7,0.15)', '#ffd54f')}>🔒</span>}
           {m.requires_approval && <span style={badgeStyle('rgba(255,193,7,0.15)', '#ffd54f')}>👁 Con Aprobacion</span>}
           {m.winners_declared && <span style={badgeStyle('rgba(255,235,59,0.15)', '#ffee58')}>🏆 Ganadores</span>}

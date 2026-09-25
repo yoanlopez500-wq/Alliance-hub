@@ -7,6 +7,7 @@ import Button from '../../components/Button';
 import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
 import Badge from '../../components/Badge';
+import { MatchTypeBadge } from '../../lib/matchTypes';
 
 interface Alliance { id: string; name: string; tag: string; description: string | null }
 interface Membership {
@@ -213,7 +214,7 @@ export default function AlliancePanelPage() {
                   <div>
                     <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
                       <Badge label={m.status} tone={m.status === 'open' ? 'warning' : m.status === 'finished' ? 'active' : 'global'} />
-                      <Badge label={m.match_type} tone="purple" />
+                      <MatchTypeBadge typeId={m.match_type} />
                     </div>
                     <strong>{m.name}</strong>
                   </div>

@@ -7,6 +7,7 @@ import { getSanctionSummary, isPlayerSanctioned, type PlayerSanctionState } from
 import { compareMatchResults } from '../../lib/ranking';
 import { formatDate, formatDateTime } from '../../lib/format';
 import { colors, styles } from '../../theme';
+import { useMatchTypes, MatchTypeBadge } from '../../lib/matchTypes';
 import Button from '../../components/Button';
 import { Input, Select, TextArea } from '../../components/Field';
 import DataTable from '../../components/DataTable';
@@ -29,6 +30,7 @@ function Modal({ onClose, children, width = 480 }: { onClose: () => void; childr
 
 /** AdminMatchDetailPage — puerto de admin-match-detail.js. */
 function MatchDetail() {
+  const { types: matchTypes } = useMatchTypes();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const matchId = params.get('id') || '';
@@ -356,10 +358,7 @@ function MatchDetail() {
           </Select>
           <label style={{ fontSize: 12, color: colors.muted }}>Tipo</label>
           <Select name="match_type" defaultValue="internal" style={styles.input}>
-            <option value="internal">Interna</option>
-            <option value="duel">Duelo</option>
-            <option value="tournament">Torneo</option>
-            <option value="global">Global</option>
+            {matchTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </Select>
           <label style={{ fontSize: 12, color: colors.muted }}>Max jugadores</label>
           <Input name="max_players" type="number" style={styles.input} />
@@ -389,8 +388,7 @@ function MatchDetail() {
               <h1 style={{ margin: '0 0 6px', color: colors.text }}>🎮 {match.name}{alli ? ` [${alli.tag}]` : ''}</h1>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {badge(match.status)}
-                {match.match_type === 'duel' && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(239,83,80,0.15)', color: colors.danger }}>DUELO</span>}
-                {match.match_type === 'internal' && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(79,195,247,0.15)', color: colors.info }}>INTERNA</span>}
+                <MatchTypeBadge typeId={match.match_type} />
                 {match.csv_imported && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(129,199,132,0.15)', color: colors.success }}>✓ CSV</span>}
               </div>
             </div>
@@ -520,8 +518,7 @@ function MatchDetail() {
           <Input value={editMatch.password || ''} onChange={(e) => setEditMatch({ ...editMatch, password: e.target.value })} style={styles.input} />
           <label style={{ fontSize: 12, color: colors.muted }}>Tipo</label>
           <Select value={editMatch.match_type || 'internal'} onChange={(e) => setEditMatch({ ...editMatch, match_type: e.target.value })} style={styles.input}>
-            <option value="internal">Interna</option><option value="duel">Duelo</option>
-            <option value="tournament">Torneo</option><option value="global">Global</option>
+            {matchTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </Select>
           <label style={{ fontSize: 12, color: colors.muted }}>Max jugadores</label>
           <Input type="number" value={editMatch.max_players || ''} onChange={(e) => setEditMatch({ ...editMatch, max_players: parseInt(e.target.value) || null })} style={styles.input} />

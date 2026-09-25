@@ -5,6 +5,7 @@ import AdminGate from '../../components/AdminGate';
 import { loadAlliances, badge, type Alliance } from '../../lib/admin';
 import { STATUS_LABELS } from '../../lib/format';
 import { colors, styles } from '../../theme';
+import { useMatchTypes } from '../../lib/matchTypes';
 import Button from '../../components/Button';
 import { Input, Select, TextArea } from '../../components/Field';
 import Loader from '../../components/Loader';
@@ -21,6 +22,7 @@ const EMPTY_FORM: GameForm = { id: '', name: '', description: '', match_type: 'i
 
 /** AdminGamesPage — puerto de admin-games.js (CRUD de games/partidas). */
 function Games() {
+  const { types: matchTypes } = useMatchTypes();
   const [games, setGames] = useState<any[] | null>(null);
   const [alliances, setAlliances] = useState<Alliance[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -105,7 +107,7 @@ function Games() {
           <div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {badge(g.status)}
-              <span style={{ fontSize: 12, color: colors.muted }}>{TYPE_LABEL[g.match_type] || g.match_type}</span>
+              <span style={{ fontSize: 12, color: colors.muted }}>{matchTypes.find((t) => t.id === g.match_type)?.name ?? g.match_type}</span>
             </div>
             <h3 style={{ margin: '6px 0 2px', color: colors.text }}>{g.name}</h3>
             {g.description && <p style={{ margin: 0, fontSize: 12, color: colors.muted }}>{g.description}</p>}
@@ -128,10 +130,7 @@ function Games() {
             <TextArea rows={2} value={modal.description} onChange={(e) => setModal({ ...modal, description: e.target.value })} style={styles.input} />
             <label style={{ fontSize: 12, color: colors.muted }}>Tipo</label>
             <Select value={modal.match_type} onChange={(e) => setModal({ ...modal, match_type: e.target.value })} style={styles.input}>
-              <option value="internal">Interna</option>
-              <option value="duel">Duelo</option>
-              <option value="tournament">Torneo</option>
-              <option value="global">Global</option>
+              {matchTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </Select>
             <label style={{ fontSize: 12, color: colors.muted }}>Max jugadores</label>
             <Input type="number" value={modal.max_players} onChange={(e) => setModal({ ...modal, max_players: parseInt(e.target.value) || 10 })} style={styles.input} />

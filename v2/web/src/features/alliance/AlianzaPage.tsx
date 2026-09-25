@@ -3,6 +3,7 @@ import { publicDb } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import Loader from '../../components/Loader';
 import Badge from '../../components/Badge';
+import { MatchTypeBadge } from '../../lib/matchTypes';
 import Section from '../../components/Section';
 import { colors } from '../../theme';
 
@@ -125,7 +126,7 @@ export default function AlianzaPage() {
           {matches.map((m: any) => (
             <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${colors.border}`, fontSize: 14 }}>
               <span style={{ color: colors.text }}>{m.name}</span>
-              <Badge label={m.match_type} />
+              <MatchTypeBadge typeId={m.match_type} />
             </div>
           ))}
         </Section>

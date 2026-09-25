@@ -11,6 +11,7 @@ import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
 import { useAdmin } from '../../lib/admin';
 import { fetchAllRows, makeBayesScorer, compareBy, getSavedSortMode, saveSortMode, SORT_MODES, type SortMode } from '../../lib/ranking';
+import { fetchMatchTypes, internalTypeIdsCached, useMatchTypes, selectableTypes, MatchTypeBadge } from '../../lib/matchTypes';
 
 interface Alliance { id: string; name: string; tag: string | null; description: string | null }
 interface MembershipReq { id: string; player_id: number; requested_at: string }
@@ -33,6 +34,7 @@ const DUEL_STATUS_META: Record<string, { label: string; color: string }> = {
 
 /** LeaderDashboardPage — puerto de leader-dashboard.js (panel de líder de alianza). */
 function LeaderDashboard() {
+  const { types: matchTypes } = useMatchTypes();
   const { admin } = useAdmin();
   const navigate = useNavigate();
   const isLeader = admin?.role === 'alliance_leader' || admin?.role === 'superadmin' || admin?.role === 'event_admin';
@@ -97,7 +99,7 @@ function LeaderDashboard() {
     const { data: results, error } = await publicDb.from('match_results')
       .select('player_id, kills, deaths, match_id, matches!inner(match_type)')
       .in('player_id', playerIds)
-      .neq('matches.match_type', 'internal');
+      .not('matches.match_type', 'in', await internalTypeIdsCached());
     if (error) throw error;
     const rows = (results as { player_id: number; kills: number; deaths: number; match_id: string }[]) || [];
     const matchIds = [...new Set(rows.map((r) => r.match_id).filter(Boolean))];
@@ -436,7 +438,7 @@ function LeaderDashboard() {
                         <p style={{ fontSize: 12, color: colors.muted, margin: '4px 0 0' }}>{formatDate(m.created_at)} | Max: {m.max_players || '-'} jugadores</p>
                       </div>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <Badge label={m.match_type === 'duel' ? 'DUELO' : m.match_type === 'internal' ? 'INTERNA' : 'GLOBAL'} tone={m.match_type === 'duel' ? 'danger' : m.match_type === 'internal' ? 'global' : 'purple'} />
+                        <MatchTypeBadge typeId={m.match_type} />
                         <span style={{ background: meta.color + '20', color: meta.color, padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700 }}>{meta.label}</span>
                       </div>
                     </div>
@@ -464,9 +466,9 @@ function LeaderDashboard() {
               <TextArea value={cmDesc} onChange={(e) => setCmDesc(e.target.value)} rows={2} style={inputStyle} />
               <label style={labelStyle}>Tipo</label>
               <Select value={cmType} onChange={(e) => setCmType(e.target.value)} style={inputStyle}>
-                <option value="internal">Interna</option>
-                <option value="global">Global / Torneo</option>
-                <option value="friendly">Amistosa</option>
+                {selectableTypes(matchTypes, myAllianceId).map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
               </Select>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0', fontSize: 14 }}>
                 <input type="checkbox" checked={cmPublic} onChange={(e) => setCmPublic(e.target.checked)} /> Partida pública (visible en el listado)

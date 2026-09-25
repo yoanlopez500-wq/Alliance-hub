@@ -15,7 +15,6 @@ type Player = {
   current_alliance_id: string | null;
 };
 
-type Stat = { player_id: number; kills: number; deaths: number };
 
 type Filtro = 'todos' | 'libres' | 'fichados';
 
@@ -39,15 +38,20 @@ export default function JugadoresPage() {
     return data as Player[];
   }, []);
 
-  const { data: stats } = useApi<Stat[]>(async () => {
+  // Resumen de sanciones GLOBALES (publicas) para la tarjeta — sin stats de ranking aqui.
+  const { data: strikes } = useApi<{ player_id: number }[]>(async () => {
     const { data, error: e } = await publicDb
-      .from('public_rankings_view')
-      .select('player_id, kills, deaths');
+      .from('player_strikes')
+      .select('player_id')
+      .eq('status', 'active');
     if (e) return [];
-    return (data ?? []) as Stat[];
+    return (data ?? []) as { player_id: number }[];
   }, []);
 
-  const statById = new Map((stats ?? []).map((s) => [s.player_id, s]));
+  const strikesByPlayer = new Map<number, number>();
+  for (const s of strikes ?? []) {
+    strikesByPlayer.set(s.player_id, (strikesByPlayer.get(s.player_id) ?? 0) + 1);
+  }
 
   const filtered = (players ?? []).filter((p) => {
     const q = busqueda.toLowerCase();
@@ -138,9 +142,8 @@ export default function JugadoresPage() {
           gap: 14,
         }}>
           {filtered.map((p, i) => {
-            const s = statById.get(p.id);
-            const kd = s && s.deaths > 0 ? (s.kills / s.deaths).toFixed(2) : s ? String(s.kills) : '—';
             const libre = !p.current_alliance_id;
+            const nStrikes = strikesByPlayer.get(p.id) ?? 0;
             return (
               <Reveal key={p.id} delay={Math.min(i, 8) * 40}>
                 <div
@@ -167,23 +170,17 @@ export default function JugadoresPage() {
                     />
                   </div>
                   <div style={{
-                    display: 'flex', gap: 18, marginTop: 14, paddingTop: 12,
+                    marginTop: 14, paddingTop: 12,
                     borderTop: `1px solid ${colors.border}`,
+                    display: 'flex', flexDirection: 'column', gap: 6,
                   }}>
-                    <div>
-                      <div style={{ color: colors.muted, fontSize: 11 }}>KILLS</div>
-                      <div style={{ color: colors.text, fontWeight: 700 }}>{s?.kills ?? '—'}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: colors.muted, fontSize: 11 }}>DEATHS</div>
-                      <div style={{ color: colors.text, fontWeight: 700 }}>{s?.deaths ?? '—'}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: colors.muted, fontSize: 11 }}>K/D</div>
-                      <div style={{ color: colors.accent, fontWeight: 700 }}>{kd}</div>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 12 }}>
+                    {nStrikes > 0 ? (
+                      <span style={{ color: colors.danger, fontSize: 13, fontWeight: 600 }}>
+                        ⚠ {nStrikes} sanción{nStrikes !== 1 ? 'es' : ''} global{nStrikes !== 1 ? 'es' : ''} activa{nStrikes !== 1 ? 's' : ''}
+                      </span>
+                    ) : (
+                      <span style={{ color: colors.success, fontSize: 13 }}>✓ Sin sanciones globales</span>
+                    )}
                     {libre ? (
                       <span style={{ color: colors.success, fontSize: 13, fontWeight: 600 }}>
                         ⚡ Disponible para fichar

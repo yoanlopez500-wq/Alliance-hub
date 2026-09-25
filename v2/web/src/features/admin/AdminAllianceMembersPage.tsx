@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { publicDb } from '../../lib/api';
 import { colors } from '../../theme';
 import AdminGate from '../../components/AdminGate';
+import ExpedienteModal from '../../components/ExpedienteModal';
 import Button from '../../components/Button';
 import { Input, Select } from '../../components/Field';
 import Badge from '../../components/Badge';
@@ -39,6 +40,7 @@ const thStyle: React.CSSProperties = { textAlign: 'left', padding: 12, color: co
 
 /** AdminAllianceMembersPage — puerto de admin/alliance-members.html (shell v1 sin JS propio; implementación funcional sobre alliance_memberships). */
 function Members() {
+  const [expediente, setExpediente] = useState<number | null>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [alliances, setAlliances] = useState<Alliance[]>([]);
   const [allianceFilter, setAllianceFilter] = useState('');
@@ -164,6 +166,7 @@ function Members() {
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {r.status === 'pending' && (
                         <>
+                          <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => setExpediente(r.playerId)}>Expediente</Button>
                           <Button style={{ fontSize: 11 }} onClick={() => approve(r)}>Aprobar</Button>
                           <Button variant="danger" style={{ fontSize: 11 }} onClick={() => reject(r)}>Rechazar</Button>
                         </>
@@ -178,6 +181,9 @@ function Members() {
             </tbody>
           </table>
         </div>
+      )}
+      {expediente != null && (
+        <ExpedienteModal playerId={expediente} onClose={() => setExpediente(null)} />
       )}
     </div>
   );

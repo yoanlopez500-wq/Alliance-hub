@@ -5,6 +5,7 @@ import { useApi } from '../../hooks/useApi';
 import { usePlayerSession } from '../../lib/playerSession';
 import { colors, styles } from '../../theme';
 import { formatDate, STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, badgeStyle } from '../../lib/format';
+import { MatchTypeBadge } from '../../lib/matchTypes';
 import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
 import Reveal from '../../components/Reveal';
@@ -109,8 +110,7 @@ export default function DashboardPage() {
               }}>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                   <span style={badgeStyle(st.bg, st.color)}>{STATUS_LABELS[m.status] ?? m.status}</span>
-                  {m.match_type === 'duel' && <span style={badgeStyle('rgba(239,83,80,0.15)', colors.danger)}>{TYPE_LABELS.duel}</span>}
-                  {m.match_type === 'internal' && <span style={badgeStyle('rgba(33,150,243,0.15)', colors.info)}>{TYPE_LABELS.internal}</span>}
+                  <MatchTypeBadge typeId={m.match_type} />
                   {m.category === 'batallon' && <span style={badgeStyle('rgba(156,39,176,0.15)', colors.purple)}>COMUNIDAD BATALLON</span>}
                   {m._fromAlliance && <span style={badgeStyle('rgba(79,195,247,0.15)', colors.info)}>DE TU ALIANZA</span>}
                 </div>

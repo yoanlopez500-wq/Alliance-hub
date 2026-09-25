@@ -9,6 +9,7 @@ import {
   fetchAllRows, makeBayesScorer, compareBy, getSavedSortMode, saveSortMode,
   SORT_MODES, type SortMode,
 } from '../../lib/ranking';
+import { fetchMatchTypes, internalTypeIdsCached } from '../../lib/matchTypes';
 import { loadAlliances, type Alliance } from '../../lib/admin';
 
 interface PlayerRow {
@@ -39,11 +40,12 @@ function AdminRankings() {
         setAlliances(als);
 
         // 1) Resultados de partidas públicas (paginación completa)
+        const internalIds = await internalTypeIdsCached();
         const results = await fetchAllRows<{ player_id: number; kills: number; deaths: number; match_id: string }>((from, to) =>
           Promise.resolve(
             publicDb.from('match_results')
               .select('player_id, kills, deaths, match_id, matches!inner(match_type)')
-              .neq('matches.match_type', 'internal')
+              .not('matches.match_type', 'in', internalIds)
               .order('id', { ascending: true })
               .range(from, to),
           ),

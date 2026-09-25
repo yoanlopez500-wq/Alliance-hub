@@ -5,6 +5,7 @@ import AdminGate from '../../components/AdminGate';
 import { useAdmin, loadAlliances, allianceById, badge, type Alliance } from '../../lib/admin';
 import { formatDate } from '../../lib/format';
 import { colors, styles } from '../../theme';
+import { MatchTypeBadge } from '../../lib/matchTypes';
 import Loader from '../../components/Loader';
 import Reveal from '../../components/Reveal';
 
@@ -61,9 +62,7 @@ function Matches() {
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {badge(m.status)}
-                  {m.match_type === 'duel' && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(239,83,80,0.15)', color: colors.danger }}>DUELO</span>}
-                  {m.match_type === 'internal' && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(79,195,247,0.15)', color: colors.info }}>INTERNA</span>}
-                  {(m.match_type !== 'duel' && m.match_type !== 'internal') && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(206,147,216,0.15)', color: colors.purple }}>GLOBAL</span>}
+                  <MatchTypeBadge typeId={m.match_type} />
                 </div>
               </div>
             </div>
