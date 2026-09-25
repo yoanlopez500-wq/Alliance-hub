@@ -1,0 +1,96 @@
+/* ============================================================
+   AllianceHub 2.0 — capa visual (fase "batallon-inspired")
+   Inspirado en las animaciones de batallonsupremacy.web.app
+   (CursorTrail, slow-zoom hero, glassmorphism, glow) pero con
+   la paleta AllianceHub: fondo #0a0e27, acento #ff8f00.
+   Todo via CSS puro + IntersectionObserver (sin GSAP: menos
+   dependencias, mismo efecto).
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: #0a0e27;
+  color: #e8eaf6;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  overflow-x: hidden;
+}
+
+/* ---------- Scrollbar personalizado ---------- */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0a0e27; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 143, 0, 0.3);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 143, 0, 0.55); }
+
+/* ---------- Glassmorphism ---------- */
+.ah-glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(159, 168, 218, 0.15);
+}
+.ah-glass-dark {
+  background: rgba(10, 14, 39, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(159, 168, 218, 0.08);
+}
+
+/* ---------- Glow (acento AllianceHub) ---------- */
+.ah-glow { box-shadow: 0 0 24px rgba(255, 143, 0, 0.18); }
+.ah-glow-hover { transition: box-shadow 0.3s ease, transform 0.3s ease; }
+.ah-glow-hover:hover {
+  box-shadow: 0 0 32px rgba(255, 143, 0, 0.35);
+  transform: translateY(-2px);
+}
+
+/* ---------- Keyframes ---------- */
+@keyframes ah-fade-up {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ah-slow-zoom {
+  from { transform: scale(1); }
+  to   { transform: scale(1.12); }
+}
+@keyframes ah-pulse-glow {
+  0%, 100% { box-shadow: 0 0 24px rgba(255, 143, 0, 0.18); }
+  50%      { box-shadow: 0 0 44px rgba(255, 143, 0, 0.4); }
+}
+@keyframes ah-gradient-pan {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ---------- Reveal on scroll (lo pone visible <Reveal>) ---------- */
+.ah-reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.ah-reveal.ah-reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---------- Utilidades ---------- */
+.ah-anim-fade-up { animation: ah-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.ah-anim-slow-zoom { animation: ah-slow-zoom 22s ease-in-out infinite alternate; }
+.ah-anim-pulse-glow { animation: ah-pulse-glow 3s ease-in-out infinite; }
+.ah-anim-gradient-pan {
+  background-size: 200% 200%;
+  animation: ah-gradient-pan 6s ease infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ah-reveal { opacity: 1; transform: none; transition: none; }
+  .ah-anim-slow-zoom, .ah-anim-pulse-glow, .ah-anim-gradient-pan, .ah-anim-fade-up { animation: none; }
+}
