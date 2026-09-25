@@ -1,4 +1,4 @@
-import { serverApi } from '../../lib/api';
+import { serverApi, getSessionToken, getStoredPlayerId } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import Button from '../../components/Button';
 import { colors } from '../../theme';
@@ -17,7 +17,10 @@ type Invitacion = {
 export default function InvitacionesBadge() {
   const { data, loading, error, reload } = useApi<Invitacion[]>(
     () => serverApi.get('/invitations/mine'),
-    []
+    [],
+    // Solo aplica a sesion de JUGADOR (token sellado): con sesion Auth el
+    // badge no tiene sentido y el edge respondia 401 en cada pagina.
+    { skip: !getStoredPlayerId() || !getSessionToken() },
   );
 
   if (loading || error || !data || data.length === 0) return null;

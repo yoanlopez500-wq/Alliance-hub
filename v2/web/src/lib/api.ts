@@ -79,12 +79,11 @@ export async function fetchMe(): Promise<Me> {
       .select('id, role, alliance_id').eq('id', uid).eq('status', 'active').maybeSingle();
     if (au) {
       const role = au.role as string;
-      let managedAllianceId: string | null = null;
-      if (role === 'alliance_leader') managedAllianceId = (au.alliance_id as string | null) ?? null;
-      else if (role === 'superadmin' || role === 'event_admin' || role === 'moderator') {
-        managedAllianceId = null;
-      } else {
-        // staff sin rol conocido: por si acaso, mira officers
+      // Doble sesion: CUALQUIER staff con alianza vinculada la gestiona
+      // (los superadmin que tambien son lideres ven panel admin Y panel de lider).
+      let managedAllianceId: string | null = (au.alliance_id as string | null) ?? null;
+      if (!managedAllianceId && role !== 'alliance_leader') {
+        // staff sin alianza: por si acaso, mira officers
         const { data: off } = await publicDb.from('alliance_officers')
           .select('alliance_id').eq('auth_user_id', uid).eq('is_active', true).limit(1).maybeSingle();
         managedAllianceId = (off?.alliance_id as string | null) ?? null;

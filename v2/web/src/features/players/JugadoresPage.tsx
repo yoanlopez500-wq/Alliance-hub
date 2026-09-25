@@ -43,7 +43,10 @@ export default function JugadoresPage() {
     const { data, error: e } = await publicDb
       .from('player_strikes')
       .select('player_id')
-      .eq('status', 'active');
+      .eq('status', 'active')
+      // Solo las GLOBALES (alliance_id NULL): las privadas de alianza no
+      // se anuncian en la tarjeta del mercado.
+      .is('alliance_id', null);
     if (e) return [];
     return (data ?? []) as { player_id: number }[];
   }, []);

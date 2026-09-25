@@ -69,7 +69,9 @@ export default function ApplyLeaderPage() {
     return (
       <div style={{ maxWidth: 520, margin: '60px auto', padding: 16, textAlign: 'center' }}>
         <p style={{ color: colors.muted, marginBottom: 16 }}>Debes iniciar sesion como jugador para solicitar el liderazgo de una alianza.</p>
-        <Link to="/login" style={{ color: colors.accent }}>Ir al login de jugador</Link>
+        <Link to="/login" style={{ ...styles.btnPrimary, display: 'inline-block', padding: '10px 18px', textDecoration: 'none', fontSize: 14 }}>
+          🎮 Ir al login de jugador
+        </Link>
       </div>
     );
   }

@@ -11,7 +11,7 @@ import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
 import { useAdmin } from '../../lib/admin';
 import { fetchAllRows, makeBayesScorer, compareBy, getSavedSortMode, saveSortMode, SORT_MODES, type SortMode } from '../../lib/ranking';
-import { fetchMatchTypes, internalTypeIdsCached, useMatchTypes, selectableTypes, MatchTypeBadge } from '../../lib/matchTypes';
+import { fetchMatchTypes, internalTypeIdsCached, notInValue, useMatchTypes, selectableTypes, MatchTypeBadge } from '../../lib/matchTypes';
 
 interface Alliance { id: string; name: string; tag: string | null; description: string | null }
 interface MembershipReq { id: string; player_id: number; requested_at: string }
@@ -99,7 +99,7 @@ function LeaderDashboard() {
     const { data: results, error } = await publicDb.from('match_results')
       .select('player_id, kills, deaths, match_id, matches!inner(match_type)')
       .in('player_id', playerIds)
-      .not('matches.match_type', 'in', await internalTypeIdsCached());
+      .not('matches.match_type', 'in', notInValue(await internalTypeIdsCached()));
     if (error) throw error;
     const rows = (results as { player_id: number; kills: number; deaths: number; match_id: string }[]) || [];
     const matchIds = [...new Set(rows.map((r) => r.match_id).filter(Boolean))];

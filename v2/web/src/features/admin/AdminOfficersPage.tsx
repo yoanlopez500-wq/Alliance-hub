@@ -9,7 +9,7 @@ import { Input, Select, TextArea } from '../../components/Field';
 import Badge from '../../components/Badge';
 import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
-import { useAdmin } from '../../lib/admin';
+import { useAdmin, isStaffRole } from '../../lib/admin';
 import { generateInviteCode } from '../../lib/invites';
 
 interface Officer {
@@ -62,7 +62,7 @@ function Officers() {
   const [transferPlayerId, setTransferPlayerId] = useState('');
   const [transferReason, setTransferReason] = useState('');
 
-  const isLeader = admin?.role === 'alliance_leader';
+  const isLeader = admin?.role === 'alliance_leader' || (isStaffRole(admin?.role) && !!admin?.alliance_id);
   const myAllianceId = admin?.alliance_id || null;
 
   const loadStats = useCallback(async () => {

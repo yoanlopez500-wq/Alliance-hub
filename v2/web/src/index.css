@@ -53,7 +53,7 @@ body {
 /* ---------- Keyframes ---------- */
 @keyframes ah-fade-up {
   from { opacity: 0; transform: translateY(40px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 @keyframes ah-slow-zoom {
   from { transform: scale(1); }
@@ -74,11 +74,14 @@ body {
   opacity: 0;
   transform: translateY(40px);
   transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: opacity, transform;
+  /* OJO: will-change/transform en un ancestro crean containing block para
+     position:fixed (los modales se iban al centro del DOCUMENTO, no del
+     viewport). Al terminar la animacion se quita el transform por completo. */
+  will-change: opacity;
 }
 .ah-reveal.ah-reveal-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 /* ---------- Utilidades ---------- */

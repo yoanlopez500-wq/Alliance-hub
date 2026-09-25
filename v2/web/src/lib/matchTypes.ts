@@ -78,6 +78,16 @@ export async function internalTypeIdsCached(): Promise<string[]> {
 }
 
 /**
+ * Filtro PostgREST listo para `.not(col, 'in', valor)`:
+ * supabase-js NO envuelve entre parentesis los arrays en `.not(...,'in',ids)`
+ * (genera `not.in.a,b` => 400). Este helper devuelve el valor crudo
+ * `("a","b")` que PostgREST si entiende.
+ */
+export function notInValue(ids: string[]): string {
+  return `(${ids.map((id) => `"${id}"`).join(',')})`;
+}
+
+/**
  * IDs de tipos "internos" (internal_standard + exclusive + legacy 'internal'):
  * las queries de ranking global deben excluirlos TODOS, no solo 'internal'.
  */

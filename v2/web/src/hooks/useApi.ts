@@ -4,12 +4,17 @@ import { useEffect, useState, useCallback } from 'react';
  * useApi — fetch + loading + error en un hook.
  * Reemplaza el patron repetido del v1: spinner manual + try/catch + toast por pagina.
  */
-export function useApi<T>(fn: () => Promise<T>, deps: unknown[] = []) {
+export function useApi<T>(fn: () => Promise<T>, deps: unknown[] = [], opts?: { skip?: boolean }) {
   const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!opts?.skip);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(() => {
+    if (opts?.skip) {
+      setLoading(false);
+      setError(null);
+      return () => {};
+    }
     let alive = true;
     setLoading(true);
     setError(null);
@@ -19,7 +24,7 @@ export function useApi<T>(fn: () => Promise<T>, deps: unknown[] = []) {
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [...deps, opts?.skip]);
 
   useEffect(() => reload(), [reload]);
   return { data, loading, error, reload, setData };
