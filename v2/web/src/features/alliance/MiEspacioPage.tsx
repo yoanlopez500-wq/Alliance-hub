@@ -26,7 +26,7 @@ export default function MiEspacioPage({ allianceId }: { allianceId: string }) {
   );
   const [tab, setTab] = useState<'apariencia' | 'tablon' | 'reglamento'>('apariencia');
   const [msg, setMsg] = useState<string | null>(null);
-  const [profile, setProfile] = useState<{ description: string; welcome_text: string; accent_color: string; links: any[] }>({ description: '', welcome_text: '', accent_color: colors.accent, links: [] });
+  const [profile, setProfile] = useState<{ description: string; welcome_text: string; accent_color: string; links: any[] }>({ description: '', welcome_text: '', accent_color: colors.accent, links: [] as any[] });
   const logoRef = useRef<HTMLInputElement>(null);
   const bannerRef = useRef<HTMLInputElement>(null);
   const [ann, setAnn] = useState({ title: '', body: '', days: 30, pinned: false, image: null as File | null });

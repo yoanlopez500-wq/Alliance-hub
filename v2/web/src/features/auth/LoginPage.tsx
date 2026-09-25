@@ -23,6 +23,7 @@ export default function LoginPage() {
     try {
       const r = await serverApi.post('/auth/player', { playerId: Number(playerId), displayName });
       setSessionToken(r.token, r.playerId);
+      try { localStorage.setItem('ah2_player_name', displayName.trim()); } catch { /* noop */ }
       window.location.href = '/';
     } catch (e2: any) {
       setError(e2.message);
