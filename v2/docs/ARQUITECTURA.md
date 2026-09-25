@@ -1,76 +1,80 @@
-# Decisiones de arquitectura — AllianceHub 2.0
+# AllianceHub 2.0 — Arquitectura (Big Update)
+
+## Principios
+
+- **REGLA ABSOLUTA**: `main` y produccion de v1 congeladas. Todo el trabajo v2 ocurre en la rama
+  `ah-v2/big-update`, bajo la carpeta `v2/`, sin colisionar con ningun archivo de v1.
+- **REGLA ABSOLUTA (DB)**: solo migraciones aditivas sobre el mismo proyecto Supabase
+  (`qkccyjegkgjzwoxytnqp`). Nunca modificar tablas de produccion; las extensiones v2 usan
+  columnas/ tablas nuevas con comportamiento NULL = v1.
+- Server Node.js (Fastify) con modulos por feature; web React 18 + Vite + TypeScript con
+  componentes reutilizables; RLS como retorno de seguridad detras del server.
 
 ## Stack
-- Web: React 18 + Vite + TypeScript + react-router. Los "componentes" reemplazan los IIFE con window.* del v1.
-- Server: Node.js + Fastify. Asume la logica que hoy vive en edge functions + validaciones a nivel app.
-- DB: MISMO proyecto Supabase qkccyjegkgjzwoxytnqp (decision del usuario).
 
-## REGLA ABSOLUTA (base de datos)
-- Lectura de tablas de produccion: libre.
-- Cualquier CAMBIO solo via migracion ADITIVA en v2/supabase/migrations/:
-  columnas nuevas NULLABLE o tablas nuevas. Nada de alterar/borrar lo existente.
-- La migracion 20261001_big_update.sql ya aplicada cumple esto: columnas
-  alliance_id NULL (= comportamiento v1) + tablas match_types y alliance_invitations nuevas.
-- v1 queda intacto: verificado tras aplicar (38 reglas, strikes globales publicos, 4 partidas).
+- `v2/server`: Fastify, plugins por modulo (`modules/*.ts`), `resolveViewer` admin|player,
+  service_role solo en servidor.
+- `v2/web`: React 18 + Vite + TS. Cliente dual en `lib/api.ts` (`serverApi` autenticado,
+  `publicDb` anon para lecturas publicas). Hook `useApi`. Componentes compartidos:
+  `Button`, `Field` (Input/TextArea/Select), `Section`, `Badge`, `DataTable`, `Loader`,
+  `EmptyState`, `ExpedienteModal`, `Reveal`, `CursorTrail`. `theme.ts` es la unica fuente
+  de verdad de color/estilo.
 
-## Seguridad (heredada del v1, reforzada)
-- RLS en cada tabla: sanciones de alianza aisladas con can_view_alliance_scope()
-  (publico = solo filas globales; staff plataforma = todo; lider = solo su alianza).
-- Oficiales (jugadores, token sellado) acceden via server v2 con service_role,
-  que valida alliance_officers antes de responder. alliance_invitations es
-  100% server-mediated (sin politicas publicas).
-- Tipos de partida exclusivos: filtro en selectores + trigger trg_validate_match_type_scope
-  (doble candado; tipos legacy desconocidos no se bloquean, v1 jamas se rompe).
+## Modulos del server
 
-## Estado del schema v2 (aplicado 2026-10-01)
-1. player_strikes / player_sanctions / strike_types: + alliance_id (NULL = liga).
-2. match_types: 6 seeds (los tipos hardcodeados del v1) + CRUD admin futuro.
-3. alliance_invitations: mercado de transferencias, unique de 1 pendiente por (alianza, jugador).
+- `auth`: login de jugador (RPC `player_login`), `/api/me`.
+- `expediente`: expediente publico de jugador + sanciones visibles segun reglas de aislamiento.
+- `sanctions`: strikes/sanciones por alianza (valida membresia aprobada + propiedad del tipo).
+- `invitations`: mercado de transferencias (invitar, listar, aceptar/rechazar, push).
+- `match-types`: CRUD de tipos de partida (superadmin), scopes global/internal_standard/exclusive.
+- `spaces`: perfil publico de alianza, imagenes (webp comprimido), anuncios y reglas propios.
 
-## Pendiente (fases siguientes)
-- Server: endpoints de sanciones por alianza, expediente, invitaciones, match_types.
-- Web: componentes de las 3 features + panel superadmin de match_types.
+## Base de datos (migracion `20261001_big_update`)
 
+- `player_strikes.alliance_id`, `player_sanctions.alliance_id`, `strike_types.alliance_id`
+  (NULL = global, comportamiento v1 intacto).
+- `can_view_alliance_scope(p_alliance_id)` SECURITY DEFINER + politicas SELECT con scope.
+- `match_types` con `scope` CHECK y trigger `trg_validate_match_type_scope`.
+- `alliance_invitations` (RLS sin politicas publicas; server-mediated; unica invitacion
+  pendiente por alianza+jugador; expira a 7 dias).
+- push-notify v14: evento `alliance_invitation` DESPLEGADO (2026-09-25), aditivo.
 
-## PLAN DE OPTIMIZACION MASIVA (modulos + componentes)
-Problema del v1: ~15 scripts IIFE con window.* acoplados, logica duplicada
-en cada pagina (fetch + render + toast repetidos N veces), sin tipos.
+## Seguridad
 
-### Server (Node/Fastify) — modular por dominio
-- v2/server/src/modules/<dominio>.ts: cada feature es un plugin Fastify
-  autocontenido (rutas + reglas). Anadir una feature = 1 archivo + 1 linea
-  en index.ts. Nada de editar 8 archivos como en el v1.
-- v2/server/src/lib/auth.ts: UN punto de verificacion de identidad
-  (admin o jugador). Los guards (canManageAlliance, isPlatformStaff,
-  isApprovedMember) se reutilizan en todos los modulos — en el v1 esa
-  logica estaba reescrita en cada pagina.
-- v2/server/src/lib/supabase.ts: instancia unica service_role.
+- Tokens de jugador verificados via RPC `verify_player_token` en cada request.
+- Oficiales = fila activa en `alliance_officers` (jugadores, no auth users): acceso mediado
+  por el server.
+- Imagenes: base64 -> webp comprimido en el server antes del bucket (mismo criterio que v1).
+- Anuncios de alianza: el push lo dispara el trigger existente `trg_alliance_announcement_push`;
+  el server v2 NO duplica el envio.
 
-### Web (React) — componentes reutilizables
-Componentes base a construir (fase siguiente, cada uno reemplaza codigo
-duplicado del v1):
-- <DataTable>     -> tablas de jugadores/strikes/anuncios (v1: ~6 tablas distintas hand-rolled)
-- <Badge>         -> badges de tipo/estado/rol (v1: getTypeBadge/getStatusBadge hardcodeados)
-- <EmptyState> y <Loader> -> estados de carga/vacio uniformes
-- useApi() hook   -> fetch + error + loading en una linea por componente
-- <ExpedienteModal> -> expediente de jugador reutilizado en: mercado, perfil, admin
-- apiClient.ts    -> cliente tipado del server v2 (reemplaza los window.supabase sueltos)
+## Optimizacion
 
-### Seguridad ganada por diseno
-- Toda escritura pasa por el server (validacion central, sin duplicarla en JS del cliente).
-- El service_role nunca toca el browser; la anon key solo lee lo publico.
-- RLS queda como red de respaldo, no como unica barrera.
+Componentes reutilizables + theme unico; objetivo ~50% menos codigo front que el v1.
+Auditoria modular completa: 0 colores hardcodeados fuera de `theme.ts` (salvo colores de
+marca WhatsApp/Discord/Telegram en AlianzaPage).
 
-### Metricas objetivo del rewrite
-- ~50% menos lineas de frontend (componentes vs copia/pega por pagina).
-- Tipado end-to-end (TS en web y server): los errores de "columna inexistente"
-  se detectan al compilar, no en produccion.
-- Cada feature nueva: 1 modulo server + N componentes, sin tocar codigo ajeno.
+## Fase visual (2026-09-25)
 
+Referencia estudiada: fork `yoanlopez500-wq/500X2-TOURNAMENT` (origen
+`elkinalejandro30/500X2-TOURNAMENT`, batallonsupremacy.web.app). Tecnicas mapeadas a la
+paleta AllianceHub (#0a0e27 / #ff8f00):
 
-## PENDIENTE — FASE VISUAL (antes de pulir la UI)
-- Referencia de animaciones: https://batallonsupremacy.web.app/ (proyecto del
-  inge Alejandro; el usuario tiene un fork para revisar a fondo).
-  Inspirarse en sus ANIMACIONES (vividas, con vida) NO en su paleta:
-  la paleta de AllianceHub se mantiene (fondo #0a0e27, acento #ff8f00, indigos).
-- Cuando llegue esa fase: pedir al usuario la URL del fork del inge Alejandro.
+| Tecnica del fork | Implementacion v2 |
+|---|---|
+| CursorTrail (canvas, particulas #d4af37) | `components/CursorTrail.tsx` — particulas #ff8f00, solo pointer:fine |
+| ScrollSection (GSAP + ScrollTrigger fade-up) | `components/Reveal.tsx` — IntersectionObserver, sin dependencias |
+| Hero slow-zoom (scale 1 -> 1.1) | `.ah-anim-slow-zoom` en el hero de App.tsx |
+| Glassmorphism (.glass / .glass-dark) | `.ah-glass` / `.ah-glass-dark` en index.css |
+| Glow dorado | `.ah-glow` / `.ah-glow-hover` / `.ah-anim-pulse-glow` en acento naranja |
+| Scrollbar personalizada | webkit scrollbar con thumb naranja |
+| Gradiente animado | `.ah-anim-gradient-pan` (titulo "2.0" del hero) |
+
+Decision: IntersectionObserver en lugar de GSAP para no inflar el bundle. Se respeta
+`prefers-reduced-motion`. La capa visual vive en `web/src/index.css` + `Reveal` +
+`CursorTrail`; ninguna pagina redefine animaciones inline.
+
+## Pendiente
+
+- Pruebas end-to-end en local (usuario esta en movil).
+- Decision final de cutover de alliancehub.app a v2.
