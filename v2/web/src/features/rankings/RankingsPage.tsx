@@ -84,7 +84,7 @@ export default function RankingsPage() {
       } catch (e) { console.error('[Rankings] sanciones:', e); }
       try {
         const { data: st } = await publicDb.from('player_strikes')
-          .select('player_id, strike_type_id, status, is_active, expires_at, legend').eq('is_active', true);
+          .select('player_id, strike_type_id, status, is_active, expires_at').eq('is_active', true);
         const withTypes = await attachStrikeTypes(st || [], () =>
           publicDb.from('strike_types').select('*').then((r) => r.data || []));
         withTypes.forEach((s: any) => {

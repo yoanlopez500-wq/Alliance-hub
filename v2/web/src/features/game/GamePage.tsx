@@ -233,11 +233,17 @@ function Registrations({ matchId }: { matchId: string }) {
   type Reg = { id: number; player_id: number; username?: string; nation?: string; registered_at: string };
   const { data, loading } = useApi<Reg[]>(async () => {
     const { data: regs, error } = await publicDb.from('match_registrations')
-      .select('player_id, username, nation, registered_at')
+      .select('player_id, nation, registered_at')
       .eq('match_id', matchId).eq('status', 'confirmed')
       .order('registered_at', { ascending: false });
     if (error) throw new Error(error.message);
-    return ((regs as Reg[] | null) ?? []).map((r) => ({ ...r, id: r.player_id }));
+    const list = ((regs as Reg[] | null) ?? []).map((r) => ({ ...r, id: r.player_id }));
+    // match_registrations no tiene username (ni FK a players): lookup en players como hace el v1.
+    const ids = list.map((r) => r.player_id).filter(Boolean);
+    if (ids.length === 0) return list;
+    const { data: players } = await publicDb.from('players').select('id, current_username').in('id', ids);
+    const names = new Map<number, string>(((players as { id: number; current_username: string }[] | null) ?? []).map((p) => [p.id, p.current_username]));
+    return list.map((r) => ({ ...r, username: names.get(r.player_id) }));
   }, [matchId]);
   if (loading || !data || data.length === 0) return null;
   return (
