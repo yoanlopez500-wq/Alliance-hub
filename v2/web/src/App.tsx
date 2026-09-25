@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { colors } from './theme';
 import Reveal from './components/Reveal';
@@ -69,6 +70,34 @@ export default function App() {
   const loggedIn = !!getSessionToken();
   const isAdmin = me?.kind === 'admin';
   const isLeader = me?.role === 'alliance_leader';
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 760);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 760);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
+
+  const navLinks = (
+    <>
+      <NavLink to="/partidas" style={navStyle}>Partidas</NavLink>
+      <NavLink to="/rankings" style={navStyle}>Rankings</NavLink>
+      <NavLink to="/reglas" style={navStyle}>Reglamento</NavLink>
+      <NavLink to="/jugadores" style={navStyle}>Mercado</NavLink>
+      <NavLink to="/alianzas" style={navStyle}>Alianzas</NavLink>
+      <NavLink to="/lider/solicitud" style={navStyle}>Liderazgo</NavLink>
+      {isLeader && <NavLink to="/admin/leader-dashboard" style={navStyle}>Panel de líder</NavLink>}
+      {isAdmin && <NavLink to="/chat" style={navStyle}>Chat</NavLink>}
+      {myAllianceId && <NavLink to="/alianza" style={navStyle}>Mi alianza</NavLink>}
+      {myAllianceId && <NavLink to="/alianza/sanciones" style={navStyle}>Sanciones</NavLink>}
+      {myAllianceId && <NavLink to="/mi-espacio" style={navStyle}>Mi Espacio</NavLink>}
+      {isAdmin && <NavLink to="/admin" style={navStyle}>Panel admin</NavLink>}
+      {me?.role === 'superadmin' && <NavLink to="/admin/match-types" style={navStyle}>Tipos de partida</NavLink>}
+    </>
+  );
 
   return (
     <div style={{ fontFamily: 'system-ui', background: colors.bg, color: colors.text, minHeight: '100vh' }}>
@@ -81,28 +110,49 @@ export default function App() {
         <NavLink to="/" style={{ ...navStyle({ isActive: false }), fontWeight: 800, color: colors.accent, fontSize: 16 }}>
           ⚔️ AllianceHub
         </NavLink>
-        <NavLink to="/partidas" style={navStyle}>Partidas</NavLink>
-        <NavLink to="/rankings" style={navStyle}>Rankings</NavLink>
-        <NavLink to="/reglas" style={navStyle}>Reglamento</NavLink>
-        <NavLink to="/alianzas" style={navStyle}>Alianzas</NavLink>
-        <NavLink to="/lider/solicitud" style={navStyle}>Liderazgo</NavLink>
-        {isLeader && <NavLink to="/admin/leader-dashboard" style={navStyle}>Panel de líder</NavLink>}
-        {isAdmin && <NavLink to="/chat" style={navStyle}>Chat</NavLink>}
-        {myAllianceId && <NavLink to="/alianza" style={navStyle}>Mi alianza</NavLink>}
-        {myAllianceId && <NavLink to="/alianza/sanciones" style={navStyle}>Sanciones</NavLink>}
-        {myAllianceId && <NavLink to="/mi-espacio" style={navStyle}>Mi Espacio</NavLink>}
-        {isAdmin && <NavLink to="/admin" style={navStyle}>Panel admin</NavLink>}
-        {me?.role === 'superadmin' && <NavLink to="/admin/match-types" style={navStyle}>Tipos de partida</NavLink>}
-        <span style={{ flex: 1 }} />
-        {loggedIn ? (
-          <button onClick={() => { setSessionToken(null); reload(); }} style={{
-            background: colors.border, color: colors.muted, border: 'none', padding: '6px 14px',
-            borderRadius: 8, cursor: 'pointer', fontSize: 13,
-          }}>Salir</button>
+        {isMobile ? (
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Menú"
+            style={{
+              background: colors.border, color: colors.text, border: 'none',
+              padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 18,
+            }}
+          >
+            {menuOpen ? '✕' : '☰'}
+          </button>
         ) : (
-          <NavLink to="/login" style={navStyle}>Entrar</NavLink>
+          <>
+            {navLinks}
+            <span style={{ flex: 1 }} />
+            {loggedIn ? (
+              <button onClick={() => { setSessionToken(null); reload(); }} style={{
+                background: colors.border, color: colors.muted, border: 'none', padding: '6px 14px',
+                borderRadius: 8, cursor: 'pointer', fontSize: 13,
+              }}>Salir</button>
+            ) : (
+              <NavLink to="/login" style={navStyle}>Entrar</NavLink>
+            )}
+          </>
         )}
       </nav>
+      {isMobile && menuOpen && (
+        <div className="ah-glass-dark" style={{
+          position: 'sticky', top: 53, zIndex: 9, padding: '12px 20px',
+          display: 'flex', flexDirection: 'column', gap: 12,
+          borderBottom: `1px solid ${colors.border}`,
+        }}>
+          {navLinks}
+          {loggedIn ? (
+            <button onClick={() => { setSessionToken(null); reload(); }} style={{
+              background: colors.border, color: colors.muted, border: 'none', padding: '6px 14px',
+              borderRadius: 8, cursor: 'pointer', fontSize: 13, alignSelf: 'flex-start',
+            }}>Salir</button>
+          ) : (
+            <NavLink to="/login" style={navStyle}>Entrar</NavLink>
+          )}
+        </div>
+      )}
       <main style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 16px' }}>
         <InvitacionesBadge />
         <Reveal key={location.pathname}>
