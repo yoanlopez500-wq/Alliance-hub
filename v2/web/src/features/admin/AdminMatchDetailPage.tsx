@@ -17,7 +17,7 @@ import Reveal from '../../components/Reveal';
 
 const SORT_KEY = 'ah2_match_results_sort';
 
-type Match = { id: string; name: string; description: string | null; status: string; match_type: string | null; alliance_id: string | null; game_id: string | null; password: string | null; max_players: number | null; created_at: string; csv_imported: boolean; winners_declared: boolean; is_private: boolean; share_token: string | null; requires_approval: boolean };
+type Match = { id: string; name: string; description: string | null; status: string; match_type: string | null; alliance_id: string | null; game_id: string | null; password: string | null; max_players: number | null; created_at: string; csv_imported: boolean; winners_declared: boolean; is_private: boolean; share_token: string | null; requires_approval: boolean; is_official: boolean };
 type Reg = { id: string; player_id: number; nation: string | null; status: string; notes: string | null; registered_at: string; username?: string; player?: PlayerSanctionState & { current_username?: string } };
 type Result = { id: string; player_id: number; nation: string | null; kills: number; deaths: number; kd_ratio: number; username?: string };
 
@@ -168,6 +168,8 @@ function MatchDetail() {
       description: String(fd.get('description') || '').trim() || null,
       status: 'draft',
       created_by: admin?.id,
+      // Oficial = arbitraje staff; el trigger rechaza a no-staff de todos modos.
+      is_official: staff ? fd.get('is_official') === 'on' : false,
     }).select().single();
     if (error) { say('Error: ' + error.message); return; }
     say('Partida creada');
@@ -194,6 +196,7 @@ function MatchDetail() {
       name: editMatch.name, game_id: editMatch.game_id, password: editMatch.password,
       match_type: editMatch.match_type, max_players: editMatch.max_players,
       description: editMatch.description, alliance_id: editMatch.alliance_id,
+      is_official: editMatch.is_official,
     }).eq('id', matchId);
     if (error) say('Error: ' + error.message); else { say('Partida actualizada'); setEditMatch(null); loadMatch(); }
   }
@@ -430,6 +433,12 @@ function MatchDetail() {
           <Input name="max_players" type="number" style={styles.input} />
           <label style={{ fontSize: 12, color: colors.muted }}>Descripcion</label>
           <TextArea name="description" rows={2} style={styles.input} />
+          {staff && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 12px', fontSize: 13, color: colors.text, cursor: 'pointer' }}>
+              <input type="checkbox" name="is_official" />
+              🏛 Oficial AllianceHub (arbitrada por staff, cuenta en el ranking oficial)
+            </label>
+          )}
           <div style={{ display: 'flex', gap: 8 }}>
             <Button type="submit">Crear partida</Button>
             <Link to="/admin/partidas" style={{ ...styles.btnGhost, padding: '10px 18px', textDecoration: 'none' }}>Cancelar</Link>
@@ -465,6 +474,7 @@ function MatchDetail() {
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {badge(match.status)}
                 <MatchTypeBadge typeId={match.match_type} />
+                {match.is_official && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(255,213,79,0.15)', color: colors.warning }}>🏛 Oficial</span>}
                 {match.csv_imported && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(129,199,132,0.15)', color: colors.success }}>✓ CSV</span>}
               </div>
             </div>
@@ -613,6 +623,12 @@ function MatchDetail() {
               <Select value={editMatch.match_type || 'internal'} onChange={(e) => setEditMatch({ ...editMatch, match_type: e.target.value })} style={styles.input}>
                 {matchTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </Select>
+              {/* Solo staff: marca de arbitraje oficial (entra al ranking oficial). */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 4px', fontSize: 13, color: colors.text, cursor: 'pointer' }}>
+                <input type="checkbox" checked={!!editMatch.is_official}
+                  onChange={(e) => setEditMatch({ ...editMatch, is_official: e.target.checked })} />
+                🏛 Oficial AllianceHub (arbitrada por staff, cuenta en el ranking oficial)
+              </label>
             </>
           ) : null}
           <label style={{ fontSize: 12, color: colors.muted }}>Max jugadores</label>

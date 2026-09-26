@@ -6,6 +6,7 @@ import {
   getSavedSortMode, saveSortMode, type SortMode,
 } from '../../lib/ranking';
 import { computeEffectiveKills, attachStrikeTypes } from '../../lib/sanctions';
+import { useMatchTypes } from '../../lib/matchTypes';
 import { formatDate, formatDateTime } from '../../lib/format';
 import { colors, styles } from '../../theme';
 import DataTable from '../../components/DataTable';
@@ -57,6 +58,16 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'market', label: '🤝 Mercado' },
 ];
 
+/** Pildora de categoria (Oficial / comunitarias). */
+function catPill(active: boolean): React.CSSProperties {
+  return {
+    padding: '7px 13px', borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: 'pointer',
+    border: `1px solid ${active ? colors.warning : colors.border}`,
+    background: active ? 'rgba(255,213,79,0.12)' : 'rgba(255,255,255,0.04)',
+    color: active ? colors.warning : colors.muted,
+  };
+}
+
 /** RankingsPage — puerto de rankings.js: 4 tabs + score Bayesiano C=3. */
 export default function RankingsPage() {
   const [tabParam] = useSearchParams();
@@ -67,6 +78,9 @@ export default function RankingsPage() {
   const [allianceMap, setAllianceMap] = useState<Record<number, { name: string; tag: string | null }>>({});
   const [allianceList, setAllianceList] = useState<{ id: number; name: string }[]>([]);
   const [filterAlliance, setFilterAlliance] = useState('');
+  const [cat, setCat] = useState<string>('official');
+  const { types: matchTypes } = useMatchTypes();
+  const communityTypes = matchTypes.filter((t) => t.scope === 'global' && t.is_active);
   const [sortMode, setSortMode] = useState<SortMode>(getSavedSortMode);
   const [priors, setPriors] = useState<{ priorK: number; priorD: number; C: number } | null>(null);
   const [podiumByPlayer, setPodiumByPlayer] = useState<Record<number, { p1: number; p2: number; p3: number }>>({});
@@ -135,12 +149,18 @@ export default function RankingsPage() {
     })();
   }, []);
 
-  // ---- Tab jugadores ----
+  // ---- Tab jugadores: categoria oficial vs comunitaria por tipo ----
+  // 'official' = public_rankings_view (partidas arbitradas por AllianceHub).
+  // otro valor = id de match_type: public_community_rankings_view filtrado
+  // (partidas globales NO oficiales: rapidas de alianzas, abiertas, etc.).
   const loadPlayers = useCallback(async () => {
     if (!ctx) return;
     try {
-      const allRows = await fetchAllRows<any>((from, to) =>
-        Promise.resolve(publicDb.from('public_rankings_view').select('*').order('player_id', { ascending: true }).range(from, to)));
+      const allRows = cat === 'official'
+        ? await fetchAllRows<any>((from, to) =>
+            Promise.resolve(publicDb.from('public_rankings_view').select('*').order('player_id', { ascending: true }).range(from, to)))
+        : await fetchAllRows<any>((from, to) =>
+            Promise.resolve(publicDb.from('public_community_rankings_view').select('*').eq('match_type', cat).order('player_id', { ascending: true }).range(from, to)));
       const mapped: RankingRow[] = allRows.map((r) => ({
         id: r.player_id,
         username: r.current_username,
@@ -148,9 +168,11 @@ export default function RankingsPage() {
         kills: r.total_kills || 0,
         deaths: r.total_deaths || 0,
         games: r.games_played || 0,
-        p1: podiumByPlayer[r.player_id]?.p1 || 0,
-        p2: podiumByPlayer[r.player_id]?.p2 || 0,
-        p3: podiumByPlayer[r.player_id]?.p3 || 0,
+        // Los podios solo existen en el circuito oficial; en categorias
+        // comunitarias no aplican (columna a 0 para no mezclar).
+        p1: cat === 'official' ? podiumByPlayer[r.player_id]?.p1 || 0 : 0,
+        p2: cat === 'official' ? podiumByPlayer[r.player_id]?.p2 || 0 : 0,
+        p3: cat === 'official' ? podiumByPlayer[r.player_id]?.p3 || 0 : 0,
       }));
       const acc = {
         eff: (p: RankingRow) => { const v = effKillsOf(p, ctx); return isFinite(v) ? v : 0; },
@@ -172,7 +194,7 @@ export default function RankingsPage() {
       console.error('[Rankings] jugadores:', e);
       setPlayers([]);
     }
-  }, [ctx, filterAlliance, sortMode, podiumByPlayer]);
+  }, [ctx, filterAlliance, sortMode, podiumByPlayer, cat]);
 
   useEffect(() => { loadPlayers(); }, [loadPlayers]);
 
@@ -303,6 +325,18 @@ export default function RankingsPage() {
 
       {tab === 'players' && (
         <Reveal>
+          {/* Selector de categoria: Oficial (arbitraje staff) vs comunitarias por tipo */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            <button onClick={() => setCat('official')} style={catPill(cat === 'official')}>🏛 Oficial AllianceHub</button>
+            {communityTypes.map((t) => (
+              <button key={t.id} onClick={() => setCat(t.id)} style={catPill(cat === t.id)}>{t.name}</button>
+            ))}
+          </div>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: colors.muted }}>
+            {cat === 'official'
+              ? 'Solo partidas oficiales arbitradas por el staff de AllianceHub bajo reglas oficiales.'
+              : 'Partidas comunitarias de este tipo: cuentan aquí, pero no en el ranking oficial.'}
+          </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
             <select value={filterAlliance} onChange={(e) => setFilterAlliance(e.target.value)} style={{ ...styles.input, width: 'auto', marginBottom: 0 }}>
               <option value="">Todas las alianzas</option>

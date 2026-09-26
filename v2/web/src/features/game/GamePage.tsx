@@ -23,7 +23,7 @@ type Match = {
   is_private: boolean; share_token: string | null; winners_declared: boolean;
   requires_approval: boolean; game_id: string | null; password: string | null;
   game_password: string | null; max_players: number | null; created_at: string;
-  csv_imported: boolean;
+  csv_imported: boolean; is_official: boolean;
 };
 type Alliance = { id: string; name: string; tag: string };
 
@@ -117,6 +117,7 @@ export default function GamePage() {
             return <span style={badgeStyle(st.bg, st.color)}>{STATUS_LABELS[m.status] ?? m.status}</span>;
           })()}
           <MatchTypeBadge typeId={m.match_type} />
+          {m.is_official && <span style={badgeStyle('rgba(255,213,79,0.15)', '#ffd54f')} title="Arbitrada por el staff de AllianceHub: cuenta en el ranking oficial">🏛 Oficial</span>}
           {(m.password || m.game_password) && <span style={badgeStyle('rgba(255,193,7,0.15)', '#ffd54f')}>🔒</span>}
           {m.requires_approval && <span style={badgeStyle('rgba(255,193,7,0.15)', '#ffd54f')}>👁 Con Aprobacion</span>}
           {m.winners_declared && <span style={badgeStyle('rgba(255,235,59,0.15)', '#ffee58')}>🏆 Ganadores</span>}

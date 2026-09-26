@@ -36,6 +36,22 @@ const CHANGES: ChangeItem[] = [
   {
     date: '27 sep',
     phase: 'Fase 2',
+    icon: '🏛',
+    impact: 'Nuevo',
+    title: 'Rankings por categoría: Oficial AllianceHub vs comunitarias',
+    body: 'El ranking global ya no es una bolsa única. A partir de ahora una partida solo entra en el ranking oficial si el staff la marca como arbitrada bajo reglas oficiales (🏛). Las partidas globales no oficiales —por ejemplo una partida rápida que organice una alianza con jugadores de fuera— tienen su propio ranking por categoría (Rápidas, Públicas, Torneos…), visible para todos pero separado del oficial. Las internas y exclusivas jamás salen de su jurisdicción salvo arbitraje oficial.',
+    bullets: [
+      '🏛 Nuevo flag «Oficial AllianceHub» en las partidas: solo el staff puede marcarlo o quitarlo (también a nivel de base de datos), y aparece como badge en la página pública de la partida.',
+      '🏆 El tab Jugadores estrena selector de categoría: Oficial por defecto, más una píldora por cada tipo global activo para sus rankings comunitarios (sin podios, que son cosa del circuito oficial).',
+      '📊 El K/D y los podios del perfil de cada jugador ahora son oficiales: reflejan solo partidas arbitradas por el staff.',
+      '🔒 Fix de seguridad del ranking: las vistas globales filtraban mal y una partida exclusiva de alianza podía colarse en el ranking global de jugadores; ahora las tres vistas usan el mismo criterio oficial.',
+      '🗂 Retroactivo: las cuatro partidas ya arbitradas por el staff pasan a oficiales; la partida interna de «purga» de los Guardianes sigue siendo solo de su alianza.',
+    ],
+    audiences: ['jugadores', 'lideres', 'staff'],
+  },
+  {
+    date: '27 sep',
+    phase: 'Fase 2',
     icon: '🛠',
     impact: 'Mejora',
     title: 'Líderes y co-líderes: gestión completa de sus partidas',
