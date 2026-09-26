@@ -35,6 +35,22 @@ const IMPACT_META: Record<ChangeItem['impact'], { color: string; bg: string }> =
 const CHANGES: ChangeItem[] = [
   {
     date: '26 sep',
+    phase: 'Fase 2',
+    icon: '🎖',
+    impact: 'Nuevo',
+    title: 'Panel por rol y delegación: oficiales y co-líderes con cuenta propia',
+    body: 'El botón 🛡 Admin ahora es un panel de trabajo para cada cuenta auth: el staff ve el panel completo con los derechos de su rol, los líderes solo sus herramientas de liderazgo y los oficiales las suyas. Los líderes delegan con dos roles esenciales desde su lista de miembros.',
+    bullets: [
+      'Líder: navegación de solo liderazgo (Panel de líder, Oficiales, Miembros, Prestigios); el hub ya no mezcla herramientas de staff.',
+      'Invitar oficial/co-líder: un clic en cualquier miembro de la lista genera el código (7 días); el jugador ve la invitación como notificación al entrar y registra su cuenta con el código ya puesto.',
+      '🎖 Oficial: ve miembros, sanciones y notas de su alianza. ⭐ Co-líder: además crea partidas, expulsa miembros e invita oficiales.',
+      'Oficiales y co-líderes son cuentas auth: su botón 🛡 Admin abre su workspace directamente.',
+      'Seguridad: cambiar el rol de un admin ahora exige superadmin también a nivel de base de datos (antes la UI lo pedía pero RLS lo permitía a cualquier admin).',
+    ],
+    audiences: ['lideres', 'staff'],
+  },
+  {
+    date: '26 sep',
     phase: 'Fase 1',
     icon: '🧭',
     impact: 'Mejora',

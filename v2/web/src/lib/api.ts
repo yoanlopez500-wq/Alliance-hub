@@ -51,7 +51,7 @@ export class ApiError extends Error {
 
 /* ---------------- Edge functions (service_role) ---------------- */
 
-async function edgeCall(fn: string, body: unknown): Promise<any> {
+export async function edgeCall(fn: string, body: unknown): Promise<any> {
   const pid = getStoredPlayerId();
   const token = getSessionToken();
   const res = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {

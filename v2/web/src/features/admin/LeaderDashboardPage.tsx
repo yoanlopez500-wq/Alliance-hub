@@ -11,6 +11,7 @@ import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
 import SortExplainer from '../../components/SortExplainer';
 import { useAdmin } from '../../lib/admin';
+import { generateInviteCode } from '../../lib/invites';
 import PlayerNotes from '../../components/PlayerNotes';
 import { fetchAllRows, makeBayesScorer, compareBy, getSavedSortMode, saveSortMode, SORT_MODES, type SortMode } from '../../lib/ranking';
 import { fetchMatchTypes, internalTypeIdsCached, notInValue, useMatchTypes, selectableTypes, MatchTypeBadge } from '../../lib/matchTypes';
@@ -71,6 +72,51 @@ function LeaderDashboard() {
   const [cmType, setCmType] = useState('internal');
   const [busy, setBusy] = useState(false);
   const [noteMember, setNoteMember] = useState<MemberStat | null>(null);
+  // Invitacion de oficial/co-lider: el lider elige un miembro de la lista y
+  // se genera un codigo (admin_invites, role officer/co_leader). El jugador
+  // invitado ve la notificacion con el codigo ya llenado en /registro/oficial.
+  const [officerIds, setOfficerIds] = useState<Set<number>>(new Set());
+  const [inviteMember, setInviteMember] = useState<MemberStat | null>(null);
+  const [inviteRole, setInviteRole] = useState<'officer' | 'co_leader'>('officer');
+  const [inviteResult, setInviteResult] = useState<{ code: string; url: string; role: string; name: string } | null>(null);
+
+  const loadOfficers = useCallback(async () => {
+    if (!myAllianceId) return;
+    try {
+      const { data } = await publicDb.from('alliance_officers')
+        .select('player_id').eq('alliance_id', myAllianceId).eq('is_active', true);
+      setOfficerIds(new Set(((data ?? []) as { player_id: number }[]).map((o) => o.player_id)));
+    } catch (e) { console.error('[LeaderDashboard] Error cargando oficiales:', e); }
+  }, [myAllianceId]);
+
+  async function inviteOfficer() {
+    if (!inviteMember || !myAllianceId) return;
+    setBusy(true);
+    try {
+      const { data: sessData } = await publicDb.auth.getSession();
+      const code = generateInviteCode();
+      const { error } = await publicDb.from('admin_invites').insert({
+        code,
+        role: inviteRole,
+        alliance_id: myAllianceId,
+        player_id: inviteMember.player.id,
+        created_by: sessData.session?.user.id,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+      if (error) throw error;
+      setInviteResult({
+        code,
+        url: `/registro/oficial?code=${code}`,
+        role: inviteRole,
+        name: inviteMember.player.current_username || `#${inviteMember.player.id}`,
+      });
+      setInviteMember(null);
+    } catch (e: any) {
+      showToast(e.message || 'Error creando la invitación');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function showToast(msg: string) {
     setToast(msg);
@@ -228,7 +274,8 @@ function LeaderDashboard() {
     loadMembers();
     loadDuels();
     loadAllianceMatches();
-  }, [isLeader, myAllianceId, loadAllianceData, loadPendingRequests, loadMembers, loadDuels, loadAllianceMatches]);
+    loadOfficers();
+  }, [isLeader, myAllianceId, loadAllianceData, loadPendingRequests, loadMembers, loadDuels, loadAllianceMatches, loadOfficers]);
 
   useEffect(() => {
     if (tab === 'rankings' && members) loadAllianceRankings();
@@ -382,6 +429,9 @@ function LeaderDashboard() {
                   <button onClick={() => setNoteMember(m)} title="Nota interna (privada, con registro)" style={{ ...memberActionStyle, cursor: 'pointer' }}>📝 Nota</button>
                   <Link to={`/alianza/sanciones?prefill_player=${m.player.id}`} title="Poner strike" style={memberActionStyle}>⚡ Strike</Link>
                   <Link to="/reportar" title="Reportar a plataforma" style={memberActionStyle}>🚩 Reportar</Link>
+                  {!officerIds.has(m.player.id) && (
+                    <button onClick={() => { setInviteRole('officer'); setInviteMember(m); }} title="Invitar como oficial / co-líder" style={{ ...memberActionStyle, cursor: 'pointer' }}>🎖 Oficial</button>
+                  )}
                   <button onClick={() => kickMember(m)} title="Expulsar de la alianza" style={{
                     ...memberActionStyle, border: `1px solid ${colors.danger}`, color: colors.danger, cursor: 'pointer',
                   }}>✗ Expulsar</button>
@@ -503,6 +553,47 @@ function LeaderDashboard() {
               />
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
                 <Button variant="ghost" onClick={() => setNoteMember(null)}>Cerrar</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {inviteMember && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }} onClick={() => setInviteMember(null)}>
+            <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 16, padding: 24, maxWidth: 460, width: '100%' }} onClick={(e) => e.stopPropagation()}>
+              <h3 style={{ marginTop: 0, color: colors.text }}>🎖 Invitar como oficial — {inviteMember.player.current_username}</h3>
+              <p style={{ fontSize: 13, color: colors.muted, marginTop: -6 }}>
+                Se genera un código de invitación (válido 7 días). El jugador lo verá como
+                notificación al entrar con su cuenta y completará el registro con el código ya puesto.
+              </p>
+              <label style={labelStyle}>Rol delegado</label>
+              <Select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as 'officer' | 'co_leader')}>
+                <option value="officer">🎖 Oficial — ver miembros/sanciones, notas, reportar</option>
+                <option value="co_leader">⭐ Co-líder — además crear partidas, expulsar e invitar oficiales</option>
+              </Select>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                <Button variant="ghost" onClick={() => setInviteMember(null)}>Cancelar</Button>
+                <Button onClick={inviteOfficer} disabled={busy}>{busy ? 'Generando…' : 'Generar invitación'}</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {inviteResult && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }} onClick={() => setInviteResult(null)}>
+            <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 16, padding: 24, maxWidth: 520, width: '100%' }} onClick={(e) => e.stopPropagation()}>
+              <h3 style={{ marginTop: 0, color: colors.text }}>✅ Invitación creada — {inviteResult.name}</h3>
+              <p style={{ fontSize: 13, color: colors.muted }}>
+                Rol: <b>{inviteResult.role === 'co_leader' ? '⭐ Co-líder' : '🎖 Oficial'}</b>. El jugador la verá como notificación al entrar a la app.
+                También puedes compartirle el enlace directo:
+              </p>
+              <div style={{ background: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, wordBreak: 'break-all', color: colors.text }}>
+                {inviteResult.url}
+              </div>
+              <p style={{ fontSize: 12, color: colors.muted }}>Código: <b style={{ color: colors.accent }}>{inviteResult.code}</b> · válido 7 días</p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <Button variant="ghost" onClick={() => setInviteResult(null)}>Cerrar</Button>
+                <Button onClick={() => { navigator.clipboard?.writeText('https://alliancehub.app' + inviteResult.url).catch(() => {}); showToast('Enlace copiado'); }}>📋 Copiar enlace</Button>
               </div>
             </div>
           </div>

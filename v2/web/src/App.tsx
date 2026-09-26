@@ -8,6 +8,7 @@ import { useApi } from './hooks/useApi';
 import JugadoresPage from './features/players/JugadoresPage';
 import SancionesPage from './features/alliance/SancionesPage';
 import InvitacionesBadge from './features/alliance/InvitacionesBadge';
+import OfficerInviteBanner from './features/alliance/OfficerInviteBanner';
 import AlianzaPage from './features/alliance/AlianzaPage';
 import AlianzasPage from './features/alliance/AlianzasPage';
 import AlliancePanelPage from './features/alliance/AlliancePanelPage';
@@ -357,6 +358,7 @@ export default function App() {
       </nav>
       <main style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 16px' }}>
         <InvitacionesBadge />
+        <OfficerInviteBanner />
         <Reveal key={location.pathname}>
         <Routes>
           <Route path="/" element={<LandingPage />} />

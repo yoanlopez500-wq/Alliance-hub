@@ -15,7 +15,7 @@
    - Mensajes: SKIP_WAITING, CLEAR_ALL_KILL_SWITCH (limpia todo)
    ============================================================ */
 
-const VERSION = 'ah2-v2.14';
+const VERSION = 'ah2-v2.15';
 const SHELL_CACHE = `${VERSION}-shell`;
 const ASSET_CACHE = `${VERSION}-assets`;
 
