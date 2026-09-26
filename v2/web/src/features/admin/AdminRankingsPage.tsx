@@ -5,6 +5,7 @@ import AdminGate from '../../components/AdminGate';
 import { Select } from '../../components/Field';
 import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
+import SortExplainer from '../../components/SortExplainer';
 import {
   fetchAllRows, makeBayesScorer, compareBy, getSavedSortMode, saveSortMode,
   SORT_MODES, type SortMode,
@@ -30,6 +31,7 @@ function AdminRankings() {
   const [rows, setRows] = useState<PlayerRow[] | null>(null);
   const [alliances, setAlliances] = useState<Alliance[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>(getSavedSortMode());
+  const [priors, setPriors] = useState<{ priorK: number; priorD: number; C: number } | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -102,6 +104,7 @@ function AdminRankings() {
           deaths: (p) => p.deaths,
           games: (p) => p.games,
         });
+        setPriors({ priorK: scorer.priorK, priorD: scorer.priorD, C: scorer.C });
         playersData = playersData.map((p) => ({ ...p, score: scorer.score(p) }));
 
         const acc = {
@@ -140,6 +143,7 @@ function AdminRankings() {
       </div>
 
       {error && <div style={{ color: colors.danger, margin: '12px 0' }}>{error}</div>}
+      <SortExplainer activeId={sortMode} priors={priors} note="Vista administrativa: usa bajas/muertes crudos de partidas validas, sin penalizaciones de expediente." />
 
       {rows === null ? (
         <Loader />

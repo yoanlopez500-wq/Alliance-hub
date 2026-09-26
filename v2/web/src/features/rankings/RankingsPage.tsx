@@ -11,6 +11,7 @@ import { colors, styles } from '../../theme';
 import DataTable from '../../components/DataTable';
 import Loader from '../../components/Loader';
 import Reveal from '../../components/Reveal';
+import SortExplainer from '../../components/SortExplainer';
 
 type Tab = 'players' | 'alliances' | 'duels' | 'strikes';
 
@@ -21,6 +22,9 @@ interface RankingRow {
   kills: number;
   deaths: number;
   games: number;
+  p1: number;
+  p2: number;
+  p3: number;
 }
 
 interface Ctx {
@@ -58,6 +62,8 @@ export default function RankingsPage() {
   const [allianceList, setAllianceList] = useState<{ id: number; name: string }[]>([]);
   const [filterAlliance, setFilterAlliance] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>(getSavedSortMode);
+  const [priors, setPriors] = useState<{ priorK: number; priorD: number; C: number } | null>(null);
+  const [podiumByPlayer, setPodiumByPlayer] = useState<Record<number, { p1: number; p2: number; p3: number }>>({});
   const [ctx, setCtx] = useState<Ctx | null>(null);
   const [players, setPlayers] = useState<RankingRow[] | null>(null);
   const [alliances, setAlliances] = useState<any[] | null>(null);
@@ -96,6 +102,20 @@ export default function RankingsPage() {
     })();
   }, []);
 
+  // ---- Podios por jugador (top 1/2/3 por partida valida) ----
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await publicDb.from('public_player_podium_stats').select('*');
+        const map: Record<number, { p1: number; p2: number; p3: number }> = {};
+        (data || []).forEach((r: any) => {
+          map[r.player_id] = { p1: Number(r.podium_1 || 0), p2: Number(r.podium_2 || 0), p3: Number(r.podium_3 || 0) };
+        });
+        setPodiumByPlayer(map);
+      } catch (e) { console.error('[Rankings] podios:', e); }
+    })();
+  }, []);
+
   // ---- Alianzas (mapa + selector de filtro) ----
   useEffect(() => {
     (async () => {
@@ -122,6 +142,9 @@ export default function RankingsPage() {
         kills: r.total_kills || 0,
         deaths: r.total_deaths || 0,
         games: r.games_played || 0,
+        p1: podiumByPlayer[r.player_id]?.p1 || 0,
+        p2: podiumByPlayer[r.player_id]?.p2 || 0,
+        p3: podiumByPlayer[r.player_id]?.p3 || 0,
       }));
       const acc = {
         eff: (p: RankingRow) => { const v = effKillsOf(p, ctx); return isFinite(v) ? v : 0; },
@@ -129,6 +152,7 @@ export default function RankingsPage() {
         games: (p: RankingRow) => p.games,
       };
       const scorer = makeBayesScorer(mapped, acc);
+      setPriors({ priorK: scorer.priorK, priorD: scorer.priorD, C: scorer.C });
       const full = {
         ...acc,
         score: scorer.score,
@@ -142,7 +166,7 @@ export default function RankingsPage() {
       console.error('[Rankings] jugadores:', e);
       setPlayers([]);
     }
-  }, [ctx, filterAlliance, sortMode]);
+  }, [ctx, filterAlliance, sortMode, podiumByPlayer]);
 
   useEffect(() => { loadPlayers(); }, [loadPlayers]);
 
@@ -258,11 +282,7 @@ export default function RankingsPage() {
           <h1 style={{ color: colors.text, margin: 0 }}>🏆 Rankings</h1>
           <button onClick={() => setShowHelp((v) => !v)} style={{ ...styles.btnGhost, padding: '6px 12px' }} title="Como funcionan los rankings">?</button>
         </div>
-        {showHelp && (
-          <div style={{ ...styles.card, marginBottom: 12, fontSize: 13, color: colors.muted, lineHeight: 1.6 }}>
-            <strong style={{ color: colors.accent }}>Score Bayesiano (C=3):</strong> el orden por defecto ajusta el KD real hacia el promedio global segun la cantidad de partidas jugadas, evitando que jugadores con 1 partida perfecta dominen el ranking. Desempate determinista: score → mas partidas → menos muertes → mas bajas efectivas → alfabetico. "Kills validas" descuenta bajas anuladas y penalizaciones por strikes/sanciones.
-          </div>
-        )}
+        {showHelp && <SortExplainer activeId={sortMode} priors={priors} />}
         <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${colors.border}`, marginBottom: 16, overflowX: 'auto' }}>
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
@@ -291,7 +311,11 @@ export default function RankingsPage() {
               rows={rankedRows}
               empty="Sin datos de rankings publicos"
               columns={[
-                { key: 'rank', header: '#', render: (r) => <span style={{ color: colors.muted, fontWeight: 700 }}>{r.rank}</span> },
+                { key: 'rank', header: '#', render: (r) => (
+                  <span style={{ color: r.rank <= 3 ? colors.warning : colors.muted, fontWeight: 800 }}>
+                    {r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank}
+                  </span>
+                ) },
                 { key: 'username', header: 'Jugador', render: (r) => (
                   <span>
                     <Link to={`/jugador/${r.id}`} style={{ color: colors.accent, fontWeight: 600 }}>{r.username}</Link>
@@ -299,6 +323,11 @@ export default function RankingsPage() {
                   </span>
                 ) },
                 { key: 'allianceTag', header: 'Alianza', render: (r) => <span style={{ color: colors.muted }}>{r.allianceTag}</span> },
+                { key: 'podiums', header: 'Podios', render: (r) => (
+                  <span style={{ color: colors.muted, fontSize: 12, whiteSpace: 'nowrap' }} title="Top 1 / Top 2 / Top 3 por partida valida">
+                    🥇{r.p1} 🥈{r.p2} 🥉{r.p3}
+                  </span>
+                ) },
                 { key: 'games', header: 'Partidas', render: (r) => <span style={{ textAlign: 'right', display: 'block', color: colors.muted }}>{r.games}</span> },
                 { key: 'eff', header: 'Bajas validas', render: (r) => <span style={{ textAlign: 'right', display: 'block', fontWeight: 700, color: r.eff > 0 ? colors.success : colors.muted, textDecoration: r.penalty > 0 ? 'line-through' : 'none' }}>{r.eff}</span> },
                 { key: 'deaths', header: 'Muertes', render: (r) => <span style={{ textAlign: 'right', display: 'block', color: colors.muted }}>{r.deaths}</span> },

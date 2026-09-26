@@ -6,6 +6,8 @@ import { usePlayerSession } from '../../lib/playerSession';
 import { colors, styles } from '../../theme';
 import DataTable from '../../components/DataTable';
 import Reveal from '../../components/Reveal';
+import PrestigeBadge from '../../components/PrestigeBadge';
+import type { PrestigeDefinition } from '../../lib/prestige';
 
 type Alliance = {
   id: string; name: string; tag: string; description: string | null;
@@ -35,7 +37,22 @@ export default function AlianzasPage() {
     return data as Alliance[];
   }, []);
 
-  // Membresia del jugador: decide si mostramos "Solicitar entrada" / "Pendiente" / "Tu alianza"
+  // Prestigios desbloqueados por alianza (evaluados en vivo). El directorio es pequeno;
+  // si crece, esto se puede mover a una vista agregada sin cambiar la UI.
+  const { data: prestigeMap } = useApi<Record<string, PrestigeDefinition[]>>(async () => {
+    const list = alliances ?? [];
+    const entries = await Promise.all(list.map(async (a) => {
+      try {
+        const { data } = await publicDb.rpc('alliance_prestiges', { p_alliance_id: a.id });
+        return [a.id, (data ?? []) as PrestigeDefinition[]];
+      } catch {
+        return [a.id, [] as PrestigeDefinition[]];
+      }
+    }));
+    return Object.fromEntries(entries) as Record<string, PrestigeDefinition[]>;
+  }, [alliances]);
+
+  // Membresía del jugador: decide si mostramos "Solicitar entrada" / "Pendiente" / "Tu alianza"
   const { data: membership, reload: reloadMembership } = useApi<Membership | null>(async () => {
     if (!playerId) return null;
     const { data, error: mErr } = await publicDb.from('alliance_memberships')
@@ -59,7 +76,7 @@ export default function AlianzasPage() {
         status: 'pending',
       });
       if (e) { setJoinError(e.message); return; }
-      reloadMembership();
+      await reloadMembership();
     } finally {
       setJoining(null);
     }
@@ -74,8 +91,7 @@ export default function AlianzasPage() {
     if (mine?.status === 'pending') {
       return <span style={{ color: colors.warning, fontSize: 13 }}>⏳ Solicitud pendiente</span>;
     }
-    // Con solicitud pendiente en OTRA alianza no permitimos duplicar
-    if (membership && membership.status !== 'rejected') return null;
+    if (membership && membership.status !== 'rejected') return null; // ya está en trámite con otra
     return (
       <button
         onClick={(e) => { e.stopPropagation(); requestJoin(a.id); }}
@@ -124,6 +140,18 @@ export default function AlianzasPage() {
                   {a.profile?.welcome_text || a.description || '—'}
                 </span>
               ),
+            },
+            {
+              key: 'prestiges', header: 'Prestigios',
+              render: (a) => {
+                const list = prestigeMap?.[a.id] ?? [];
+                if (list.length === 0) return <span style={{ color: colors.muted }}>—</span>;
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {list.slice(0, 3).map((p) => <PrestigeBadge key={p.id} prestige={p} size="sm" />)}
+                  </div>
+                );
+              },
             },
             {
               key: 'join', header: '',

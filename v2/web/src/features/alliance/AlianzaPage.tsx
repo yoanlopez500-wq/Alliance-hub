@@ -7,6 +7,8 @@ import Loader from '../../components/Loader';
 import Badge from '../../components/Badge';
 import { MatchTypeBadge } from '../../lib/matchTypes';
 import Section from '../../components/Section';
+import { PrestigeBadgeList } from '../../components/PrestigeBadge';
+import type { PrestigeDefinition } from '../../lib/prestige';
 import { colors, styles } from '../../theme';
 
 type Alliance = {
@@ -59,6 +61,14 @@ export default function AlianzaPage() {
       members: members.data ?? [],
       matches: matches.data ?? [],
     };
+  }, [id]);
+
+  // Prestigios de alianza desbloqueados (evaluados en vivo por formula)
+  const { data: prestiges } = useApi<PrestigeDefinition[]>(async () => {
+    if (!id) return [];
+    const { data, error: pErr } = await publicDb.rpc('alliance_prestiges', { p_alliance_id: id });
+    if (pErr) return [];
+    return (data ?? []) as PrestigeDefinition[];
   }, [id]);
 
   // Membresia del jugador para saber que boton mostrar (solo con sesion de jugador)
@@ -154,6 +164,9 @@ export default function AlianzaPage() {
           <div style={{ flex: 1, minWidth: 200 }}>
             <h1 style={{ margin: 0, color: '#fff' }}>{alliance.name}</h1>
             <p style={{ margin: '2px 0 0', color: colors.muted }}>[{alliance.tag}] · {members.length} miembros</p>
+            {prestiges && prestiges.length > 0 && (
+              <div style={{ marginTop: 8 }}><PrestigeBadgeList prestiges={prestiges} /></div>
+            )}
             {p.welcome_text && <p style={{ margin: '6px 0 0', color: colors.text, fontSize: 14 }}>{p.welcome_text}</p>}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

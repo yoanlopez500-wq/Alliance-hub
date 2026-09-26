@@ -9,6 +9,7 @@ import { Input, Select, TextArea } from '../../components/Field';
 import Badge from '../../components/Badge';
 import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
+import SortExplainer from '../../components/SortExplainer';
 import { useAdmin } from '../../lib/admin';
 import { fetchAllRows, makeBayesScorer, compareBy, getSavedSortMode, saveSortMode, SORT_MODES, type SortMode } from '../../lib/ranking';
 import { fetchMatchTypes, internalTypeIdsCached, notInValue, useMatchTypes, selectableTypes, MatchTypeBadge } from '../../lib/matchTypes';
@@ -51,6 +52,7 @@ function LeaderDashboard() {
   const [members, setMembers] = useState<MemberStat[] | null>(null);
   const [ranked, setRanked] = useState<MemberStat[] | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>(getSavedSortMode());
+  const [rankPriors, setRankPriors] = useState<{ priorK: number; priorD: number; C: number } | null>(null);
   const [duels, setDuels] = useState<Duel[] | null>(null);
   const [matches, setMatches] = useState<Match[] | null>(null);
   const [error, setError] = useState('');
@@ -168,6 +170,7 @@ function LeaderDashboard() {
         deaths: (p) => p.total_deaths,
         games: (p) => p.games_played,
       });
+      setRankPriors({ priorK: scorer.priorK, priorD: scorer.priorD, C: scorer.C });
       const acc = {
         score: (x: MemberStat) => {
           let denom = x.deaths + scorer.C * scorer.priorD;
@@ -409,6 +412,7 @@ function LeaderDashboard() {
                 {SORT_MODES.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
               </Select>
             </div>
+            <SortExplainer activeId={sortMode} priors={rankPriors} note="Ranking interno de tu alianza: mismas metricas publicas, limitado a miembros aprobados." />
             {ranked === null ? <Loader /> : ranked.length === 0 ? (
               <EmptyState message="Sin miembros para rankear." />
             ) : (

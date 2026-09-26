@@ -50,6 +50,7 @@ import AdminRulesEditorPage from './features/admin/AdminRulesEditorPage';
 import AdminLeaguesPage from './features/admin/AdminLeaguesPage';
 import AdminDuelManagerPage from './features/admin/AdminDuelManagerPage';
 import AdminRankingsPage from './features/admin/AdminRankingsPage';
+import AdminPrestigesPage from './features/admin/AdminPrestigesPage';
 import AdminImportPage from './features/admin/AdminImportPage';
 import AdminChatReportsPage from './features/admin/AdminChatReportsPage';
 import AdminAuditLogPage from './features/admin/AdminAuditLogPage';
@@ -213,6 +214,7 @@ export default function App() {
         { to: '/admin/duel-manager', label: 'Duelos' },
         { to: '/admin/rankings', label: 'Rankings' },
         { to: '/admin/certificaciones', label: 'Certificaciones' },
+        { to: '/admin/prestigios', label: 'Prestigios' },
         { to: '/admin/reglas', label: 'Editor de reglas' },
         ...(me?.role === 'superadmin' ? [{ to: '/admin/match-types', label: 'Tipos de partida' }] : []),
       ]} />
@@ -323,6 +325,7 @@ export default function App() {
           <Route path="/admin/ligas" element={<AdminLeaguesPage />} />
           <Route path="/admin/duel-manager" element={<AdminDuelManagerPage />} />
           <Route path="/admin/rankings" element={<AdminRankingsPage />} />
+          <Route path="/admin/prestigios" element={<AdminPrestigesPage />} />
           <Route path="/admin/import" element={<AdminImportPage />} />
           <Route path="/admin/chat-reports" element={<AdminChatReportsPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />

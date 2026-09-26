@@ -97,14 +97,43 @@ export function compareMatchResults<T extends { kd_ratio?: number; kills?: numbe
 }
 
 export const SORT_MODES = [
-  { id: 'score', label: 'KD ajustado' },
-  { id: 'power', label: 'AH Power Score' },
-  { id: 'eff', label: 'Kills validas' },
-  { id: 'games', label: 'Partidas' },
-  { id: 'avg', label: 'Kills por partida' },
+  {
+    id: 'score',
+    label: 'KD ajustado',
+    explain: 'Ordena por K/D bayesiano con C=3: mezcla tu K/D real con el promedio global segun cuantas partidas validas tienes. Asi un jugador con pocas partidas no debe por encima de uno consistente.',
+    example: 'Formula: (bajas efectivas + 3 x priorK) / (muertes + 3 x priorD). Si priorK=12.3 y priorD=9.8, un jugador con 100 bajas y 50 muertes puntua (100 + 36.9) / (50 + 29.4).',
+  },
+  {
+    id: 'power',
+    label: 'AH Power Score',
+    explain: 'Prioriza volumen con eficiencia: multiplica las bajas efectivas por la raiz cuadrada del K/D. Premia a quien hace muchas bajas manteniendo buen intercambio.',
+    example: 'Formula: bajas efectivas x sqrt(K/D). 200 bajas con K/D 2.0 puntuan 200 x 1.414 = 282.8.',
+  },
+  {
+    id: 'eff',
+    label: 'Kills validas',
+    explain: 'Ordena por bajas efectivas: bajas registradas en partidas validas, descontando bajas anuladas y penalizaciones por strikes o sanciones activas.',
+    example: 'Si un jugador tiene 120 bajas, 10 anuladas y una penalizacion del 25%, sus bajas validas quedan en 82.',
+  },
+  {
+    id: 'games',
+    label: 'Partidas',
+    explain: 'Ordena por cantidad de partidas validas jugadas. Es un ranking de participacion, no de eficiencia.',
+    example: 'Un jugador con 40 partidas validas va antes que uno con 39, aunque el segundo tenga mejor K/D.',
+  },
+  {
+    id: 'avg',
+    label: 'Kills por partida',
+    explain: 'Ordena por bajas efectivas divididas entre partidas validas. Mide produccion media por partida.',
+    example: 'Formula: bajas efectivas / partidas validas. 180 bajas efectivas en 30 partidas = 6.0 por partida.',
+  },
 ] as const;
 
 export type SortMode = (typeof SORT_MODES)[number]['id'];
+
+export function sortModeById(id: string | null | undefined) {
+  return SORT_MODES.find((m) => m.id === id) ?? null;
+}
 
 export function powerScore<P>(acc: BayesAcc<P>, p: P): number {
   const k = safeNum(acc.eff(p));

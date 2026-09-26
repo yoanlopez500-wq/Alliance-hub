@@ -5,6 +5,8 @@ import { computeEffectiveKills, attachStrikeTypes } from '../../lib/sanctions';
 import { colors, styles } from '../../theme';
 import Loader from '../../components/Loader';
 import Reveal from '../../components/Reveal';
+import { PrestigeBadgeList } from '../../components/PrestigeBadge';
+import type { PrestigeDefinition } from '../../lib/prestige';
 
 /** PlayerPage — puerto de player.js: perfil publico + strikes + bajas efectivas. */
 export default function PlayerPage() {
@@ -13,6 +15,8 @@ export default function PlayerPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [profile, setProfile] = useState<any>(null);
   const [alliance, setAlliance] = useState<{ name: string; tag: string | null } | null>(null);
+  const [prestiges, setPrestiges] = useState<PrestigeDefinition[]>([]);
+  const [podiums, setPodiums] = useState({ p1: 0, p2: 0, p3: 0 });
   const [stats, setStats] = useState({ effKills: 0, penaltyPct: 0, totalDeaths: 0, games: 0, kd: '0.00', strikeCount: 0 });
 
   useEffect(() => {
@@ -44,6 +48,18 @@ export default function PlayerPage() {
           const { data: alli } = await publicDb.from('alliances').select('name, tag').eq('id', player.current_alliance_id).maybeSingle();
           if (alli) setAlliance(alli as any);
         }
+
+        let prestigeRows: PrestigeDefinition[] = [];
+        try {
+          const { data: pr } = await publicDb.rpc('player_prestiges', { p_player_id: Number(id) });
+          prestigeRows = (pr ?? []) as PrestigeDefinition[];
+        } catch (e) { console.error('[Player] prestigios:', e); }
+        setPrestiges(prestigeRows);
+
+        try {
+          const { data: pod } = await publicDb.from('public_player_podium_stats').select('*').eq('player_id', id).maybeSingle();
+          setPodiums({ p1: Number((pod as any)?.podium_1 || 0), p2: Number((pod as any)?.podium_2 || 0), p3: Number((pod as any)?.podium_3 || 0) });
+        } catch (e) { console.error('[Player] podios:', e); }
 
         setProfile(player);
         setStats({ effKills: eff.effKills, penaltyPct: eff.penaltyPct, totalDeaths, games, kd, strikeCount: strikes.length });
@@ -106,6 +122,15 @@ export default function PlayerPage() {
             {statCard(stats.totalDeaths, 'Muertes')}
             {statCard(stats.kd, 'K/D')}
             {statCard(stats.games, 'Partidas Validas')}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 12 }}>
+            {statCard(<span>🥇 {podiums.p1}</span>, 'Primeros lugares')}
+            {statCard(<span>🥈 {podiums.p2}</span>, 'Segundos lugares')}
+            {statCard(<span>🥉 {podiums.p3}</span>, 'Terceros lugares')}
+          </div>
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${colors.border}` }}>
+            <h2 style={{ margin: '0 0 8px', fontSize: 16, color: colors.text }}>Colección de prestigio</h2>
+            <PrestigeBadgeList prestiges={prestiges} />
           </div>
         </div>
       </Reveal>
