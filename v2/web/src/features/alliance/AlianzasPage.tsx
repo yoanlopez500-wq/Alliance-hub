@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { publicDb } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import { usePlayerSession } from '../../lib/playerSession';
@@ -23,6 +23,7 @@ type Membership = { id: string; alliance_id: string; status: string };
  * Lectura anon, sin login. Con sesion de jugador permite solicitar entrada.
  */
 export default function AlianzasPage() {
+  const navigate = useNavigate();
   const { session } = usePlayerSession();
   const playerId = session?.playerId ?? null;
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -122,7 +123,7 @@ export default function AlianzasPage() {
           rows={alliances}
           loading={loading}
           empty="Todavía no hay alianzas registradas"
-          onRowClick={(a) => { window.location.href = `/alianzas/${a.id}`; }}
+          onRowClick={(a) => navigate(`/alianzas/${a.id}`)}
           columns={[
             {
               key: 'name', header: 'Alianza',

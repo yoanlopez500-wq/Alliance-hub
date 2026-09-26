@@ -7,12 +7,17 @@
     <meta name="description" content="Plataforma de gestión de alianzas y torneos de Supremacy 1914" />
     <meta name="theme-color" content="#0a0e27" />
     <script>
-      // Recupera la ruta original cuando GitHub Pages redirige desde /404.html (truco spa-github-pages)
+      // Recupera la ruta original cuando GitHub Pages redirige desde /404.html (truco spa-github-pages).
+      // El 404.html emite /?/ruta&query=...: el primer segmento es el path y el
+      // resto son parametros (la '?' original se reconstruye aqui). Sin esto,
+      // las rutas con query (ej. /login?mode=player) morian en el 404 de la SPA.
       (function () {
         var q = window.location.search;
         if (q.indexOf('?/') > -1) {
-          var ruta = q.slice(2).replace(/~and~/g, '&');
-          window.history.replaceState(null, null, '/' + ruta + window.location.hash);
+          var segs = q.slice(2).replace(/~and~/g, '&').split('&');
+          var path = segs.shift() || '';
+          var target = '/' + path + (segs.length ? '?' + segs.join('&') : '') + window.location.hash;
+          window.history.replaceState(null, null, target);
         }
       })();
     </script>

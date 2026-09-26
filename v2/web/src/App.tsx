@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { colors } from './theme';
 import Reveal from './components/Reveal';
 import { serverApi, publicDb, getSessionToken, signOutAll, hasAdminSessionMarker } from './lib/api';
@@ -33,14 +34,8 @@ import RegisterOfficerPage from './features/register/RegisterOfficerPage';
 import MatchTypesPage from './features/admin/MatchTypesPage';
 import AdminHomePage from './features/admin/AdminHomePage';
 import AdminPlayersPage from './features/admin/AdminPlayersPage';
-import AdminMatchesPage from './features/admin/AdminMatchesPage';
 import AdminMatchDetailPage from './features/admin/AdminMatchDetailPage';
-import AdminGamesPage from './features/admin/AdminGamesPage';
-import AdminStrikesPage from './features/admin/AdminStrikesPage';
-import AdminSanctionsEnginePage from './features/admin/AdminSanctionsEnginePage';
-import AdminReportsPage from './features/admin/AdminReportsPage';
 import AdminReviewCommitteePage from './features/admin/AdminReviewCommitteePage';
-import AdminInboxPage from './features/admin/AdminInboxPage';
 import AdminLeaderRequestsPage from './features/admin/AdminLeaderRequestsPage';
 import AdminInvitesPage from './features/admin/AdminInvitesPage';
 import AdminOfficersPage from './features/admin/AdminOfficersPage';
@@ -54,12 +49,15 @@ import AdminDuelManagerPage from './features/admin/AdminDuelManagerPage';
 import AdminRankingsPage from './features/admin/AdminRankingsPage';
 import AdminPrestigesPage from './features/admin/AdminPrestigesPage';
 import AdminImportPage from './features/admin/AdminImportPage';
-import AdminChatReportsPage from './features/admin/AdminChatReportsPage';
 import AdminAuditLogPage from './features/admin/AdminAuditLogPage';
 import AdminChatPage from './features/admin/AdminChatPage';
 import LeaderDashboardPage from './features/admin/LeaderDashboardPage';
+import InfoPage from './features/info/InfoPage';
+import AdminConductaPage from './features/admin/AdminConductaPage';
+import AdminReportesPage from './features/admin/AdminReportesPage';
+import AdminPartidasPage from './features/admin/AdminPartidasPage';
 
-type Me = { kind: 'admin' | 'player'; role?: string; managedAllianceId?: string | null };
+type Me = { kind: 'admin' | 'player'; role?: string; playerId?: number; managedAllianceId?: string | null; officerRole?: string | null };
 
 const navStyle = ({ isActive }: { isActive: boolean }): React.CSSProperties => ({
   color: isActive ? colors.accent : colors.muted,
@@ -72,6 +70,14 @@ const navStyle = ({ isActive }: { isActive: boolean }): React.CSSProperties => (
 
 type NavEntry = { to: string; label: string; header?: string };
 
+/** Redirect que preserva la query original (p.ej. prefill_* de strikes). */
+function RedirectKeepQuery({ to }: { to: string }) {
+  const { search } = useLocation();
+  if (!search) return <Navigate to={to} replace />;
+  const sep = to.includes('?') ? '&' : '?';
+  return <Navigate to={to + sep + search.slice(1)} replace />;
+}
+
 /**
  * NavDropdown — boton con menu desplegable pensado para dedo en movil:
  * se abre/cierra al toque, se cierra solo al navegar o tocar fuera,
@@ -79,19 +85,36 @@ type NavEntry = { to: string; label: string; header?: string };
  */
 function NavDropdown({ icon, label, items, currentPath }: { icon: string; label: string; items: NavEntry[]; currentPath: string }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const location = useLocation();
   useEffect(() => { setOpen(false); }, [location.pathname]);
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
     window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('resize', close);
+    };
   }, [open]);
-  const active = items.some((i) => !i.header && i.to.length > 1 && currentPath.startsWith(i.to));
+  const active = items.some((i) => !i.header && i.to.length > 1 && currentPath.startsWith(i.to.split('?')[0]));
+
+  // El menu se renderiza en un PORTAL con posicion fija: la fila del nav tiene
+  // overflow-x:auto, que fuerza overflow-y:auto y recorta (invisible) cualquier
+  // menu absoluto desplegado dentro — en el PWA ningun dropdown se veia.
+  function toggle(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (open) { setOpen(false); return; }
+    const r = btnRef.current?.getBoundingClientRect();
+    setPos(r ? { top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - 240)) } : null);
+    setOpen(true);
+  }
 
   return (
     <div style={{ position: 'relative', flexShrink: 0 }}>
-      <button onClick={(e) => { e.stopPropagation(); setOpen(!open); }} style={{
+      <button ref={btnRef} onClick={toggle} style={{
         background: open || active ? 'rgba(255,255,255,0.09)' : 'transparent',
         border: `1px solid ${open || active ? colors.border : 'transparent'}`,
         color: open || active ? colors.text : colors.muted,
@@ -100,11 +123,11 @@ function NavDropdown({ icon, label, items, currentPath }: { icon: string; label:
       }}>
         {icon} {label} <span style={{ fontSize: 10, marginLeft: 2 }}>{open ? '▴' : '▾'}</span>
       </button>
-      {open && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, marginTop: 6, zIndex: 50,
+      {open && pos && createPortal(
+        <div onClick={(e) => e.stopPropagation()} style={{
+          position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000,
           background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12,
-          minWidth: 220, maxHeight: '65vh', overflowY: 'auto', padding: 6,
+          minWidth: 220, maxWidth: 'calc(100vw - 16px)', maxHeight: '65vh', overflowY: 'auto', padding: 6,
           boxShadow: '0 14px 34px rgba(0,0,0,0.55)',
         }}>
           {items.map((it, idx) => it.header ? (
@@ -120,25 +143,37 @@ function NavDropdown({ icon, label, items, currentPath }: { icon: string; label:
               background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
             })}>{it.label}</NavLink>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
 }
 
 export default function App() {
-  const { data: me, reload } = useApi<Me>(() => serverApi.get('/me'), []);
+  const { data: me, loading: meLoading, error: meError, reload } = useApi<Me>(() => serverApi.get('/me'), []);
   const location = useLocation();
+  const navigate = useNavigate();
   const myAllianceId = me?.managedAllianceId ?? null;
   const loggedIn = !!getSessionToken() || hasAdminSessionMarker();
-  const isAdmin = me?.kind === 'admin';
+  // Modo admin OPTIMISTA: si hay marcador de sesion admin, se ofrece el modo
+  // aunque /me este cargando o haya fallado (en el PWA la sesion Supabase
+  // puede caducar y /me devolver player/error -> antes el boton Admin quedaba
+  // en nada). El contenido de cada pagina sigue protegido por AdminGate.
+  const isAdmin = me?.kind === 'admin'
+    || (hasAdminSessionMarker() && (!!meError || meLoading));
   // "Panel de lider" visible para lideres y para staff con alianza (doble sesion).
   const isLeader = me?.role === 'alliance_leader' || (!!me?.managedAllianceId && me?.kind === 'admin');
+  // Oficial de alianza: cuenta auth SIN fila admin_users pero con fila en
+  // alliance_officers. Tiene workspace propio (herramientas de oficial) aunque
+  // no sea admin: al tocar "Admin" entra a SU panel, no al de staff.
+  const isOfficer = !isAdmin && me?.kind === 'player' && !!me?.officerRole && !!me?.managedAllianceId;
+  const hasWorkspace = isAdmin || isOfficer;
   // Modo de navegacion: cada modo (jugador/admin) tiene su propio set de enlaces.
   // Con doble sesion se salta al instante; sin sesion del otro tipo manda al login.
   const [navMode, setNavMode] = useState<'player' | 'admin'>(() =>
     localStorage.getItem('ah2_nav_mode') === 'admin' ? 'admin' : 'player');
-  const activeMode: 'player' | 'admin' = isAdmin && navMode === 'admin' ? 'admin' : 'player';
+  const activeMode: 'player' | 'admin' = hasWorkspace && navMode === 'admin' ? 'admin' : 'player';
 
   function switchMode(m: 'player' | 'admin') {
     if (m === activeMode) return;
@@ -147,7 +182,9 @@ export default function App() {
         setNavMode('player');
         localStorage.setItem('ah2_nav_mode', 'player');
       } else {
-        window.location.href = '/login?mode=player';
+        // Navegacion client-side: un location.href completo pasaria por
+        // 404.html y perderiamos la query (?mode=player) en el redirect.
+        navigate('/login?mode=player');
       }
     } else {
       void publicDb.auth.getSession().then(({ data }) => {
@@ -155,24 +192,27 @@ export default function App() {
           setNavMode('admin');
           localStorage.setItem('ah2_nav_mode', 'admin');
         } else {
-          window.location.href = '/login?mode=admin';
+          navigate('/login?mode=admin');
         }
-      });
+      }).catch(() => navigate('/login?mode=admin'));
     }
   }
 
-  const commonLinks = (
+  // Enlaces publicos: solo visibles en modo jugador (en modo admin el staff
+  // trabaja con el panel; el logo vuelve a la vista publica).
+  const commonLinks = activeMode === 'player' ? (
     <>
       <NavLink to="/partidas" style={navStyle}>Partidas</NavLink>
-      <NavLink to="/novedades" style={navStyle}>🆕 Novedades</NavLink>
-      <NavLink to="/funciones" style={navStyle}>Funciones</NavLink>
       <NavLink to="/rankings" style={navStyle}>Rankings</NavLink>
-      <NavLink to="/jugadores" style={navStyle}>Mercado</NavLink>
       <NavLink to="/alianzas" style={navStyle}>Alianzas</NavLink>
-      <NavLink to="/lider/solicitud" style={navStyle}>Liderazgo</NavLink>
-      <NavLink to="/reglas" style={navStyle}>Reglamento</NavLink>
+      <NavDropdown icon="ℹ️" label="Información" currentPath={location.pathname} items={[
+        { to: '/info?tab=novedades', label: '🆕 Novedades' },
+        { to: '/info?tab=funciones', label: '🧭 Funciones del proyecto' },
+        { to: '/info?tab=reglas', label: '📜 Reglamento' },
+        { to: '/info?tab=liderazgo', label: '🛡 Cómo ser líder' },
+      ]} />
     </>
-  );
+  ) : null;
 
   const playerLinks = !!getSessionToken() && activeMode === 'player' ? (
     <>
@@ -188,41 +228,80 @@ export default function App() {
     </>
   ) : null;
 
+  // Nav admin: 4-5 cabeceras con las ~20 paginas repartidas, filtradas por
+  // rol (un alliance_leader no ve herramientas de staff que RLS le bloquea).
+  const role = me?.role;
+  const isStaff = role === 'superadmin' || role === 'event_admin' || role === 'moderator';
+  const isSuper = role === 'superadmin';
   const adminLinks = isAdmin && activeMode === 'admin' ? (
     <>
       <NavLink to="/admin" style={navStyle}>Panel</NavLink>
-      {isLeader && <NavLink to="/admin/leader-dashboard" style={navStyle}>Panel de líder</NavLink>}
-      <NavDropdown icon="🛠" label="Gestión" currentPath={location.pathname} items={[
-        { to: '/admin/jugadores', label: 'Jugadores' },
-        { to: '/admin/partidas', label: 'Partidas' },
-        { to: '/admin/alianzas', label: 'Alianzas' },
+      {/* Acceso compacto a las paginas publicas desde el modo admin:
+          ocultarlas del todo dejaba esas paginas inaccesibles sin cambiar de modo. */}
+      <NavDropdown icon="🌐" label="Sitio" currentPath={location.pathname} items={[
+        { to: '/partidas', label: '🎯 Partidas' },
+        { to: '/rankings', label: '🏆 Rankings' },
+        { to: '/alianzas', label: '🛡 Alianzas' },
+        { to: '/info?tab=novedades', label: '🆕 Novedades' },
+        { to: '/info?tab=funciones', label: '🧭 Funciones' },
+        { to: '/info?tab=reglas', label: '📜 Reglamento' },
+      ]} />
+      <NavDropdown icon="🗂" label="Gestión" currentPath={location.pathname} items={[
+        ...(isLeader ? [{ to: '/admin/leader-dashboard', label: 'Panel de líder' }] : []),
+        ...(isStaff ? [
+          { to: '/admin/jugadores', label: 'Jugadores' },
+          { to: '/admin/partidas', label: 'Partidas' },
+          { to: '/admin/alianzas', label: 'Alianzas' },
+          { to: '/admin/officers', label: 'Oficiales' },
+          { to: '/admin/invites', label: 'Invitaciones' },
+        ] : []),
         { to: '/admin/miembros', label: 'Miembros de alianzas' },
-        { to: '/admin/admins', label: 'Administradores' },
-        { to: '/admin/officers', label: 'Oficiales' },
-        { to: '/admin/invites', label: 'Invitaciones' },
-        { to: '/admin/import', label: 'Importar datos' },
-        { to: '/admin/audit-log', label: 'Registro de auditoría' },
+        ...(isSuper ? [
+          { to: '/admin/admins', label: 'Administradores' },
+          { to: '/admin/audit-log', label: 'Registro de auditoría' },
+        ] : []),
       ]} />
-      <NavDropdown icon="🛡" label="Moderación" currentPath={location.pathname} items={[
-        { to: '/admin/strikes', label: 'Strikes' },
-        { to: '/admin/sanciones', label: 'Sanciones' },
-        { to: '/admin/reportes', label: 'Reportes' },
-        { to: '/admin/comite', label: 'Comité de revisión' },
-        { to: '/admin/chat-reports', label: 'Reportes de chat' },
-        { to: '/admin/solicitudes-lider', label: 'Solicitudes de líder' },
-        { to: '/admin/inbox', label: 'Bandeja de entrada' },
-      ]} />
+      {/* Moderacion es de staff: un lider puro no la ve (sus herramientas de
+          disciplina estan en el panel de lider y en /alianza/sanciones). */}
+      {isStaff && (
+        <NavDropdown icon="🛡" label="Moderación" currentPath={location.pathname} items={[
+          { to: '/admin/conducta', label: 'Conducta (strikes y sanciones)' },
+          { to: '/admin/reportes', label: 'Reportes y bandeja' },
+          { to: '/admin/comite', label: 'Comité de revisión' },
+          { to: '/admin/solicitudes-lider', label: 'Solicitudes de líder' },
+          { to: '/admin/chat', label: 'Chat' },
+        ]} />
+      )}
       <NavDropdown icon="🏆" label="Competición" currentPath={location.pathname} items={[
-        { to: '/admin/juegos', label: 'Juegos' },
-        { to: '/admin/ligas', label: 'Ligas' },
-        { to: '/admin/duel-manager', label: 'Duelos' },
-        { to: '/admin/rankings', label: 'Rankings' },
-        { to: '/admin/certificaciones', label: 'Certificaciones' },
+        ...(isStaff ? [
+          { to: '/admin/ligas', label: 'Ligas' },
+          { to: '/admin/duel-manager', label: 'Duelos' },
+          { to: '/admin/rankings', label: 'Rankings' },
+          { to: '/admin/certificaciones', label: 'Certificaciones' },
+        ] : []),
         { to: '/admin/prestigios', label: 'Prestigios' },
-        { to: '/admin/reglas', label: 'Editor de reglas' },
-        ...(me?.role === 'superadmin' ? [{ to: '/admin/match-types', label: 'Tipos de partida' }] : []),
       ]} />
-      <NavLink to="/chat" style={navStyle}>Chat</NavLink>
+      {isStaff && (
+        <NavDropdown icon="⚙️" label="Config" currentPath={location.pathname} items={[
+          { to: '/admin/reglas', label: 'Editor de reglas' },
+          { to: '/admin/import', label: 'Importar datos' },
+          ...(isSuper ? [{ to: '/admin/match-types', label: 'Tipos de partida' }] : []),
+        ]} />
+      )}
+    </>
+  ) : null;
+
+  // Workspace del oficial: mismas paginas a las que ya tiene acceso por RLS
+  // (sin AdminGate), presentadas como "su panel". Las herramientas de gestion
+  // propiamente dichas llegan con los permisos por rol (officer/co_leader).
+  const officerLinks = isOfficer && activeMode === 'admin' ? (
+    <>
+      <NavDropdown icon="🚩" label="Mi alianza" currentPath={location.pathname} items={[
+        { to: '/alianza', label: '🛡 Panel de mi alianza' },
+        { to: '/mi-espacio', label: '🎮 Mi Espacio' },
+        { to: '/alianza/sanciones', label: '⚖️ Sanciones de mi alianza' },
+      ]} />
+      <NavLink to="/reportar" style={navStyle}>Reportar</NavLink>
     </>
   ) : null;
 
@@ -273,6 +352,7 @@ export default function App() {
           {commonLinks}
           {playerLinks}
           {adminLinks}
+          {officerLinks}
         </div>
       </nav>
       <main style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 16px' }}>
@@ -284,12 +364,14 @@ export default function App() {
           <Route path="/partidas" element={<DashboardPage />} />
           <Route path="/partidas/:id" element={<GamePage />} />
           <Route path="/novedades" element={<NovedadesPage />} />
+          <Route path="/info" element={<InfoPage />} />
           <Route path="/funciones" element={<FuncionesPage />} />
           <Route path="/reportar" element={<ReportPage />} />
           <Route path="/rankings" element={<RankingsPage />} />
           <Route path="/reglas" element={<RulesPage />} />
           <Route path="/jugador/:id" element={<PlayerPage />} />
-          <Route path="/jugadores" element={<JugadoresPage />} />
+          <Route path="/jugadores" element={<Navigate to="/rankings?tab=market" replace />} />
+          {/* ^ sin params que preservar; los de abajo usan RedirectKeepQuery */}
           <Route path="/alianzas" element={<AlianzasPage />} />
           <Route path="/alianzas/:id" element={<AlianzaPage />} />
           <Route path="/alianza" element={<AlliancePanelPage />} />
@@ -312,14 +394,15 @@ export default function App() {
           <Route path="/admin" element={<AdminHomePage />} />
           <Route path="/admin/match-types" element={<MatchTypesPage />} />
           <Route path="/admin/jugadores" element={<AdminPlayersPage />} />
-          <Route path="/admin/partidas" element={<AdminMatchesPage />} />
+          <Route path="/admin/partidas" element={<AdminPartidasPage />} />
           <Route path="/admin/partida" element={<AdminMatchDetailPage />} />
-          <Route path="/admin/juegos" element={<AdminGamesPage />} />
-          <Route path="/admin/strikes" element={<AdminStrikesPage />} />
-          <Route path="/admin/sanciones" element={<AdminSanctionsEnginePage />} />
-          <Route path="/admin/reportes" element={<AdminReportsPage />} />
+          <Route path="/admin/conducta" element={<AdminConductaPage />} />
+          <Route path="/admin/strikes" element={<RedirectKeepQuery to="/admin/conducta?tab=strikes" />} />
+          <Route path="/admin/sanciones" element={<RedirectKeepQuery to="/admin/conducta?tab=sanciones" />} />
+          <Route path="/admin/reportes" element={<AdminReportesPage />} />
+          <Route path="/admin/chat-reports" element={<RedirectKeepQuery to="/admin/reportes?tab=chat" />} />
+          <Route path="/admin/inbox" element={<RedirectKeepQuery to="/admin/reportes?tab=bandeja" />} />
           <Route path="/admin/comite" element={<AdminReviewCommitteePage />} />
-          <Route path="/admin/inbox" element={<AdminInboxPage />} />
           <Route path="/admin/solicitudes-lider" element={<AdminLeaderRequestsPage />} />
           <Route path="/admin/invites" element={<AdminInvitesPage />} />
           <Route path="/admin/officers" element={<AdminOfficersPage />} />
@@ -333,13 +416,12 @@ export default function App() {
           <Route path="/admin/rankings" element={<AdminRankingsPage />} />
           <Route path="/admin/prestigios" element={<AdminPrestigesPage />} />
           <Route path="/admin/import" element={<AdminImportPage />} />
-          <Route path="/admin/chat-reports" element={<AdminChatReportsPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
           <Route path="/admin/leader-dashboard" element={<LeaderDashboardPage />} />
-          {/* Alias en ingles: el panel enlaza estas rutas; antes daban 404. */}
-          <Route path="/admin/games" element={<AdminGamesPage />} />
+          {/* Alias en ingles: redirigen a las paginas unificadas. */}
+          <Route path="/admin/games" element={<RedirectKeepQuery to="/admin/partidas?tab=games" />} />
           <Route path="/admin/leagues" element={<AdminLeaguesPage />} />
-          <Route path="/admin/reports" element={<AdminReportsPage />} />
+          <Route path="/admin/reports" element={<RedirectKeepQuery to="/admin/reportes?tab=jugadores" />} />
           <Route path="/admin/review-committee" element={<AdminReviewCommitteePage />} />
           <Route path="/admin/alianza-miembros" element={<AdminAllianceMembersPage />} />
           <Route path="/admin/leader-requests" element={<AdminLeaderRequestsPage />} />

@@ -140,6 +140,22 @@ const MODULES: Module[] = [
     roles: ['jugador', 'lider', 'staff'],
   },
   {
+    id: 'notas',
+    icon: '📝',
+    title: 'Notas internas de jugador',
+    tagline: 'Anotaciones privadas con registro.',
+    description: 'A diferencia de los reportes (que son públicos y procesables), las notas internas sirven para que staff y líderes dejen constancia privada sobre un jugador, con log de autor y fecha.',
+    highlights: [
+      'Privadas: staff ve notas de staff; cada liderazgo solo las de su alianza.',
+      'Append-only: no se pueden editar ni borrar, traza completa.',
+      'El líder las gestiona por miembro desde su panel (botón 📝).',
+      'El staff las escribe desde el perfil público del jugador.',
+    ],
+    link: '/funciones',
+    linkLabel: 'Saber más',
+    roles: ['lider', 'staff'],
+  },
+  {
     id: 'sanciones',
     icon: '⚖️',
     title: 'Sanciones, strikes y expediente',

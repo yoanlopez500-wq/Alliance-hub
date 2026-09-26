@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { publicDb } from '../../lib/api';
 import { colors } from '../../theme';
 import { formatDate, formatDateTime } from '../../lib/format';
@@ -45,6 +46,7 @@ function ReportStatusBadge({ status }: { status: string }) {
 
 /** AdminReportsPage — puerto de admin-reports.js. */
 function Reports() {
+  const navigate = useNavigate();
   const [reports, setReports] = useState<Report[] | null>(null);
   const [rules, setRules] = useState<RuleOpt[]>([]);
   const [ruleFilter, setRuleFilter] = useState('');
@@ -124,7 +126,9 @@ function Reports() {
     p.set('prefill_report', r.id);
     if (r.reported_player_id) p.set('prefill_player', String(r.reported_player_id));
     if (r.match_id) p.set('prefill_match', r.match_id);
-    window.location.href = '/admin/strikes?' + p.toString();
+    // Client-side: una recarga completa a /admin/strikes?... perderia la query
+    // en el redirect del 404.html de GitHub Pages (morfa en el 404 de la SPA).
+    navigate('/admin/conducta?tab=strikes&' + p.toString());
   }
 
   return (

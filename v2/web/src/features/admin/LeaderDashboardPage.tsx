@@ -11,6 +11,7 @@ import Loader from '../../components/Loader';
 import EmptyState from '../../components/EmptyState';
 import SortExplainer from '../../components/SortExplainer';
 import { useAdmin } from '../../lib/admin';
+import PlayerNotes from '../../components/PlayerNotes';
 import { fetchAllRows, makeBayesScorer, compareBy, getSavedSortMode, saveSortMode, SORT_MODES, type SortMode } from '../../lib/ranking';
 import { fetchMatchTypes, internalTypeIdsCached, notInValue, useMatchTypes, selectableTypes, MatchTypeBadge } from '../../lib/matchTypes';
 
@@ -69,6 +70,7 @@ function LeaderDashboard() {
   const [cmApproval, setCmApproval] = useState(false);
   const [cmType, setCmType] = useState('internal');
   const [busy, setBusy] = useState(false);
+  const [noteMember, setNoteMember] = useState<MemberStat | null>(null);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -377,6 +379,7 @@ function LeaderDashboard() {
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                   <Link to={`/jugador/${m.player.id}`} title="Ver perfil" style={memberActionStyle}>👤 Perfil</Link>
+                  <button onClick={() => setNoteMember(m)} title="Nota interna (privada, con registro)" style={{ ...memberActionStyle, cursor: 'pointer' }}>📝 Nota</button>
                   <Link to={`/alianza/sanciones?prefill_player=${m.player.id}`} title="Poner strike" style={memberActionStyle}>⚡ Strike</Link>
                   <Link to="/reportar" title="Reportar a plataforma" style={memberActionStyle}>🚩 Reportar</Link>
                   <button onClick={() => kickMember(m)} title="Expulsar de la alianza" style={{
@@ -484,6 +487,27 @@ function LeaderDashboard() {
         ))}
 
         {/* Modal crear partida */}
+        {noteMember && myAllianceId && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }} onClick={() => setNoteMember(null)}>
+            <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 16, padding: 24, maxWidth: 560, width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+              <h3 style={{ marginTop: 0, color: colors.text }}>📝 Notas internas — {noteMember.player.current_username}</h3>
+              <p style={{ fontSize: 12, color: colors.muted, marginTop: -6 }}>
+                Privadas para tu alianza (diferente a los reportes). Append-only: autor y fecha quedan registrados.
+              </p>
+              <PlayerNotes
+                playerId={noteMember.player.id}
+                showComposer
+                createScope={myAllianceId}
+                authorName={admin?.display_name ?? 'Lider'}
+                authorRole={admin?.role ?? 'alliance_leader'}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+                <Button variant="ghost" onClick={() => setNoteMember(null)}>Cerrar</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {cmOpen && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }} onClick={() => setCmOpen(false)}>
             <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 16, padding: 24, maxWidth: 520, width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>

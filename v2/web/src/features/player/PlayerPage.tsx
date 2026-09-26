@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { publicDb } from '../../lib/api';
+import { publicDb, hasAdminSessionMarker } from '../../lib/api';
+import { useAdmin } from '../../lib/admin';
 import { computeEffectiveKills, attachStrikeTypes } from '../../lib/sanctions';
+import PlayerNotes from '../../components/PlayerNotes';
 import { colors, styles } from '../../theme';
 import Loader from '../../components/Loader';
 import Reveal from '../../components/Reveal';
@@ -11,6 +13,8 @@ import type { PrestigeDefinition } from '../../lib/prestige';
 /** PlayerPage — puerto de player.js: perfil publico + strikes + bajas efectivas. */
 export default function PlayerPage() {
   const { id } = useParams<{ id: string }>();
+  const { admin } = useAdmin();
+  const adminSession = hasAdminSessionMarker();
   const [state, setState] = useState<'loading' | 'error' | 'ready'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const [profile, setProfile] = useState<any>(null);
@@ -132,6 +136,13 @@ export default function PlayerPage() {
             <h2 style={{ margin: '0 0 8px', fontSize: 16, color: colors.text }}>Colección de prestigio</h2>
             <PrestigeBadgeList prestiges={prestiges} />
           </div>
+          <PlayerNotes
+            playerId={Number(id)}
+            showComposer={adminSession}
+            createScope={null}
+            authorName={admin?.display_name ?? 'Staff'}
+            authorRole={admin?.role ?? 'admin'}
+          />
         </div>
       </Reveal>
     </div>

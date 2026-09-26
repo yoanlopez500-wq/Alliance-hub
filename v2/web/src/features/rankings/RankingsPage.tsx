@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { publicDb } from '../../lib/api';
 import {
   fetchAllRows, makeBayesScorer, compareBy, SORT_MODES,
@@ -12,8 +12,9 @@ import DataTable from '../../components/DataTable';
 import Loader from '../../components/Loader';
 import Reveal from '../../components/Reveal';
 import SortExplainer from '../../components/SortExplainer';
+import JugadoresPage from '../players/JugadoresPage';
 
-type Tab = 'players' | 'alliances' | 'duels' | 'strikes';
+type Tab = 'players' | 'alliances' | 'duels' | 'strikes' | 'market';
 
 interface RankingRow {
   id: number;
@@ -53,11 +54,16 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'alliances', label: 'Alianzas' },
   { id: 'duels', label: 'Duelos' },
   { id: 'strikes', label: 'Strikes' },
+  { id: 'market', label: '🤝 Mercado' },
 ];
 
 /** RankingsPage — puerto de rankings.js: 4 tabs + score Bayesiano C=3. */
 export default function RankingsPage() {
-  const [tab, setTab] = useState<Tab>('players');
+  const [tabParam] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = tabParam.get('tab') as Tab | null;
+    return t && TABS.some((x) => x.id === t) ? t : 'players';
+  });
   const [allianceMap, setAllianceMap] = useState<Record<number, { name: string; tag: string | null }>>({});
   const [allianceList, setAllianceList] = useState<{ id: number; name: string }[]>([]);
   const [filterAlliance, setFilterAlliance] = useState('');
@@ -435,6 +441,8 @@ export default function RankingsPage() {
           )}
         </Reveal>
       )}
+
+      {tab === 'market' && <JugadoresPage />}
     </div>
   );
 }

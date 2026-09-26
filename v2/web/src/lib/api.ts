@@ -12,7 +12,7 @@ import { createClient } from '@supabase/supabase-js';
  *   jugador por token (player-invitations) y alta de oficiales (officer-signup).
  */
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
 const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
 
 export const publicDb = createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -75,6 +75,8 @@ export type Me = {
   role?: string;
   playerId?: number;
   managedAllianceId?: string | null;
+  /** 'officer' | 'co_leader' cuando kind='player' y la cuenta auth es oficial de alianza. */
+  officerRole?: string | null;
 };
 
 let meCache: Me | null = null;
@@ -104,9 +106,13 @@ export async function fetchMe(): Promise<Me> {
     }
     // Auth pero sin fila admin_users: oficial (o cuenta huerfana)
     const { data: off } = await publicDb.from('alliance_officers')
-      .select('alliance_id').eq('auth_user_id', uid).eq('is_active', true).limit(1).maybeSingle();
+      .select('alliance_id, role').eq('auth_user_id', uid).eq('is_active', true).limit(1).maybeSingle();
     if (off) {
-      meCache = { kind: 'player', managedAllianceId: (off.alliance_id as string | null) ?? null };
+      meCache = {
+        kind: 'player',
+        managedAllianceId: (off.alliance_id as string | null) ?? null,
+        officerRole: (off.role as string) ?? 'officer',
+      };
       return meCache;
     }
     // Sesion auth huerfana (sin rol admin ni officer): NO sombrear la sesion

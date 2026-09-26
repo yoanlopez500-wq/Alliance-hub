@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { publicDb } from '../../lib/api';
+import { fetchKdRows, ApiImportRateLimited, apiImportRemaining, markApiImport } from '../../lib/apiImport';
 import AdminGate from '../../components/AdminGate';
 import { useAdmin, loadAlliances, allianceById, badge, isSuperadminRole, isStaffRole, type Alliance } from '../../lib/admin';
 import { getSanctionSummary, isPlayerSanctioned, type PlayerSanctionState } from '../../lib/sanctions';
@@ -57,6 +58,8 @@ function MatchDetail() {
   const [editResult, setEditResult] = useState<Result | null>(null);
   const [csvModal, setCsvModal] = useState(false);
   const [csvRows, setCsvRows] = useState<{ player_id: number; kills: number; deaths: number }[] | null>(null);
+  const [csvSource, setCsvSource] = useState<'csv' | 'api'>('csv');
+  const [apiBusy, setApiBusy] = useState(false);
   const [winnersModal, setWinnersModal] = useState(false);
   const [winnerPicks, setWinnerPicks] = useState<number[]>([]);
 
@@ -263,9 +266,32 @@ function MatchDetail() {
           if (pid) rows.push({ player_id: pid, kills: parseInt(c[1].trim()) || 0, deaths: parseInt(c[2].trim()) || 0 });
         }
       }
+      setCsvSource('csv');
       setCsvRows(rows);
     };
     reader.readAsText(f);
+  }
+
+  // ---- Importacion por API (kd-excel-proxy, rate limit GLOBAL 15s server-side) ----
+  async function runApiImport() {
+    const gid = (match?.game_id || '').trim() || window.prompt('ID de partida en Supremacy (game_id):')?.trim() || '';
+    if (!gid || !/^\d+$/.test(gid)) { say('ID de partida invalido (solo numeros)'); return; }
+    const remaining = apiImportRemaining();
+    if (remaining > 0) { say(`Cuenta atras global: espera ${remaining}s`); return; }
+    setApiBusy(true);
+    try {
+      const rows = await fetchKdRows(gid);
+      markApiImport();
+      setCsvSource('api');
+      setCsvRows(rows.map((r) => ({ player_id: r.player_id, kills: r.kills, deaths: r.deaths })));
+      setCsvModal(true);
+      say(`API: ${rows.length} jugadores (bots excluidos)`);
+    } catch (e: any) {
+      if (e instanceof ApiImportRateLimited) say(e.message);
+      else say('API: ' + (e?.message ?? e));
+    } finally {
+      setApiBusy(false);
+    }
   }
   async function ensureRegs(players: { player_id: number }[]): Promise<{ inserted: number; failed: boolean }> {
     const result = { inserted: 0, failed: false };
@@ -303,7 +329,7 @@ function MatchDetail() {
       }
       await publicDb.from('matches').update({ csv_imported: true }).eq('id', matchId);
       const regRes = await ensureRegs(csvRows);
-      let msg = `CSV importado: ${csvRows.length} jugadores`;
+      let msg = `${csvSource === 'api' ? 'API' : 'CSV'} importado: ${csvRows.length} jugadores`;
       if (regRes.failed) msg += ' · AVISO: no se pudieron crear los registros automaticos';
       else if (regRes.inserted > 0) msg += ` · + ${regRes.inserted} registros creados`;
       say(msg);
@@ -436,6 +462,7 @@ function MatchDetail() {
               {match.status === 'in_progress' && <Button onClick={() => updateStatus('finished')}>Finalizar</Button>}
               <Button variant="ghost" onClick={() => setEditMatch({ ...match })}>Editar</Button>
               <Button variant="ghost" onClick={() => setCsvModal(true)}>📥 Importar CSV</Button>
+              <Button variant="ghost" disabled={apiBusy} onClick={runApiImport}>{apiBusy ? '⏳ Descargando...' : '📡 Importar por API'}</Button>
               <Button variant="ghost" onClick={() => { setWinnerPicks([]); setWinnersModal(true); }}>🏆 Declarar ganadores</Button>
               <Button variant="danger" onClick={deleteMatch}>🗑 Eliminar</Button>
             </div>
@@ -638,14 +665,23 @@ function MatchDetail() {
       {/* Modal: importar CSV */}
       {csvModal && (
         <Modal onClose={() => { setCsvModal(false); setCsvRows(null); }} width={560}>
-          <h3 style={{ margin: '0 0 12px', color: colors.text }}>📥 Importar CSV de resultados</h3>
-          <p style={{ fontSize: 12, color: colors.muted }}>Formato: <code>player_id,kills,deaths</code> (una fila por jugador, con header).</p>
+          <h3 style={{ margin: '0 0 12px', color: colors.text }}>{csvSource === 'api' ? '📡 Importar por API (resultados)' : '📥 Importar CSV de resultados'}</h3>
+          {csvSource === 'api' ? (
+            <p style={{ fontSize: 12, color: colors.muted }}>
+              Datos descargados del exportador externo. Bots (UID {'<='} 0) excluidos automaticamente.
+              Rate limit global: 1 descarga cada 15 s como minimo (seguridad).
+            </p>
+          ) : (
+            <p style={{ fontSize: 12, color: colors.muted }}>Formato: <code>player_id,kills,deaths</code> (una fila por jugador, con header).</p>
+          )}
+          {csvSource !== 'api' && (
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleCsvFile(f); }}
             onClick={() => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv'; inp.onchange = () => { const f = inp.files?.[0]; if (f) handleCsvFile(f); }; inp.click(); }}
             style={{ border: `2px dashed ${colors.border}`, borderRadius: 10, padding: 24, textAlign: 'center', cursor: 'pointer', color: colors.muted, fontSize: 13 }}
           >Arrastra el CSV aqui o haz clic para seleccionar</div>
+          )}
           {csvRows && (
             <>
               <div style={{ maxHeight: 260, overflowY: 'auto', marginTop: 12, border: `1px solid ${colors.border}`, borderRadius: 8 }}>
