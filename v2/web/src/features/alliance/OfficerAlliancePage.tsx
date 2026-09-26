@@ -262,7 +262,7 @@ export default function OfficerAlliancePage() {
                   {offRole === 'co_leader' && <span style={{ fontSize: 11, fontWeight: 700, color: colors.purple }}>⭐ CO-LÍDER</span>}
                   {offRole === 'officer' && <span style={{ fontSize: 11, fontWeight: 700, color: colors.info }}>🎖 OFICIAL</span>}
                   <Link to={`/jugador/${m.playerId}`} style={actionStyle}>👤 Perfil</Link>
-                  {!isLeader && <Link to={`/alianza/sanciones?prefill_player=${m.playerId}`} style={actionStyle}>⚡ Strike</Link>}
+                  {isColeader && !isLeader && <Link to={`/alianza/sanciones?prefill_player=${m.playerId}`} style={actionStyle}>⚡ Strike</Link>}
                   {isColeader && !isLeader && !offRole && (
                     <button onClick={() => { setInviteRole('officer'); setInviteTarget(m); }} style={{ ...actionStyle, cursor: 'pointer' }}>🎖 Invitar</button>
                   )}

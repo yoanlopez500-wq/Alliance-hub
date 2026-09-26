@@ -117,10 +117,25 @@ export default function ReportPage() {
       };
       if (evidenceUrls.length > 0) payload.evidence_urls = evidenceUrls;
 
+      // Reporte INTERNO: si reportero y reportado son miembros aprobados de la
+      // misma alianza, la bandeja de su lider/oficial tambien lo recibe (RLS + trigger validan).
+      try {
+        const [{ data: meM }, { data: repM }] = await Promise.all([
+          publicDb.from('alliance_memberships').select('alliance_id').eq('player_id', playerId).eq('status', 'approved').maybeSingle(),
+          publicDb.from('alliance_memberships').select('alliance_id').eq('player_id', reportedId).eq('status', 'approved').maybeSingle(),
+        ]);
+        const aid = (meM as { alliance_id: string } | null)?.alliance_id;
+        if (aid && aid === (repM as { alliance_id: string } | null)?.alliance_id) {
+          payload.alliance_id = aid;
+        }
+      } catch { /* scope opcional */ }
+
       const { error: insErr } = await publicDb.from('player_reports').insert(payload);
       if (insErr) throw new Error(insErr.message);
 
-      setSuccess('✓ Reporte enviado correctamente. Un admin lo revisara pronto.');
+      setSuccess(payload.alliance_id
+        ? '✓ Reporte enviado. Tu líder de alianza y el staff lo revisarán.'
+        : '✓ Reporte enviado correctamente. Un admin lo revisara pronto.');
       (e.target as HTMLFormElement).reset();
       setFiles([]);
     } catch (err: any) {

@@ -323,27 +323,90 @@ async function request(method: string, path: string, body?: unknown): Promise<an
       return data;
     }
     if (rest === 'strikes' && method === 'POST') {
-      const b = body as { playerId?: number; strikeTypeId?: number; reason?: string; notes?: string };
+      const b = body as {
+        playerId?: number; strikeTypeId?: string; reason?: string; notes?: string;
+        matchId?: string; ruleSectionId?: string; evidenceUrls?: string[];
+      };
       if (!b.playerId || !b.reason) throw new ApiError(400, 'playerId y reason son obligatorios');
       // El objetivo debe ser miembro aprobado de la alianza
       const { data: mem } = await db.from('alliance_memberships').select('id')
         .eq('player_id', b.playerId).eq('alliance_id', allianceId).eq('status', 'approved').maybeSingle();
       if (!mem) throw new ApiError(409, 'el jugador no es miembro aprobado de la alianza');
-      // El tipo de falta debe ser global o de esta alianza
+      // El tipo de falta debe ser global o de esta alianza, y SIN efectos de
+      // plataforma: ban y anulacion de bajas son jurisdiccion exclusiva del staff.
+      let typeInfo: { legend?: string | null; penalty_pct?: number } = {};
       if (b.strikeTypeId) {
-        const { data: st } = await db.from('strike_types').select('alliance_id').eq('id', b.strikeTypeId).maybeSingle();
+        const { data: st } = await db.from('strike_types')
+          .select('alliance_id, legend, is_ban, nullifies_kills').eq('id', b.strikeTypeId).maybeSingle();
         if (!st) throw new ApiError(404, 'tipo de falta inexistente');
         if (st.alliance_id && st.alliance_id !== allianceId) throw new ApiError(403, 'no puedes usar tipos de falta de otra alianza');
+        if (st.is_ban || st.nullifies_kills) throw new ApiError(403, 'ese tipo de falta tiene efectos de plataforma (ban/anula bajas): usa uno interno o sin esos efectos');
+        typeInfo = st as { legend?: string | null };
+      }
+      // La partida, si se indica, debe ser de esta alianza
+      if (b.matchId) {
+        const { data: m } = await db.from('matches').select('id').eq('id', b.matchId)
+          .or(`alliance_id.eq.${allianceId},alliance_a_id.eq.${allianceId},alliance_b_id.eq.${allianceId}`)
+          .maybeSingle();
+        if (!m) throw new ApiError(403, 'la partida no pertenece a esta alianza');
+      }
+      // El articulo de reglamento, si se indica, debe ser interno de la alianza
+      if (b.ruleSectionId) {
+        const { data: rs } = await db.from('rule_sections').select('id')
+          .eq('id', b.ruleSectionId).eq('alliance_id', allianceId).maybeSingle();
+        if (!rs) throw new ApiError(403, 'el articulo de reglamento no pertenece a esta alianza');
       }
       const { data: sess } = await db.auth.getSession();
       const { data, error } = await db.from('player_strikes').insert({
         player_id: b.playerId, strike_type_id: b.strikeTypeId ?? null,
+        match_id: b.matchId ?? null, rule_section_id: b.ruleSectionId ?? null,
         reason: b.reason, notes: b.notes ?? null,
         alliance_id: allianceId,
         applied_by: sess.session?.user.id ?? null,
-        is_active: true,
+        is_active: true, status: 'active',
+        evidence_urls: Array.isArray(b.evidenceUrls) && b.evidenceUrls.length ? b.evidenceUrls : [],
       }).select().single();
       if (error) throw new ApiError(500, error.message);
+
+      // Snapshot interno de sancion: historial de la alianza SOBRE partidas de
+      // la alianza. Jamas toca players.status ni el ranking global.
+      try {
+        let penaltyPct = 0;
+        if (typeInfo.legend) {
+          try { penaltyPct = parseFloat(JSON.parse(typeInfo.legend).penalty_pct) || 0; }
+          catch { const mm = String(typeInfo.legend).match(/(\d+)%/); penaltyPct = mm ? parseInt(mm[1]) : 0; }
+        }
+        const { data: results } = await db.from('match_results')
+          .select('kills, match_id, matches!inner(alliance_id, alliance_a_id, alliance_b_id)')
+          .eq('player_id', b.playerId);
+        const rList = ((results as { kills: number; match_id: string }[]) || [])
+          .filter((r) => {
+            const m = (r as unknown as { matches: { alliance_id: string | null; alliance_a_id: string | null; alliance_b_id: string | null } }).matches;
+            return m.alliance_id === allianceId || m.alliance_a_id === allianceId || m.alliance_b_id === allianceId;
+          });
+        const mIds = [...new Set(rList.map((r) => r.match_id).filter(Boolean))];
+        const valid: Record<string, boolean> = {};
+        if (mIds.length) {
+          const { data: regs } = await db.from('match_registrations').select('match_id')
+            .eq('player_id', b.playerId).in('match_id', mIds);
+          ((regs as { match_id: string }[]) || []).forEach((r) => { valid[r.match_id] = true; });
+        }
+        const killsBefore = rList.reduce((t, r) => t + (valid[r.match_id] ? r.kills || 0 : 0), 0);
+        const killsAfter = Math.round(killsBefore * (1 - penaltyPct / 100));
+        const { data: playerBefore } = await db.from('players').select('status').eq('id', b.playerId).maybeSingle();
+        await db.from('player_sanctions').insert({
+          player_id: b.playerId,
+          strike_id: data ? (data as { id: string }).id : null,
+          strike_type_id: b.strikeTypeId ?? null,
+          kills_before: killsBefore, kills_after: killsAfter,
+          status_before: (playerBefore as { status: string } | null)?.status ?? null,
+          status_after: (playerBefore as { status: string } | null)?.status ?? null,
+          penalty_pct: penaltyPct,
+          formula_used: typeInfo.legend ?? null,
+          alliance_id: allianceId,
+        });
+      } catch (snapErr) { console.error('[AllianceStrikes] snapshot interno:', snapErr); }
+
       return data;
     }
     const strikeDelM = rest.match(/^strikes\/([^/]+)$/);
@@ -356,7 +419,7 @@ async function request(method: string, path: string, body?: unknown): Promise<an
 
     if (rest === 'strike-types' && method === 'GET') {
       const { data, error } = await db.from('strike_types')
-        .select('id, code, name, description, severity, is_ban, alliance_id')
+        .select('id, code, name, description, severity, legend, is_ban, nullifies_kills, alliance_id')
         .or(`alliance_id.is.null,alliance_id.eq.${allianceId}`).order('name');
       if (error) throw new ApiError(500, error.message);
       return data;
@@ -374,6 +437,85 @@ async function request(method: string, path: string, body?: unknown): Promise<an
       }).select().single();
       if (error) throw new ApiError(500, error.message);
       return data;
+    }
+
+    /* -- Historial interno de sanciones (snapshots de strikes de la alianza) -- */
+    if (rest === 'sanctions' && method === 'GET') {
+      const { data, error } = await db.from('player_sanctions')
+        .select('id, player_id, strike_id, strike_type_id, kills_before, kills_after, penalty_pct, formula_used, created_at, players:player_id(current_username)')
+        .eq('alliance_id', allianceId).order('created_at', { ascending: false }).limit(100);
+      if (error) throw new ApiError(500, error.message);
+      return data ?? [];
+    }
+
+    /* -- Reportes internos de la alianza (bandeja del lider/oficial) -- */
+    if (rest === 'reports' && method === 'GET') {
+      const { data, error } = await db.from('player_reports')
+        .select('id, player_id, player_name, reported_player_id, reported_player_name, match_id, rule_section_id, report_type, description, evidence_urls, status, admin_response, strike_applied, strike_id, created_at, resolved_at')
+        .eq('alliance_id', allianceId).order('created_at', { ascending: false }).limit(100);
+      if (error) throw new ApiError(500, error.message);
+      return data ?? [];
+    }
+    if (rest === 'reports' && method === 'POST') {
+      const b = body as { reportedPlayerId?: number; description?: string; matchId?: string; ruleSectionId?: string };
+      if (!b.reportedPlayerId || !b.description?.trim()) throw new ApiError(400, 'reportedPlayerId y description son obligatorios');
+      const { data: rep } = await db.from('alliance_memberships').select('id')
+        .eq('player_id', b.reportedPlayerId).eq('alliance_id', allianceId).eq('status', 'approved').maybeSingle();
+      if (!rep) throw new ApiError(409, 'el jugador reportado no es miembro aprobado de la alianza');
+      const { data: sess } = await db.auth.getSession();
+      const uid = sess.session?.user.id ?? '';
+      // Autor del reporte: el jugador vinculado a la cuenta del manager
+      // (lider -> admin_users.supremacy_player_id, oficial -> alliance_officers.player_id)
+      let authorPlayerId: number | null = null;
+      const { data: au } = await db.from('admin_users').select('supremacy_player_id')
+        .eq('id', uid).maybeSingle();
+      authorPlayerId = (au as { supremacy_player_id: number | null } | null)?.supremacy_player_id ?? null;
+      if (!authorPlayerId) {
+        const { data: off } = await db.from('alliance_officers').select('player_id')
+          .eq('auth_user_id', uid).eq('alliance_id', allianceId).eq('is_active', true).maybeSingle();
+        authorPlayerId = (off as { player_id: number | null } | null)?.player_id ?? null;
+      }
+      if (!authorPlayerId) throw new ApiError(400, 'tu cuenta no tiene un jugador vinculado; pide a un admin que lo asocie');
+      let reportedName: string | null = null;
+      try {
+        const { data: rp } = await db.from('players').select('current_username').eq('id', b.reportedPlayerId).maybeSingle();
+        reportedName = (rp as { current_username: string } | null)?.current_username ?? null;
+      } catch { /* opcional */ }
+      const { data, error } = await db.from('player_reports').insert({
+        player_id: authorPlayerId,
+        player_name: 'Liderazgo de la alianza',
+        reported_player_id: b.reportedPlayerId,
+        reported_player_name: reportedName,
+        match_id: b.matchId ?? null,
+        rule_section_id: b.ruleSectionId ?? null,
+        report_type: 'alliance_internal',
+        description: b.description.trim(),
+        status: 'pending',
+        alliance_id: allianceId,
+      }).select().single();
+      if (error) throw new ApiError(500, error.message);
+      return data;
+    }
+    const reportM = rest.match(/^reports\/([^/]+)$/);
+    if (reportM && method === 'PUT') {
+      const b = body as { status?: string; adminResponse?: string; strikeId?: string | null };
+      if (!b.status) throw new ApiError(400, 'status es obligatorio');
+      const { data: sess } = await db.auth.getSession();
+      // resolved_by exige FK a admin_users: un oficial no es admin_users, queda null
+      const { data: au } = await db.from('admin_users').select('id')
+        .eq('id', sess.session?.user.id ?? '').maybeSingle();
+      const patch: Record<string, unknown> = {
+        status: b.status,
+        admin_response: b.adminResponse ?? null,
+        resolved_at: new Date().toISOString(),
+        resolved_by: au ? sess.session?.user.id : null,
+      };
+      if (b.strikeId) { patch.strike_applied = true; patch.strike_id = b.strikeId; }
+      const { data, error } = await db.from('player_reports').update(patch)
+        .eq('id', reportM[1]).eq('alliance_id', allianceId).select();
+      if (error) throw new ApiError(500, error.message);
+      if (!data || data.length === 0) throw new ApiError(404, 'reporte no encontrado en esta alianza');
+      return data[0];
     }
 
     if (rest === 'invitations' && method === 'GET') {

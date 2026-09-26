@@ -34,6 +34,23 @@ const IMPACT_META: Record<ChangeItem['impact'], { color: string; bg: string }> =
 
 const CHANGES: ChangeItem[] = [
   {
+    date: '27 sep',
+    phase: 'Fase 2',
+    icon: '⚖️',
+    impact: 'Nuevo',
+    title: 'Motor de conducta interno de la alianza',
+    body: 'Las alianzas estrenan su propio motor disciplinario, con la misma maquinaria del de plataforma (strikes tipados, reglamento, reportes e historial) pero de jurisdicción exclusiva e invisible para el resto. Lo interno lo gobierna el liderazgo de la alianza; lo global sigue en manos del staff.',
+    bullets: [
+      '⚡ Strikes internos con tipo de falta (los propios de la alianza o los de la liga sin efectos globales), vínculo al artículo del reglamento interno, partida y evidencia (imágenes/vídeos).',
+      '📨 Bandeja de reportes internos: cuando un miembro reporta a otro de la misma alianza, el reporte llega también a su liderazgo, con flujo «aplicar strike → cerrar reporte» en un clic.',
+      '📜 Historial de sanciones internas: snapshot de bajas antes/después con la penalización del tipo de falta, calculado solo sobre partidas de la alianza.',
+      '🔒 Frontera dura: los strikes internos jamás anulan bajas globales ni banean cuentas de plataforma (el backend rechaza tipos con esos efectos). Además se cerró un agujero: los admins de alianza ya no pueden escribir sanciones globales por API.',
+      '🎖 Rol puro de oficial: ve todo en solo lectura; aplicar strikes y cerrar reportes es del líder o co-líder (así también a nivel de base de datos).',
+      'El registro de strike de alianza ya funciona: antes fallaba siempre por un constraint de base de datos.',
+    ],
+    audiences: ['lideres', 'staff'],
+  },
+  {
     date: '26 sep',
     phase: 'Fase 2',
     icon: '🎖',

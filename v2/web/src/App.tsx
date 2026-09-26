@@ -302,7 +302,7 @@ export default function App() {
       <NavDropdown icon="🚩" label="Mi alianza" currentPath={location.pathname} items={[
         { to: '/alianza', label: '🛡 Panel de mi alianza' },
         { to: '/mi-espacio', label: '🎮 Mi Espacio' },
-        { to: '/alianza/sanciones', label: '⚖️ Sanciones de mi alianza' },
+        { to: '/alianza/sanciones', label: '⚖️ Conducta de mi alianza' },
       ]} />
       <NavLink to="/reportar" style={navStyle}>Reportar</NavLink>
     </>
