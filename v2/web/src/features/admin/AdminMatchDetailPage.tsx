@@ -40,6 +40,26 @@ function MatchDetail() {
   const staff = isStaffRole(admin?.role);
   const superadmin = isSuperadminRole(admin?.role);
 
+  // Jurisdiccion de liderazgo sobre ESTA partida (sin ser staff): el lider
+  // (admin_users.alliance_id) o un oficial co-lider (alliance_officers).
+  // El RLS refuerza la frontera: solo partidas internas de su alianza.
+  const [myOfficer, setMyOfficer] = useState<{ alliance_id: string; role: string } | null>(null);
+  useEffect(() => {
+    if (staff || admin) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await publicDb.auth.getSession();
+        const uid = data.session?.user.id;
+        if (!uid) return;
+        const { data: off } = await publicDb.from('alliance_officers')
+          .select('alliance_id, role').eq('auth_user_id', uid).eq('is_active', true).limit(1).maybeSingle();
+        if (!cancelled && off) setMyOfficer(off as { alliance_id: string; role: string });
+      } catch { /* noop */ }
+    })();
+    return () => { cancelled = true; };
+  }, [staff, admin]);
+
   const [match, setMatch] = useState<Match | null>(null);
   const [alliances, setAlliances] = useState<Alliance[]>([]);
   const [regs, setRegs] = useState<Reg[] | null>(null);
@@ -62,6 +82,26 @@ function MatchDetail() {
   const [apiBusy, setApiBusy] = useState(false);
   const [winnersModal, setWinnersModal] = useState(false);
   const [winnerPicks, setWinnerPicks] = useState<number[]>([]);
+
+  // Jurisdiccion de liderazgo sobre ESTA partida (sin ser staff): el lider
+  // (admin_users.alliance_id) o un oficial co-lider (alliance_officers).
+  // El RLS refuerza la frontera: solo partidas internas de su alianza.
+  const matchAllianceId = match?.alliance_id ?? null;
+  const isLeaderOfMatch = !staff && !!matchAllianceId && !!admin && admin.alliance_id === matchAllianceId;
+  // Solo co-lideres gestionan partidas (mismo criterio que el RLS
+  // matches_update_coleader / match_results para no-staff). Un oficial
+  // "officer" a secas queda en lectura.
+  const isOfficerOfMatch = !staff && !admin && !!matchAllianceId && myOfficer?.alliance_id === matchAllianceId && myOfficer?.role === 'co_leader';
+  const canManage = staff || isLeaderOfMatch || isOfficerOfMatch;
+  // Partida interna (excluida de rankings globales): los managers no-staff
+  // solo tocan resultados/ganadores en internas; en globales, solo staff.
+  const matchTypeScope = match ? matchTypes.find((t) => t.id === match.match_type)?.scope : undefined;
+  const isInternal = !!matchTypeScope && matchTypeScope !== 'global';
+  // Puede tocar resultados/ganadores: staff siempre; liderazgo solo en internas.
+  const canTouchResults = staff || (canManage && isInternal);
+  // Inscripciones: staff siempre; el lider (fila admin_users) en las de su
+  // alianza; el co-lider oficial solo en internas (misma frontera que el RLS).
+  const canEditRegs = staff || isLeaderOfMatch || (isOfficerOfMatch && isInternal);
 
   const say = (t: string) => { setToast(t); setTimeout(() => setToast(null), 3000); };
 
@@ -231,7 +271,7 @@ function MatchDetail() {
   // ---- Results CRUD + CSV ----
   async function saveResult(e: React.FormEvent<HTMLFormElement>, existing?: Result) {
     e.preventDefault();
-    if (!staff) { say('Solo admins pueden editar resultados'); return; }
+    if (!canTouchResults) { say(staff ? 'Sin permiso' : 'Los resultados de partidas globales solo los edita el staff'); return; }
     const fd = new FormData(e.currentTarget);
     const pid = existing ? existing.player_id : parseInt(String(fd.get('player_id')), 10);
     const kills = parseInt(String(fd.get('kills') || '0')) || 0;
@@ -248,7 +288,7 @@ function MatchDetail() {
     loadResults();
   }
   async function deleteResult(r: Result) {
-    if (!staff) { say('Solo admins pueden eliminar resultados'); return; }
+    if (!canTouchResults) { say(staff ? 'Sin permiso' : 'Los resultados de partidas globales solo los edita el staff'); return; }
     if (!window.confirm(`Eliminar el resultado del jugador ${r.player_id}?`)) return;
     const { error } = await publicDb.from('match_results').delete().eq('id', r.id);
     if (error) say('Error: ' + error.message); else { say('Resultado eliminado'); loadResults(); }
@@ -452,18 +492,27 @@ function MatchDetail() {
         </div>
       </Reveal>
 
-      {staff && (
+      {canManage && (
         <Reveal>
           <div style={{ ...styles.card, marginTop: 14 }}>
-            <h3 style={{ margin: '0 0 10px', color: colors.text }}>🛠️ Acciones de admin</h3>
+            <h3 style={{ margin: '0 0 10px', color: colors.text }}>🛠️ Acciones de {staff ? 'admin' : 'gestión de la alianza'}</h3>
+            {!staff && !isInternal && (
+              <p style={{ fontSize: 12, color: colors.info, margin: '0 0 10px' }}>
+                Partida de scope global: puedes gestionar la partida, pero resultados y ganadores los declara el staff.
+              </p>
+            )}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {match.status === 'draft' && <Button onClick={() => updateStatus('open')}>Abrir registro</Button>}
               {match.status === 'open' && <Button onClick={() => updateStatus('in_progress')}>Iniciar partida</Button>}
               {match.status === 'in_progress' && <Button onClick={() => updateStatus('finished')}>Finalizar</Button>}
               <Button variant="ghost" onClick={() => setEditMatch({ ...match })}>Editar</Button>
-              <Button variant="ghost" onClick={() => setCsvModal(true)}>📥 Importar CSV</Button>
-              <Button variant="ghost" disabled={apiBusy} onClick={runApiImport}>{apiBusy ? '⏳ Descargando...' : '📡 Importar por API'}</Button>
-              <Button variant="ghost" onClick={() => { setWinnerPicks([]); setWinnersModal(true); }}>🏆 Declarar ganadores</Button>
+              {canTouchResults && (
+                <>
+                  <Button variant="ghost" onClick={() => setCsvModal(true)}>📥 Importar CSV</Button>
+                  <Button variant="ghost" disabled={apiBusy} onClick={runApiImport}>{apiBusy ? '⏳ Descargando...' : '📡 Importar por API'}</Button>
+                  <Button variant="ghost" onClick={() => { setWinnerPicks([]); setWinnersModal(true); }}>🏆 Declarar ganadores</Button>
+                </>
+              )}
               <Button variant="danger" onClick={deleteMatch}>🗑 Eliminar</Button>
             </div>
           </div>
@@ -474,7 +523,7 @@ function MatchDetail() {
         <div style={{ marginTop: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <h3 style={{ color: colors.text, margin: 0 }}>📝 Registrados ({regs?.length ?? 0})</h3>
-            <Button onClick={() => setAddReg(true)}>+ Añadir</Button>
+            {canEditRegs && <Button onClick={() => setAddReg(true)}>+ Añadir</Button>}
           </div>
           {!regs ? <Loader /> : (
             <DataTable
@@ -493,13 +542,15 @@ function MatchDetail() {
                 { key: 'nation', header: 'Nacion', render: (r) => <span style={{ color: colors.muted }}>{r.nation || '-'}</span> },
                 { key: 'status', header: 'Estado', render: (r) => badge(r.status) },
                 { key: 'reg_at', header: 'Registrado', render: (r) => <span style={{ fontSize: 12, color: colors.muted }}>{formatDateTime(r.registered_at)}</span> },
-                { key: 'actions', header: '', render: (r) => (
+                ...(canEditRegs ? [{ key: 'actions', header: '', render: (r: Reg) => (
                   <span style={{ display: 'flex', gap: 6 }}>
                     <button onClick={() => setEditReg({ ...r })} title="Editar" style={miniBtn(colors.info)}>✎</button>
                     <button onClick={() => deleteReg(r)} title="Eliminar" style={miniBtn(colors.danger)}>🗑</button>
-                    <button onClick={() => window.open(`/admin/strikes?prefill_player=${r.player_id}&prefill_match=${matchId}`, '_blank')} title="Sancionar" style={miniBtn(colors.warning)}>⚡</button>
+                    <button onClick={() => window.open(staff
+                      ? `/admin/strikes?prefill_player=${r.player_id}&prefill_match=${matchId}`
+                      : `/alianza/sanciones?prefill_player=${r.player_id}`, '_blank')} title="Sancionar" style={miniBtn(colors.warning)}>⚡</button>
                   </span>
-                ) },
+                ) }] : []),
               ]}
             />
           )}
@@ -516,7 +567,7 @@ function MatchDetail() {
                 <option value="kills">Orden: Bajas</option>
                 <option value="deaths">Orden: Muertes</option>
               </select>
-              {staff && <Button onClick={() => setAddResult(true)}>+ Añadir</Button>}
+              {canTouchResults && <Button onClick={() => setAddResult(true)}>+ Añadir</Button>}
             </div>
           </div>
           {!sortedResults ? <Loader /> : (
@@ -531,7 +582,7 @@ function MatchDetail() {
                 { key: 'valid', header: 'Valido', render: (r) => regIds.has(r.player_id)
                   ? <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(129,199,132,0.15)', color: colors.success }}>Si</span>
                   : <span title="No registrado en la partida: no cuenta para ranking" style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(159,168,218,0.15)', color: colors.muted }}>No</span> },
-                ...(staff ? [{ key: 'actions', header: '', render: (r: Result) => (
+                ...(canTouchResults ? [{ key: 'actions', header: '', render: (r: Result) => (
                   <span style={{ display: 'flex', gap: 6 }}>
                     <button onClick={() => setEditResult({ ...r })} title="Editar" style={miniBtn(colors.info)}>✎</button>
                     <button onClick={() => deleteResult(r)} title="Eliminar" style={miniBtn(colors.danger)}>🗑</button>
@@ -553,10 +604,17 @@ function MatchDetail() {
           <Input value={editMatch.game_id || ''} onChange={(e) => setEditMatch({ ...editMatch, game_id: e.target.value })} style={styles.input} />
           <label style={{ fontSize: 12, color: colors.muted }}>Password</label>
           <Input value={editMatch.password || ''} onChange={(e) => setEditMatch({ ...editMatch, password: e.target.value })} style={styles.input} />
-          <label style={{ fontSize: 12, color: colors.muted }}>Tipo</label>
-          <Select value={editMatch.match_type || 'internal'} onChange={(e) => setEditMatch({ ...editMatch, match_type: e.target.value })} style={styles.input}>
-            {matchTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </Select>
+          {/* Tipo de partida: solo staff puede cambiarlo (el trigger guard_match_type_change
+              lo bloquearia para no-staff de todos modos). Sin el select, match_type
+              viaja intacto al guardar. */}
+          {staff ? (
+            <>
+              <label style={{ fontSize: 12, color: colors.muted }}>Tipo</label>
+              <Select value={editMatch.match_type || 'internal'} onChange={(e) => setEditMatch({ ...editMatch, match_type: e.target.value })} style={styles.input}>
+                {matchTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </Select>
+            </>
+          ) : null}
           <label style={{ fontSize: 12, color: colors.muted }}>Max jugadores</label>
           <Input type="number" value={editMatch.max_players || ''} onChange={(e) => setEditMatch({ ...editMatch, max_players: parseInt(e.target.value) || null })} style={styles.input} />
           <label style={{ fontSize: 12, color: colors.muted }}>Alianza</label>
@@ -747,7 +805,7 @@ function miniBtn(color: string): React.CSSProperties {
 
 export default function AdminMatchDetailPage() {
   return (
-    <AdminGate>
+    <AdminGate allowManagers>
       <MatchDetail />
     </AdminGate>
   );

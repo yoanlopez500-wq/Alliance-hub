@@ -208,3 +208,88 @@ body {
   .ah-confetti { animation: none; opacity: 0; }
   .ah-novedades-card, .ah-novedades-filter { transition: none; }
 }
+
+/* ---------- Tarjetas de miembro (panel de lider / gestion de alianza) ----------
+   Antes: una fila flex con 6 botones en linea que en movil se aplastaba y
+   desbordaba. Ahora: tarjeta con avatar + info + K/D, y las acciones pasan
+   a una rejilla a ancho completo en pantallas estrechas. */
+.ah-member-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(159,168,218,0.13);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+.ah-member-card:hover {
+  border-color: rgba(255,143,0,0.32);
+  box-shadow: 0 8px 22px rgba(0,0,0,0.25);
+  transform: translateY(-1px);
+}
+.ah-member-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(255,143,0,0.22), rgba(79,195,247,0.16));
+  border: 1px solid rgba(159,168,218,0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 15px;
+  color: #ff8f00;
+}
+.ah-member-info { flex: 1; min-width: 0; }
+.ah-member-name {
+  margin: 0;
+  font-weight: 700;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ah-member-sub { margin: 2px 0 0; font-size: 12px; color: #9fa8da; }
+.ah-member-kd { text-align: right; flex-shrink: 0; }
+.ah-member-kd strong { display: block; font-size: 14px; color: #ff8f00; }
+.ah-member-kd span { font-size: 12px; color: #9fa8da; }
+.ah-member-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+.ah-member-action {
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(159,168,218,0.22);
+  color: #e8eaf6;
+  background: rgba(255,255,255,0.05);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.ah-member-action:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,143,0,0.45);
+  transform: translateY(-1px);
+}
+.ah-member-action.danger {
+  border-color: rgba(239,83,80,0.55);
+  color: #ef5350;
+  background: rgba(239,83,80,0.08);
+}
+.ah-member-action.danger:hover { background: rgba(239,83,80,0.16); border-color: #ef5350; }
+
+@media (max-width: 720px) {
+  .ah-member-card { flex-wrap: wrap; gap: 10px; }
+  .ah-member-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 6px;
+  }
+  .ah-member-action { text-align: center; padding: 8px 6px; white-space: normal; }
+}

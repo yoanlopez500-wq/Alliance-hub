@@ -24,11 +24,7 @@ interface Duel { id: string; name: string; status: string; created_at: string; m
 interface Match { id: string; name: string; status: string; match_type: string; created_at: string; max_players: number | null }
 
 const cardStyle: React.CSSProperties = { background: colors.cardAlt, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 16 };
-const memberActionStyle: React.CSSProperties = {
-  fontSize: 12, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap',
-  padding: '6px 10px', borderRadius: 8, border: `1px solid ${colors.border}`, color: colors.text,
-  background: 'rgba(255,255,255,0.04)',
-};
+// (los botones de accion de miembro viven en index.css: .ah-member-action)
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, color: colors.muted, marginBottom: 4 };
 const inputStyle: React.CSSProperties = { width: '100%', marginBottom: 12 };
 
@@ -412,29 +408,27 @@ function LeaderDashboard() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {members.map((m) => (
-              <div key={m.player.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.05)' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: colors.border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+              <div key={m.player.id} className="ah-member-card">
+                <div className="ah-member-avatar">
                   {(m.player.current_username || '?').charAt(0).toUpperCase()}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>{m.player.current_username}</p>
-                  <p style={{ margin: 0, fontSize: 12, color: colors.muted }}>{m.games} partidas válidas</p>
+                <div className="ah-member-info">
+                  <p className="ah-member-name">{m.player.current_username}</p>
+                  <p className="ah-member-sub">{m.games} partidas válidas</p>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: colors.accent }}>{m.kd.toFixed(2)} K/D</p>
-                  <p style={{ margin: 0, fontSize: 12, color: colors.muted }}>{m.kills}K / {m.deaths}D</p>
+                <div className="ah-member-kd">
+                  <strong>{m.kd.toFixed(2)} K/D</strong>
+                  <span>{m.kills}K / {m.deaths}D</span>
                 </div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <Link to={`/jugador/${m.player.id}`} title="Ver perfil" style={memberActionStyle}>👤 Perfil</Link>
-                  <button onClick={() => setNoteMember(m)} title="Nota interna (privada, con registro)" style={{ ...memberActionStyle, cursor: 'pointer' }}>📝 Nota</button>
-                  <Link to={`/alianza/sanciones?prefill_player=${m.player.id}`} title="Poner strike" style={memberActionStyle}>⚡ Strike</Link>
-                  <Link to="/reportar" title="Reportar a plataforma" style={memberActionStyle}>🚩 Reportar</Link>
+                <div className="ah-member-actions">
+                  <Link to={`/jugador/${m.player.id}`} title="Ver perfil" className="ah-member-action">👤 Perfil</Link>
+                  <button onClick={() => setNoteMember(m)} title="Nota interna (privada, con registro)" className="ah-member-action">📝 Nota</button>
+                  <Link to={`/alianza/sanciones?prefill_player=${m.player.id}`} title="Poner strike" className="ah-member-action">⚡ Strike</Link>
+                  <Link to="/reportar" title="Reportar a plataforma" className="ah-member-action">🚩 Reportar</Link>
                   {!officerIds.has(m.player.id) && (
-                    <button onClick={() => { setInviteRole('officer'); setInviteMember(m); }} title="Invitar como oficial / co-líder" style={{ ...memberActionStyle, cursor: 'pointer' }}>🎖 Oficial</button>
+                    <button onClick={() => { setInviteRole('officer'); setInviteMember(m); }} title="Invitar como oficial / co-líder" className="ah-member-action">🎖 Oficial</button>
                   )}
-                  <button onClick={() => kickMember(m)} title="Expulsar de la alianza" style={{
-                    ...memberActionStyle, border: `1px solid ${colors.danger}`, color: colors.danger, cursor: 'pointer',
-                  }}>✗ Expulsar</button>
+                  <button onClick={() => kickMember(m)} title="Expulsar de la alianza" className="ah-member-action danger">✗ Expulsar</button>
                 </div>
               </div>
             ))}

@@ -36,6 +36,22 @@ const CHANGES: ChangeItem[] = [
   {
     date: '27 sep',
     phase: 'Fase 2',
+    icon: '🛠',
+    impact: 'Mejora',
+    title: 'Líderes y co-líderes: gestión completa de sus partidas',
+    body: 'El detalle de partida deja de ser exclusivo del staff: el líder y los co-líderes de la alianza anfitriona ven las mismas herramientas de gestión que un admin, pero delimitadas a sus partidas. Las partidas de scope global (las que cuentan para el ranking) solo las gestiona el staff en lo que afecta a resultados y ganadores; las internas las maneja el liderazgo de principio a fin sin tocar los rankings globales.',
+    bullets: [
+      '🚀 Ciclo completo en partidas internas: abrir registro, iniciar, finalizar, editar, eliminar, importar resultados por CSV o por API (con la misma cuenta atrás global de siempre) y declarar ganadores.',
+      '🎯 Al crear una partida desde «Gestión de mi alianza» ya no se queda en un callejón sin salida: va directa a su detalle de gestión, donde se publica.',
+      '📝 Inscripciones: el liderazgo puede añadir, editar y quitar registrados en sus partidas internas.',
+      '🔒 Frontera blindada a nivel de base de datos: ningún líder puede escribir resultados ni ganadores en partidas globales, ni cambiar el tipo de una partida para colarla en el ranking; el cambio de UID sigue siendo solo del superadmin.',
+      '🏆 Fix de plataforma: «Declarar ganadores» estaba roto para todo el mundo en v2 (faltaba la política de escritura de match_winners); ahora funciona para staff y para liderazgo en internas.',
+    ],
+    audiences: ['lideres', 'staff'],
+  },
+  {
+    date: '27 sep',
+    phase: 'Fase 2',
     icon: '⚖️',
     impact: 'Nuevo',
     title: 'Motor de conducta interno de la alianza',

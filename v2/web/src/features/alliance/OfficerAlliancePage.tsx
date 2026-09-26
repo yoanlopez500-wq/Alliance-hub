@@ -30,7 +30,7 @@ interface RequestRow {
 }
 
 const card: React.CSSProperties = { background: colors.cardAlt, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 14 };
-const actionStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: colors.accent, textDecoration: 'none', padding: '4px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: `1px solid ${colors.border}`, whiteSpace: 'nowrap' };
+// (las acciones de miembro viven en index.css: .ah-member-action)
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, color: colors.muted, marginBottom: 4 };
 
 export default function OfficerAlliancePage() {
@@ -185,7 +185,7 @@ export default function OfficerAlliancePage() {
       showToast('Partida creada');
       setCmOpen(false);
       setCmName(''); setCmGameId('');
-      navigate('/partidas/' + (data as { id: string }).id);
+      navigate('/admin/partida?id=' + (data as { id: string }).id);
     } catch (e: any) { showToast('Error: ' + (e.message ?? e)); }
     finally { setBusy(false); }
   }
@@ -252,22 +252,22 @@ export default function OfficerAlliancePage() {
             const offRole = officerRoles.get(m.playerId);
             const isLeader = m.membershipRole === 'leader';
             return (
-              <div key={m.membershipId} style={{ ...card, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: colors.text }}>{m.username}</span>
-                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: colors.muted }}>#{m.playerId}</span>
+              <div key={m.membershipId} className="ah-member-card">
+                <div className="ah-member-info">
+                  <p className="ah-member-name">{m.username}</p>
+                  <p className="ah-member-sub">#{m.playerId}</p>
                 </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="ah-member-actions">
                   {isLeader && <span style={{ fontSize: 11, fontWeight: 700, color: colors.warning }}>👑 LÍDER</span>}
                   {offRole === 'co_leader' && <span style={{ fontSize: 11, fontWeight: 700, color: colors.purple }}>⭐ CO-LÍDER</span>}
                   {offRole === 'officer' && <span style={{ fontSize: 11, fontWeight: 700, color: colors.info }}>🎖 OFICIAL</span>}
-                  <Link to={`/jugador/${m.playerId}`} style={actionStyle}>👤 Perfil</Link>
-                  {isColeader && !isLeader && <Link to={`/alianza/sanciones?prefill_player=${m.playerId}`} style={actionStyle}>⚡ Strike</Link>}
+                  <Link to={`/jugador/${m.playerId}`} className="ah-member-action">👤 Perfil</Link>
+                  {isColeader && !isLeader && <Link to={`/alianza/sanciones?prefill_player=${m.playerId}`} className="ah-member-action">⚡ Strike</Link>}
                   {isColeader && !isLeader && !offRole && (
-                    <button onClick={() => { setInviteRole('officer'); setInviteTarget(m); }} style={{ ...actionStyle, cursor: 'pointer' }}>🎖 Invitar</button>
+                    <button onClick={() => { setInviteRole('officer'); setInviteTarget(m); }} className="ah-member-action">🎖 Invitar</button>
                   )}
                   {isColeader && !isLeader && (
-                    <button onClick={() => kick(m)} disabled={busy} style={{ ...actionStyle, cursor: 'pointer', color: colors.danger, borderColor: colors.danger }}>✗ Expulsar</button>
+                    <button onClick={() => kick(m)} disabled={busy} className="ah-member-action danger">✗ Expulsar</button>
                   )}
                 </div>
               </div>
