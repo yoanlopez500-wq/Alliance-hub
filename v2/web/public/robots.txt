@@ -1,2 +1,14 @@
 User-agent: *
 Allow: /
+
+# Zonas privadas / de trabajo (SPA): ni rastrear ni indexar
+Disallow: /admin
+Disallow: /login
+Disallow: /registro
+Disallow: /mi-espacio
+Disallow: /oficial
+Disallow: /alianza/sanciones
+Disallow: /reset-password
+Disallow: /chat
+
+Sitemap: https://alliancehub.app/sitemap.xml

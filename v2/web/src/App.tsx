@@ -152,9 +152,62 @@ function NavDropdown({ icon, label, items, currentPath }: { icon: string; label:
   );
 }
 
+/* ---------------- SEO por ruta (titulo + description + noindex) ---------------- */
+
+const BASE_TITLE = 'AllianceHub — Torneos, rankings y alianzas de Supremacy 1914';
+const DEFAULT_DESC = 'Plataforma oficial de competición para alianzas de Supremacy 1914: torneos y partidas con resultados verificados, rankings por bajas efectivas, strikes y sanciones con evidencia, reglamento y gestión de alianzas.';
+
+// Rutas privadas: se sirven (SPA) pero se piden NO indexar.
+const NOINDEX_PREFIXES = ['/admin', '/login', '/registro', '/mi-espacio', '/oficial', '/alianza', '/reset-password', '/chat', '/reportar'];
+
+const PUBLIC_TITLES: [RegExp, string][] = [
+  [/^\/partidas\/.+/, 'Partida · AllianceHub'],
+  [/^\/partidas$/, 'Partidas y torneos · AllianceHub'],
+  [/^\/rankings$/, 'Rankings por bajas efectivas · AllianceHub'],
+  [/^\/alianzas\/.+/, 'Alianza · AllianceHub'],
+  [/^\/alianzas$/, 'Alianzas · AllianceHub'],
+  [/^\/jugadores$/, 'Jugadores · AllianceHub'],
+  [/^\/jugador\/.+/, 'Jugador · AllianceHub'],
+  [/^\/reglas$/, 'Reglamento · AllianceHub'],
+  [/^\/info$/, 'Información · AllianceHub'],
+  [/^\/funciones$/, 'Funciones · AllianceHub'],
+  [/^\/novedades$/, 'Novedades · AllianceHub'],
+  [/^\/aviso-legal$/, 'Aviso legal · AllianceHub'],
+  [/^\/lider\/solicitud$/, 'Registro de liderazgo de alianza · AllianceHub'],
+];
+
+function applySeo(pathname: string) {
+  const privateRoute = NOINDEX_PREFIXES.some((p) => pathname.startsWith(p));
+  let title = BASE_TITLE;
+  let desc = DEFAULT_DESC;
+  if (!privateRoute) {
+    for (const [re, t] of PUBLIC_TITLES) {
+      if (re.test(pathname)) { title = t; break; }
+    }
+  } else {
+    desc = 'Zona de trabajo de AllianceHub. Inicia sesión para continuar.';
+  }
+  document.title = title;
+  let md = document.querySelector('meta[name="description"]');
+  if (!md) {
+    md = document.createElement('meta');
+    md.setAttribute('name', 'description');
+    document.head.appendChild(md);
+  }
+  md.setAttribute('content', desc);
+  let robots = document.querySelector('meta[name="robots"]');
+  if (!robots) {
+    robots = document.createElement('meta');
+    robots.setAttribute('name', 'robots');
+    document.head.appendChild(robots);
+  }
+  robots.setAttribute('content', privateRoute ? 'noindex, nofollow' : 'index, follow');
+}
+
 export default function App() {
   const { data: me, loading: meLoading, error: meError, reload } = useApi<Me>(() => serverApi.get('/me'), []);
   const location = useLocation();
+  useEffect(() => { applySeo(location.pathname); }, [location.pathname]);
   const navigate = useNavigate();
   const myAllianceId = me?.managedAllianceId ?? null;
   const loggedIn = !!getSessionToken() || hasAdminSessionMarker();
