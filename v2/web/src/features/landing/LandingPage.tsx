@@ -270,6 +270,7 @@ export default function LandingPage() {
             <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 13, flexWrap: 'wrap' }}>
               <Link to="/rankings" style={{ color: colors.muted, textDecoration: 'none' }}>Rankings</Link>
               <Link to="/novedades" style={{ color: colors.muted, textDecoration: 'none' }}>Novedades</Link>
+              <Link to="/funciones" style={{ color: colors.muted, textDecoration: 'none' }}>Funciones</Link>
               <Link to="/reglas" style={{ color: colors.muted, textDecoration: 'none' }}>Reglamento</Link>
               <Link to="/lider/solicitud" style={{ color: colors.muted, textDecoration: 'none' }}>Liderazgo</Link>
               <Link to="/login" style={{ color: colors.muted, textDecoration: 'none' }}>Admin</Link>

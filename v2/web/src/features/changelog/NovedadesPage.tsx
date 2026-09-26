@@ -344,6 +344,7 @@ export default function NovedadesPage() {
             <Reveal delay={80}>
               <div style={{ ...styles.card, background: colors.cardAlt, marginBottom: 16 }}>
                 <div style={{ fontSize: 12, color: colors.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Accesos rápidos</div>
+                {quick('/funciones', 'Funciones de AllianceHub', '🧭')}
                 {quick('/rankings', 'Rankings con podios', '🏆')}
                 {quick('/jugadores', 'Mercado de jugadores', '🧾')}
                 {quick('/alianzas', 'Directorio de alianzas', '🏴')}
