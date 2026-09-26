@@ -13,6 +13,7 @@ import AlliancePanelPage from './features/alliance/AlliancePanelPage';
 import MiEspacioPage from './features/alliance/MiEspacioPage';
 import LoginPage from './features/auth/LoginPage';
 import LandingPage from './features/landing/LandingPage';
+import NovedadesPage from './features/changelog/NovedadesPage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import GamePage from './features/game/GamePage';
 import ReportPage from './features/report/ReportPage';
@@ -162,6 +163,7 @@ export default function App() {
   const commonLinks = (
     <>
       <NavLink to="/partidas" style={navStyle}>Partidas</NavLink>
+      <NavLink to="/novedades" style={navStyle}>🆕 Novedades</NavLink>
       <NavLink to="/rankings" style={navStyle}>Rankings</NavLink>
       <NavLink to="/jugadores" style={navStyle}>Mercado</NavLink>
       <NavLink to="/alianzas" style={navStyle}>Alianzas</NavLink>
@@ -279,6 +281,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/partidas" element={<DashboardPage />} />
           <Route path="/partidas/:id" element={<GamePage />} />
+          <Route path="/novedades" element={<NovedadesPage />} />
           <Route path="/reportar" element={<ReportPage />} />
           <Route path="/rankings" element={<RankingsPage />} />
           <Route path="/reglas" element={<RulesPage />} />

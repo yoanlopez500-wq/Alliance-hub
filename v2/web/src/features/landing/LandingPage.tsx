@@ -117,6 +117,7 @@ export default function LandingPage() {
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
             <Link to="/login" style={{ ...heroBtn, background: colors.accentGradient, color: '#fff' }}>🎮 Comenzar como Jugador</Link>
+            <Link to="/novedades" style={{ ...heroBtn, border: '1px solid rgba(129,199,132,0.45)', background: 'rgba(129,199,132,0.10)', color: colors.success }}>🆕 Novedades Big Update</Link>
             <Link to="/lider/solicitud" style={{ ...heroBtn, border: `1px solid ${colors.border}`, background: 'rgba(255,255,255,0.04)', color: colors.text }}>🏅 Registrar mi Alianza</Link>
             <a href={GUIA_URL} target="_blank" rel="noopener noreferrer" style={{ ...heroBtn, border: '1px solid rgba(255,213,79,0.5)', background: 'rgba(255,213,79,0.1)', color: colors.warning }}>📕 Guia para Lideres (PDF)</a>
             <Link to="/rankings" style={{ ...heroBtn, border: `1px solid ${colors.border}`, background: 'rgba(255,255,255,0.04)', color: colors.text }}>🏆 Ver Rankings</Link>
@@ -268,6 +269,7 @@ export default function LandingPage() {
             <span style={{ fontSize: 17, fontWeight: 700, color: colors.accent }}>⚔️ Alliance Hub</span>
             <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 13, flexWrap: 'wrap' }}>
               <Link to="/rankings" style={{ color: colors.muted, textDecoration: 'none' }}>Rankings</Link>
+              <Link to="/novedades" style={{ color: colors.muted, textDecoration: 'none' }}>Novedades</Link>
               <Link to="/reglas" style={{ color: colors.muted, textDecoration: 'none' }}>Reglamento</Link>
               <Link to="/lider/solicitud" style={{ color: colors.muted, textDecoration: 'none' }}>Liderazgo</Link>
               <Link to="/login" style={{ color: colors.muted, textDecoration: 'none' }}>Admin</Link>
