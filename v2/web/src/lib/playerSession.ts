@@ -21,7 +21,9 @@ export function usePlayerSession(): { session: PlayerSession; loading: boolean }
       }
       try {
         const me = await serverApi.get('/me');
-        if (!cancelled) setSession(me.kind === 'player' ? { playerId: me.playerId } : null);
+        // Cualquier identidad con playerId vale (admin/oficial que tambien es
+        // jugador): la sesion Auth nunca debe sombrear la sesion de jugador.
+        if (!cancelled) setSession(me.playerId ? { playerId: me.playerId } : null);
       } catch {
         if (!cancelled) setSession(null);
       } finally {

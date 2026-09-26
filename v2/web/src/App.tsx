@@ -8,6 +8,8 @@ import { useApi } from './hooks/useApi';
 import JugadoresPage from './features/players/JugadoresPage';
 import SancionesPage from './features/alliance/SancionesPage';
 import InvitacionesBadge from './features/alliance/InvitacionesBadge';
+import OfficerInviteBanner from './features/alliance/OfficerInviteBanner';
+import OfficerAlliancePage from './features/alliance/OfficerAlliancePage';
 import AlianzaPage from './features/alliance/AlianzaPage';
 import AlianzasPage from './features/alliance/AlianzasPage';
 import AlliancePanelPage from './features/alliance/AlliancePanelPage';
@@ -55,7 +57,7 @@ import LeaderDashboardPage from './features/admin/LeaderDashboardPage';
 import InfoPage from './features/info/InfoPage';
 import AdminConductaPage from './features/admin/AdminConductaPage';
 import AdminReportesPage from './features/admin/AdminReportesPage';
-import AdminPartidasPage from './features/admin/AdminPartidasPage';
+import AdminMatchesPage from './features/admin/AdminMatchesPage';
 
 type Me = { kind: 'admin' | 'player'; role?: string; playerId?: number; managedAllianceId?: string | null; officerRole?: string | null };
 
@@ -296,6 +298,7 @@ export default function App() {
   // propiamente dichas llegan con los permisos por rol (officer/co_leader).
   const officerLinks = isOfficer && activeMode === 'admin' ? (
     <>
+      <NavLink to="/oficial/alianza" style={navStyle}>🛠 Gestión</NavLink>
       <NavDropdown icon="🚩" label="Mi alianza" currentPath={location.pathname} items={[
         { to: '/alianza', label: '🛡 Panel de mi alianza' },
         { to: '/mi-espacio', label: '🎮 Mi Espacio' },
@@ -357,6 +360,7 @@ export default function App() {
       </nav>
       <main style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 16px' }}>
         <InvitacionesBadge />
+        <OfficerInviteBanner />
         <Reveal key={location.pathname}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -375,6 +379,7 @@ export default function App() {
           <Route path="/alianzas" element={<AlianzasPage />} />
           <Route path="/alianzas/:id" element={<AlianzaPage />} />
           <Route path="/alianza" element={<AlliancePanelPage />} />
+          <Route path="/oficial/alianza" element={<OfficerAlliancePage />} />
           <Route path="/lider/solicitud" element={<ApplyLeaderPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/registro" element={<RegisterPage />} />
@@ -394,7 +399,7 @@ export default function App() {
           <Route path="/admin" element={<AdminHomePage />} />
           <Route path="/admin/match-types" element={<MatchTypesPage />} />
           <Route path="/admin/jugadores" element={<AdminPlayersPage />} />
-          <Route path="/admin/partidas" element={<AdminPartidasPage />} />
+          <Route path="/admin/partidas" element={<AdminMatchesPage />} />
           <Route path="/admin/partida" element={<AdminMatchDetailPage />} />
           <Route path="/admin/conducta" element={<AdminConductaPage />} />
           <Route path="/admin/strikes" element={<RedirectKeepQuery to="/admin/conducta?tab=strikes" />} />
@@ -419,7 +424,7 @@ export default function App() {
           <Route path="/admin/chat" element={<AdminChatPage />} />
           <Route path="/admin/leader-dashboard" element={<LeaderDashboardPage />} />
           {/* Alias en ingles: redirigen a las paginas unificadas. */}
-          <Route path="/admin/games" element={<RedirectKeepQuery to="/admin/partidas?tab=games" />} />
+          <Route path="/admin/games" element={<RedirectKeepQuery to="/admin/partidas" />} />
           <Route path="/admin/leagues" element={<AdminLeaguesPage />} />
           <Route path="/admin/reports" element={<RedirectKeepQuery to="/admin/reportes?tab=jugadores" />} />
           <Route path="/admin/review-committee" element={<AdminReviewCommitteePage />} />

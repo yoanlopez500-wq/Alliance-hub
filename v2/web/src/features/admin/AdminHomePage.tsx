@@ -15,7 +15,7 @@ const SECTIONS: Section[] = [
     links: [
       { to: '/admin/leader-dashboard', label: 'Panel de líder', desc: 'Miembros, solicitudes y partidas de tu alianza' },
       { to: '/admin/jugadores', label: 'Jugadores', desc: 'Gestión de jugadores y bans' },
-      { to: '/admin/partidas', label: 'Partidas', desc: 'CRUD v2 + games del v1, detalle, importación y ganadores' },
+      { to: '/admin/partidas', label: 'Partidas', desc: 'Lista, detalle, importación (CSV/API) y ganadores' },
       { to: '/admin/alianzas', label: 'Alianzas', desc: 'Directorio y edición de alianzas' },
       { to: '/admin/miembros', label: 'Miembros de alianzas', desc: 'Asignación y estado de miembros' },
       { to: '/admin/admins', label: 'Administradores', desc: 'Cuentas administrativas y roles' },

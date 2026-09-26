@@ -51,7 +51,7 @@ export class ApiError extends Error {
 
 /* ---------------- Edge functions (service_role) ---------------- */
 
-async function edgeCall(fn: string, body: unknown): Promise<any> {
+export async function edgeCall(fn: string, body: unknown): Promise<any> {
   const pid = getStoredPlayerId();
   const token = getSessionToken();
   const res = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
@@ -82,6 +82,12 @@ export type Me = {
 let meCache: Me | null = null;
 
 export async function fetchMe(): Promise<Me> {
+  // Token de jugador: se adjunta SIEMPRE que exista, venga o no sesion Auth.
+  // Una sesion Auth (admin/oficial) nunca debe sombrear la sesion de jugador:
+  // muchas cuentas son ambas cosas y las paginas de jugador necesitan playerId.
+  const pid = getStoredPlayerId();
+  const playerId = pid && getSessionToken() ? pid : undefined;
+
   // 1) Sesion Supabase Auth (admin / lider / oficial). Solo cuenta si la cuenta
   //    tiene rol real; una sesion auth huerfana no debe tapar la sesion de jugador.
   const { data: sess } = await publicDb.auth.getSession();
@@ -101,7 +107,7 @@ export async function fetchMe(): Promise<Me> {
         managedAllianceId = (off?.alliance_id as string | null) ?? null;
       }
       // Un lider tambien puede ser oficial de otra? no: su alianza es la suya.
-      meCache = { kind: 'admin', role, managedAllianceId };
+      meCache = { kind: 'admin', role, managedAllianceId, playerId };
       return meCache;
     }
     // Auth pero sin fila admin_users: oficial (o cuenta huerfana)
@@ -112,6 +118,7 @@ export async function fetchMe(): Promise<Me> {
         kind: 'player',
         managedAllianceId: (off.alliance_id as string | null) ?? null,
         officerRole: (off.role as string) ?? 'officer',
+        playerId,
       };
       return meCache;
     }
@@ -119,10 +126,9 @@ export async function fetchMe(): Promise<Me> {
     // de jugador que pueda existir. Limpiamos la sesion auth y seguimos abajo.
     await publicDb.auth.signOut().catch(() => { /* noop */ });
   }
-  // 2) Token de jugador
-  const pid = getStoredPlayerId();
-  if (pid && getSessionToken()) {
-    meCache = { kind: 'player', playerId: pid, managedAllianceId: null };
+  // 2) Solo token de jugador (sin sesion Auth)
+  if (playerId) {
+    meCache = { kind: 'player', playerId, managedAllianceId: null };
     return meCache;
   }
   meCache = { kind: 'player', managedAllianceId: null };
