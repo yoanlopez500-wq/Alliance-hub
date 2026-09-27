@@ -45,7 +45,15 @@ export class ApiImportRateLimited extends Error {
   }
 }
 
-export interface ApiImportRow { player_id: number; kills: number; deaths: number; nation?: string }
+export interface ApiImportRow { player_id: number; kills: number; deaths: number; nation?: string; units?: ApiImportUnit[] }
+export interface ApiImportUnit { unit_key: string; kills: number; deaths: number }
+
+/** Clave canonica de una columna de unidad: sin acentos/simbolos, snake_case. */
+function slugifyHeader(h: string): string {
+  return h.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/["'()]/g, '').replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
 
 const KD_REGEX = /^(\d+)\s*[/|]\s*(\d+)(?:\s*\(.*\))?$/;
 
@@ -91,6 +99,25 @@ export async function fetchKdRows(gameId: string): Promise<ApiImportRow[]> {
   }
   if (headerIdx < 0) throw new Error('No se encontro la columna UID en el Excel');
 
+  // Columnas de unidad: todo lo que no sea UID/Nation/Total. El desglose por
+  // unidad es INFORMATIVO (perfil / rankings / prestigio): NO alimenta los
+  // totales K/D, que se calculan abajo exactamente como siempre.
+  // OJO: el exportador puede repetir nombre de columna (p.ej. 'Dirigible'
+  // aparece dos veces); la segunda ocurrencia se guarda como 'dirigible__2'.
+  const slugCounts: Record<string, number> = {};
+  const unitCols: { idx: number; key: string }[] = [];
+  (raw[headerIdx] || []).forEach((cell, idx) => {
+    if (idx === uidCol || idx === nationCol) return;
+    const name = String(cell ?? '').trim();
+    if (!name) return;
+    if (slugifyHeader(name) === 'total') return;
+    const base = slugifyHeader(name);
+    if (!base) return;
+    const seen = slugCounts[base] ?? 0;
+    slugCounts[base] = seen + 1;
+    unitCols.push({ idx, key: seen === 0 ? base : `${base}__${seen + 1}` });
+  });
+
   const rows: ApiImportRow[] = [];
   for (let r = headerIdx + 1; r < raw.length; r++) {
     const row = raw[r] || [];
@@ -103,11 +130,20 @@ export async function fetchKdRows(gameId: string): Promise<ApiImportRow[]> {
       const m = KD_REGEX.exec(String(row[c] ?? '').trim());
       if (m) { kills += parseInt(m[1], 10); deaths += parseInt(m[2], 10); }
     }
+    const units: ApiImportUnit[] = [];
+    for (const uc of unitCols) {
+      const m = KD_REGEX.exec(String(row[uc.idx] ?? '').trim());
+      if (!m) continue;
+      const uk = parseInt(m[1], 10) || 0;
+      const ud = parseInt(m[2], 10) || 0;
+      if (uk || ud) units.push({ unit_key: uc.key, kills: uk, deaths: ud });
+    }
     rows.push({
       player_id: uid,
       kills,
       deaths,
       nation: nationCol >= 0 ? String(row[nationCol] ?? '').trim() || undefined : undefined,
+      units: units.length ? units : undefined,
     });
   }
   if (!rows.length) throw new Error('El Excel no contiene jugadores (UID > 0)');

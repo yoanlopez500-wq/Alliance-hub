@@ -49,6 +49,10 @@ export const PLAYER_PRESTIGE_METRICS = [
   { id: 'podium_3', label: 'Terceros lugares' },
   { id: 'podiums', label: 'Podios totales' },
   { id: 'strikes_active', label: 'Strikes activos' },
+  { id: 'kills_ground', label: 'Bajas terrestres' },
+  { id: 'kills_air', label: 'Bajas aéreas' },
+  { id: 'kills_naval', label: 'Bajas navales' },
+  { id: 'kills_elite', label: 'Bajas de élite' },
 ] as const;
 
 export const ALLIANCE_PRESTIGE_METRICS = [

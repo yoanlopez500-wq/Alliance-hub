@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { publicDb } from '../../lib/api';
 import { fetchKdRows, ApiImportRateLimited, apiImportRemaining, markApiImport } from '../../lib/apiImport';
@@ -79,6 +79,9 @@ function MatchDetail() {
   const [csvModal, setCsvModal] = useState(false);
   const [csvRows, setCsvRows] = useState<{ player_id: number; kills: number; deaths: number }[] | null>(null);
   const [csvSource, setCsvSource] = useState<'csv' | 'api'>('csv');
+  // Desglose por unidad del ultimo import API (jugador_id -> unidades).
+  // Solo la API lo trae; el CSV manual no. Se guarda al confirmar el import.
+  const apiUnitsRef = useRef<Map<number, import('../../lib/apiImport').ApiImportUnit[]> | null>(null);
   const [apiBusy, setApiBusy] = useState(false);
   const [winnersModal, setWinnersModal] = useState(false);
   const [winnerPicks, setWinnerPicks] = useState<number[]>([]);
@@ -326,6 +329,7 @@ function MatchDetail() {
       const rows = await fetchKdRows(gid);
       markApiImport();
       setCsvSource('api');
+      apiUnitsRef.current = new Map(rows.map((r) => [r.player_id, r.units ?? []]));
       setCsvRows(rows.map((r) => ({ player_id: r.player_id, kills: r.kills, deaths: r.deaths })));
       setCsvModal(true);
       say(`API: ${rows.length} jugadores (bots excluidos)`);
@@ -371,6 +375,19 @@ function MatchDetail() {
         if (error) throw error;
       }
       await publicDb.from('matches').update({ csv_imported: true }).eq('id', matchId);
+      // Desglose por unidad (solo si vino de la API): reemplazo total de la
+      // partida para reflejar el ultimo estado del exportador.
+      const unitMap = apiUnitsRef.current;
+      if (unitMap) {
+        const flat: { match_id: string; player_id: number; unit_key: string; kills: number; deaths: number }[] = [];
+        unitMap.forEach((units, pid) => units.forEach((u) => flat.push({ match_id: matchId, player_id: pid, unit_key: u.unit_key, kills: u.kills, deaths: u.deaths })));
+        await publicDb.from('match_result_units').delete().eq('match_id', matchId);
+        for (let i = 0; i < flat.length; i += 500) {
+          const { error: uErr } = await publicDb.from('match_result_units').insert(flat.slice(i, i + 500));
+          if (uErr) throw uErr;
+        }
+        apiUnitsRef.current = null;
+      }
       const regRes = await ensureRegs(csvRows);
       let msg = `${csvSource === 'api' ? 'API' : 'CSV'} importado: ${csvRows.length} jugadores`;
       if (regRes.failed) msg += ' · AVISO: no se pudieron crear los registros automaticos';
@@ -738,7 +755,7 @@ function MatchDetail() {
 
       {/* Modal: importar CSV */}
       {csvModal && (
-        <Modal onClose={() => { setCsvModal(false); setCsvRows(null); }} width={560}>
+        <Modal onClose={() => { setCsvModal(false); setCsvRows(null); apiUnitsRef.current = null; }} width={560}>
           <h3 style={{ margin: '0 0 12px', color: colors.text }}>{csvSource === 'api' ? '📡 Importar por API (resultados)' : '📥 Importar CSV de resultados'}</h3>
           {csvSource === 'api' ? (
             <p style={{ fontSize: 12, color: colors.muted }}>
@@ -776,7 +793,7 @@ function MatchDetail() {
               </div>
               <p style={{ fontSize: 12, color: colors.muted }}>{csvRows.length} filas listas para importar (upsert por match_id+player_id).</p>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <Button variant="ghost" onClick={() => { setCsvModal(false); setCsvRows(null); }}>Cancelar</Button>
+                <Button variant="ghost" onClick={() => { setCsvModal(false); setCsvRows(null); apiUnitsRef.current = null; }}>Cancelar</Button>
                 <Button onClick={confirmCsvImport}>Importar {csvRows.length} resultados</Button>
               </div>
             </>

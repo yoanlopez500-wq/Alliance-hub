@@ -36,6 +36,21 @@ const CHANGES: ChangeItem[] = [
   {
     date: '27 sep',
     phase: 'Fase 2',
+    icon: '🎯',
+    impact: 'Nuevo',
+    title: 'Bajas por tipo de unidad: identidad de jugador y nuevos prestigios',
+    body: 'El importador por API ahora aprovecha todo el desglose que publica el juego: cada baja queda registrada por tipo de unidad (infantería, tanques, aviación, naval, unidades de élite como Richthofen o Lawrence de Arabia…). Este dato es puramente identitario: vive en el perfil de cada jugador y alimenta nuevas métricas del sistema de prestigio. No afecta al K/D ni aparece en rankings — eso sigue siendo territorio del ranking oficial.',
+    bullets: [
+      '👤 Perfil de jugador: nueva sección «Bajas por tipo de unidad» con barras por categoría (Tierra / Aire / Naval / Élite) y su top de unidades.',
+      '🎖 Prestigio: métricas nuevas para fórmulas de insignias — bajas terrestres, aéreas, navales y de élite (p.ej. «As de la aviación: 500 bajas aéreas»).',
+      '📡 El desglose llega solo de la importación por API; se actualiza con cada importación de una partida oficial. Dato informativo: jamás altera los totales de bajas/muertes ni el K/D efectivo.',
+      '🧩 El exportador repite alguna columna (Dirigible aparece dos veces): se deduplica con clave propia para no inflar el desglose.',
+    ],
+    audiences: ['jugadores', 'staff'],
+  },
+  {
+    date: '27 sep',
+    phase: 'Fase 2',
     icon: '🏛',
     impact: 'Nuevo',
     title: 'Rankings por categoría: Oficial AllianceHub vs comunitarias',

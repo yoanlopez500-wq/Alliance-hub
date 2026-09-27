@@ -9,6 +9,7 @@ import Loader from '../../components/Loader';
 import Reveal from '../../components/Reveal';
 import { PrestigeBadgeList } from '../../components/PrestigeBadge';
 import type { PrestigeDefinition } from '../../lib/prestige';
+import { UNIT_CATEGORY_META, unitLabel, unitCategoryOf } from '../../lib/units';
 
 /** PlayerPage — puerto de player.js: perfil publico + strikes + bajas efectivas. */
 export default function PlayerPage() {
@@ -21,6 +22,7 @@ export default function PlayerPage() {
   const [alliance, setAlliance] = useState<{ name: string; tag: string | null } | null>(null);
   const [prestiges, setPrestiges] = useState<PrestigeDefinition[]>([]);
   const [podiums, setPodiums] = useState({ p1: 0, p2: 0, p3: 0 });
+  const [unitRows, setUnitRows] = useState<{ unit_key: string; kills: number; deaths: number }[]>([]);
   const [stats, setStats] = useState({ effKills: 0, penaltyPct: 0, totalDeaths: 0, games: 0, kd: '0.00', strikeCount: 0 });
 
   useEffect(() => {
@@ -64,6 +66,11 @@ export default function PlayerPage() {
           const { data: pod } = await publicDb.from('public_player_podium_stats').select('*').eq('player_id', id).maybeSingle();
           setPodiums({ p1: Number((pod as any)?.podium_1 || 0), p2: Number((pod as any)?.podium_2 || 0), p3: Number((pod as any)?.podium_3 || 0) });
         } catch (e) { console.error('[Player] podios:', e); }
+
+        try {
+          const { data: units } = await publicDb.from('public_player_unit_stats').select('unit_key, kills, deaths').eq('player_id', id);
+          setUnitRows((units as any[]) ?? []);
+        } catch (e) { console.error('[Player] unidades:', e); }
 
         setProfile(player);
         setStats({ effKills: eff.effKills, penaltyPct: eff.penaltyPct, totalDeaths, games, kd, strikeCount: strikes.length });
@@ -132,6 +139,40 @@ export default function PlayerPage() {
             {statCard(<span>🥈 {podiums.p2}</span>, 'Segundos lugares')}
             {statCard(<span>🥉 {podiums.p3}</span>, 'Terceros lugares')}
           </div>
+          {unitRows.length > 0 && (() => {
+            const byCat: Record<string, number> = {};
+            unitRows.forEach((u) => {
+              const cat = unitCategoryOf(u.unit_key);
+              byCat[cat] = (byCat[cat] || 0) + u.kills;
+            });
+            const topUnits = [...unitRows].sort((a, b) => b.kills - a.kills).slice(0, 8);
+            const maxCat = Math.max(1, ...Object.values(byCat));
+            return (
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${colors.border}` }}>
+                <h2 style={{ margin: '0 0 2px', fontSize: 16, color: colors.text }}>Bajas por tipo de unidad</h2>
+                <p style={{ margin: '0 0 12px', fontSize: 11, color: colors.muted }}>Partidas oficiales importadas por API · dato informativo, no afecta al K/D</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                  {Object.entries(UNIT_CATEGORY_META).filter(([k]) => byCat[k]).map(([k, meta]) => (
+                    <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 13, width: 110, flexShrink: 0, color: colors.text }}>{meta.icon} {meta.label}</span>
+                      <div style={{ flex: 1, height: 10, borderRadius: 6, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                        <div style={{ width: `${(byCat[k] / maxCat) * 100}%`, height: '100%', borderRadius: 6, background: meta.color }} />
+                      </div>
+                      <strong style={{ fontSize: 13, color: meta.color, minWidth: 44, textAlign: 'right' }}>{byCat[k]}</strong>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: colors.muted }}>TOP UNIDADES</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {topUnits.map((u) => (
+                    <span key={u.unit_key} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: `1px solid ${colors.border}`, color: colors.text }}>
+                      {unitLabel(u.unit_key)}: <strong>{u.kills}</strong>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${colors.border}` }}>
             <h2 style={{ margin: '0 0 8px', fontSize: 16, color: colors.text }}>Colección de prestigio</h2>
             <PrestigeBadgeList prestiges={prestiges} />
