@@ -21,9 +21,24 @@ function isSupported(): boolean {
 
 /**
  * Toggle de notificaciones push (puerto de push-manager.js).
- * Sin SW/PWA en v2 aun: si el registro del SW no aparece en 5s, el toggle
- * se muestra deshabilitado con aviso en vez de romper la pagina.
+ * El SW se registra al cargar la pagina; en la primera visita (o con cache
+ * frio) puede tardar varios segundos, asi que se espera con reintentos en
+ * lugar de un timeout fijo que fallaba en cargas lentas.
  */
+async function waitForSw(maxMs = 15000): Promise<ServiceWorkerRegistration> {
+  const started = Date.now();
+  // ready se resuelve en cuanto hay un SW activo; si tarda, reintentamos con
+  // getRegistration(), que no se queda colgado esperando uno nuevo.
+  for (;;) {
+    try {
+      return await navigator.serviceWorker.ready;
+    } catch {
+      /* seguir esperando */
+    }
+    if (Date.now() - started > maxMs) throw new Error('sw-ready-timeout');
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+}
 export default function PushToggle({ playerId, allianceId }: { playerId: number; allianceId?: number | null }) {
   const [enabled, setEnabled] = useState(() => localStorage.getItem(FLAG_KEY) === '1');
   const [supported] = useState(isSupported());
@@ -47,10 +62,7 @@ export default function PushToggle({ playerId, allianceId }: { playerId: number;
       if (perm !== 'granted') return false;
     } else if (Notification.permission !== 'granted') return false;
 
-    const reg = await Promise.race([
-      navigator.serviceWorker.ready,
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('sw-ready-timeout')), 5000)),
-    ]);
+    const reg = await waitForSw();
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
@@ -73,10 +85,7 @@ export default function PushToggle({ playerId, allianceId }: { playerId: number;
 
   async function unsubscribe(): Promise<boolean> {
     try {
-      const reg = await Promise.race([
-        navigator.serviceWorker.ready,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('sw-ready-timeout')), 3000)),
-      ]);
+      const reg = await waitForSw(10000);
       const sub = await reg.pushManager.getSubscription();
       const endpoint = sub?.toJSON()?.endpoint;
       if (sub) await sub.unsubscribe();
@@ -122,7 +131,9 @@ export default function PushToggle({ playerId, allianceId }: { playerId: number;
           borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
         }} />
       </button>
-      <span style={{ fontSize: 12, color: colors.muted }}>{enabled ? 'Notificaciones ON' : 'Notificaciones'}</span>
+      <span style={{ fontSize: 12, color: enabled ? colors.success : colors.muted }}>
+        {enabled ? '✓ Notificaciones activadas' : 'Notificaciones push'}
+      </span>
       {hint && <span style={{ fontSize: 11, color: colors.warning }}>{hint}</span>}
     </span>
   );

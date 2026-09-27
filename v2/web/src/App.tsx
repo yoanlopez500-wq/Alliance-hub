@@ -8,6 +8,7 @@ import { useApi } from './hooks/useApi';
 import JugadoresPage from './features/players/JugadoresPage';
 import SancionesPage from './features/alliance/SancionesPage';
 import InvitacionesBadge from './features/alliance/InvitacionesBadge';
+import InstallPrompt from './components/InstallPrompt';
 import OfficerInviteBanner from './features/alliance/OfficerInviteBanner';
 import OfficerAlliancePage from './features/alliance/OfficerAlliancePage';
 import AlianzaPage from './features/alliance/AlianzaPage';
@@ -412,6 +413,7 @@ export default function App() {
         </div>
       </nav>
       <main style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 16px' }}>
+        <InstallPrompt />
         <InvitacionesBadge />
         <OfficerInviteBanner />
         <Reveal key={location.pathname}>
