@@ -34,6 +34,20 @@ const IMPACT_META: Record<ChangeItem['impact'], { color: string; bg: string }> =
 
 const CHANGES: ChangeItem[] = [
   {
+    date: '2 oct',
+    phase: 'Fase 2',
+    icon: '🛡',
+    impact: 'Fix',
+    title: 'Flujo de aprobación de líderes blindado',
+    body: 'Se encontró un caso real de un líder (EL MICTLAN) con cuenta activa pero sin membresía en su propia alianza: la creación de la alianza estaba duplicada entre la página y un trigger de base de datos, y el trigger no creaba la membresía. Ahora la aprobación tiene una única fuente de verdad en base de datos: crea o reutiliza la alianza, vincula al jugador y crea su membresía de líder de forma idempotente, sea cual sea el camino por el que se apruebe.',
+    bullets: [
+      '🔧 Fix de datos: EL MICTLAN ya tiene a su líder como miembro oficial de la alianza.',
+      '🔁 El registro de líder con código (complete-leader-signup) ahora también garantiza la membresía y el vínculo, por si se usa un código regenerado.',
+      '🧹 La página de solicitudes ya no duplica la lógica: solo marca la aprobación y genera el código de invitación.',
+    ],
+    audiences: ['lideres', 'staff'],
+  },
+  {
     date: '27 sep',
     phase: 'Fase 2',
     icon: '📲',

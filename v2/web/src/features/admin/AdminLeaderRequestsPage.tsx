@@ -154,47 +154,31 @@ function LeaderRequests() {
     setApproveTarget(null);
     setBusy(true);
     try {
-      const { data: existing } = await publicDb.from('alliances').select('id').eq('name', r.alliance_name).maybeSingle();
-      let allianceId: string;
-      if (existing) {
-        allianceId = (existing as { id: string }).id;
-      } else {
-        const { data: newAlliance, error: ae } = await publicDb.from('alliances').insert({
-          name: r.alliance_name,
-          tag: r.alliance_tag,
-          description: r.alliance_description || '',
-          leader_id: r.player_id,
-          status: 'active',
-        }).select('id').single();
-        if (ae) throw ae;
-        allianceId = (newAlliance as { id: string }).id;
-      }
-
-      const { error: pe } = await publicDb.from('players').update({ current_alliance_id: allianceId }).eq('id', r.player_id);
-      if (pe) throw pe;
-
-      const { error: me } = await publicDb.from('alliance_memberships').insert({
-        player_id: r.player_id,
-        alliance_id: allianceId,
-        role: 'leader',
-        status: 'approved',
-        requested_by: 'leader',
-      });
-      if (me) {
-        if (me.code === '23505') {
-          await publicDb.from('alliance_memberships').update({ role: 'leader', status: 'approved' })
-            .eq('player_id', r.player_id).eq('alliance_id', allianceId);
-        } else {
-          throw me;
-        }
-      }
-
+      // La aprobacion es ahora un solo paso: el trigger
+      // trg_create_alliance_on_approval (fuente unica de verdad) crea o
+      // reutiliza la alianza, vincula al jugador y crea su membresia de
+      // lider de forma idempotente. La pagina solo marca la solicitud.
       const { error: re } = await publicDb.from('alliance_leader_requests').update({
         status: 'approved',
         reviewed_by: admin?.id,
         reviewed_at: new Date().toISOString(),
       }).eq('id', r.id);
       if (re) throw re;
+
+      // Recuperar la alianza que el trigger creo/reutilizo (tag primero,
+      // nombre como fallback), para asociarla al codigo de invitacion.
+      let { data: alliance } = await publicDb.from('alliances')
+        .select('id').eq('tag', (r.alliance_tag || '').toUpperCase()).maybeSingle();
+      if (!alliance) {
+        const res = await publicDb.from('alliances').select('id').eq('name', r.alliance_name).maybeSingle();
+        alliance = res.data;
+      }
+      if (!alliance) {
+        showToast('Solicitud aprobada, pero no se encontro la alianza. Revisa el listado de alianzas.');
+        await load();
+        return;
+      }
+      const allianceId = (alliance as { id: string }).id;
 
       const inviteCode = generateInviteCode();
       const { error: ie } = await publicDb.from('admin_invites').insert({
