@@ -33,7 +33,7 @@ export default function ApplyLeaderPage() {
   const { session, loading } = usePlayerSession();
   const playerId = session?.playerId ?? null;
   const [request, setRequest] = useState<LeaderRequest | null | undefined>(undefined);
-  const [invite, setInvite] = useState<{ code: string } | null>(null);
+  const [invite, setInvite] = useState<{ code: string; used: boolean; expired: boolean; expires_at: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -48,7 +48,7 @@ export default function ApplyLeaderPage() {
       setRequest(req);
       if (req?.status === 'approved') {
         try {
-          const { data: inv } = await publicDb.rpc('get_player_invite', { p_player_id: pid });
+          const { data: inv } = await publicDb.rpc('get_player_invite_status', { p_player_id: pid });
           setInvite(inv && inv.length > 0 ? inv[0] : null);
         } catch (e) { console.error('[ApplyLeader] invite:', e); }
       }
@@ -69,9 +69,10 @@ export default function ApplyLeaderPage() {
     return (
       <div style={{ maxWidth: 520, margin: '60px auto', padding: 16, textAlign: 'center' }}>
         <p style={{ color: colors.muted, marginBottom: 16 }}>Debes iniciar sesion como jugador para solicitar el liderazgo de una alianza.</p>
-        <Link to="/login" style={{ ...styles.btnPrimary, display: 'inline-block', padding: '10px 18px', textDecoration: 'none', fontSize: 14 }}>
+        <Link to="/login?redirect=/lider/solicitud" style={{ ...styles.btnPrimary, display: 'inline-block', padding: '10px 18px', textDecoration: 'none', fontSize: 14 }}>
           🎮 Ir al login de jugador
         </Link>
+        <p style={{ color: colors.muted, fontSize: 12, marginTop: 12 }}>Al entrar volveras aqui automaticamente para continuar tu solicitud.</p>
       </div>
     );
   }
@@ -164,19 +165,34 @@ export default function ApplyLeaderPage() {
             {request.status === 'approved' && (
               <div style={{ marginTop: 16, padding: 12, borderRadius: 10, background: 'rgba(129,199,132,0.1)', border: '1px solid rgba(129,199,132,0.3)' }}>
                 <p style={{ color: colors.success, fontWeight: 700, fontSize: 14, margin: '0 0 8px' }}>🏆 ¡Tu solicitud fue aprobada!</p>
-                {invite?.code ? (
+                {!invite ? (
+                  <p style={{ color: colors.muted, fontSize: 13 }}>Contacta a un admin para obtener tu codigo de invitacion.</p>
+                ) : invite.used ? (
+                  <p style={{ color: colors.muted, fontSize: 13, margin: 0 }}>
+                    Tu cuenta de lider ya esta completa. Inicia sesion en el modo <strong style={{ color: colors.text }}>🛡 Admin</strong> con tu email y contrasena para gestionar tu alianza.
+                  </p>
+                ) : invite.expired ? (
+                  <p style={{ color: colors.warning, fontSize: 13, margin: 0 }}>
+                    Tu codigo de invitacion vencio{invite.expires_at ? ` el ${formatDateTime(invite.expires_at)}` : ''}.
+                    Pide a un superadmin que lo regenere desde «Solicitudes de lider» (boton ⟳ Regenerar invite) y vuelve a esta pagina.
+                  </p>
+                ) : (
                   <>
-                    <p style={{ color: colors.muted, fontSize: 13 }}>Usa este codigo para completar tu registro como lider:</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0' }}>
+                    <p style={{ color: colors.muted, fontSize: 13 }}>
+                      Usa este codigo para completar tu registro como lider
+                      {invite.expires_at ? ` (vence el ${formatDateTime(invite.expires_at)})` : ''}:
+                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0', flexWrap: 'wrap' }}>
                       <code style={{ fontFamily: 'monospace', fontSize: 15, background: colors.bg, padding: '4px 12px', borderRadius: 6, border: `1px solid ${colors.border}`, color: colors.accent }}>{invite.code}</code>
                       <button
                         onClick={() => { navigator.clipboard?.writeText(invite.code); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
                         style={{ ...styles.btnGhost, padding: '4px 10px', fontSize: 12 }}
                       >{copied ? '¡Copiado!' : 'Copiar'}</button>
                     </div>
+                    <Link to={`/registro/lider?code=${invite.code}`} style={{ ...styles.btnPrimary, display: 'inline-block', padding: '10px 18px', textDecoration: 'none', fontSize: 14, marginTop: 6 }}>
+                      Continuar: completar mi registro de lider →
+                    </Link>
                   </>
-                ) : (
-                  <p style={{ color: colors.muted, fontSize: 13 }}>Contacta a un admin para obtener tu codigo de invitacion.</p>
                 )}
               </div>
             )}

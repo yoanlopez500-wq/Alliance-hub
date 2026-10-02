@@ -102,6 +102,11 @@ export default function RegisterLeaderPage() {
     try {
       const result = await signupViaEdgeFunction(email, password, inviteCode!, invite?.username || null);
       if (result.success) {
+        // La cuenta ya existe; entrar directo para que el panel funcione
+        // en cuanto aterriza (createUser por admin API no abre sesion).
+        try {
+          await publicDb.auth.signInWithPassword({ email, password });
+        } catch { /* si falla, el login queda a mano */ }
         setTimeout(() => navigate('/admin/leader-dashboard'), 1500);
       } else {
         setFormError(result.message || 'Error al crear la cuenta.');

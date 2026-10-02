@@ -16,6 +16,13 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<'player' | 'admin'>(searchParams.get('mode') === 'admin' ? 'admin' : 'player');
 
+  // Destino tras login de jugador: solo rutas internas (anti open-redirect).
+  // Lo usan flujos como "solicitar liderazgo": aplica -> login -> continua.
+  const redirectTo = (() => {
+    const r = searchParams.get('redirect');
+    return r && r.startsWith('/') && !r.startsWith('//') ? r : null;
+  })();
+
   // Los botones verde/dorado del nav llegan con ?mode=
   useEffect(() => {
     const m = searchParams.get('mode');
@@ -36,7 +43,7 @@ export default function LoginPage() {
       setSessionToken(r.token, r.playerId);
       try { localStorage.setItem('ah2_player_name', displayName.trim()); } catch { /* noop */ }
       localStorage.setItem('ah2_nav_mode', 'player');
-      window.location.href = '/';
+      window.location.href = redirectTo ?? '/';
     } catch (e2: any) {
       setError(e2.message);
     } finally { setBusy(false); }

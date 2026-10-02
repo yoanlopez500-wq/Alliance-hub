@@ -34,6 +34,20 @@ const IMPACT_META: Record<ChangeItem['impact'], { color: string; bg: string }> =
 
 const CHANGES: ChangeItem[] = [
   {
+    date: '3 oct',
+    phase: 'Fase 2',
+    icon: '🧭',
+    impact: 'Mejora',
+    title: 'Solicitud de liderazgo: el recorrido ya no te piere por el camino',
+    body: 'El viaje de «quiero ser líder» a «mi alianza está en marcha» queda cerrado de punta a punta: si no has iniciado sesión, el login te devuelve exactamente a donde estabas; si ya te aprobaron, la propia página te lleva a completar tu registro con un clic y entra a tu panel automáticamente; y si tu código venció o ya lo usaste, la página te lo dice claro en vez de mandarte a buscar a un admin.',
+    bullets: [
+      '🔐 «Solicitar liderazgo» sin sesión → login de jugador → vuelves a la solicitud automáticamente (antes te dejaban en la portada y tenías que encontrar el camino de nuevo).',
+      '🏆 Aprobado → botón «Continuar: completar mi registro de líder» con tu código y su fecha de vencimiento; al crear la cuenta entras directo al panel, sin tener que loguearte a mano.',
+      '⏰ Código vencido o ya usado: aviso claro con instrucciones exactas (pedir regeneración desde «Solicitudes de líder» o entrar en modo Admin).',
+    ],
+    audiences: ['jugadores', 'lideres'],
+  },
+  {
     date: '2 oct',
     phase: 'Fase 2',
     icon: '🛡',
