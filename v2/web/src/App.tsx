@@ -208,7 +208,20 @@ function applySeo(pathname: string) {
 export default function App() {
   const { data: me, loading: meLoading, error: meError, reload } = useApi<Me>(() => serverApi.get('/me'), []);
   const location = useLocation();
-  useEffect(() => { applySeo(location.pathname); }, [location.pathname]);
+  useEffect(() => {
+    applySeo(location.pathname);
+    // SPA: el tag de index.html solo captura la carga inicial; cada navegacion
+    // interna se reporta como page_view (analytics nunca debe romper la app).
+    try {
+      const w = window as unknown as { gtag?: (...args: unknown[]) => void };
+      if (typeof w.gtag === 'function') {
+        w.gtag('event', 'page_view', {
+          page_path: location.pathname + location.search,
+          page_title: document.title,
+        });
+      }
+    } catch { /* noop */ }
+  }, [location.pathname, location.search]);
   const navigate = useNavigate();
   const myAllianceId = me?.managedAllianceId ?? null;
   const loggedIn = !!getSessionToken() || hasAdminSessionMarker();
