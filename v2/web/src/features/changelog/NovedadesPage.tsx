@@ -34,6 +34,35 @@ const IMPACT_META: Record<ChangeItem['impact'], { color: string; bg: string }> =
 
 const CHANGES: ChangeItem[] = [
   {
+    date: '10 oct',
+    phase: 'Fase 2',
+    icon: '💬',
+    impact: 'Nuevo',
+    audiences: ['jugadores', 'lideres'],
+    title: 'Responsables y preguntas por partida',
+    body: 'El staff elige los responsables de cada partida (admins, superadmins y lideres) y cada uno pone sus contactos alternativos: Discord (con copiar al portapapeles), teléfono y correo. En la ficha de la partida cualquier visitante puede hacer preguntas sin cuenta y los responsables responden desde el panel de la partida; las respuestas aparecen al instante gracias al tiempo real.',
+    bullets: [
+      'Anti-spam: máximo 3 preguntas por minuto por partida y 500 caracteres, validado en la base de datos.',
+      'Solo los responsables de esa partida (o staff) pueden responder u ocultar preguntas.',
+      'Cuando la partida deja de estar abierta, el hilo queda en solo lectura.',
+    ],
+  },
+  {
+    date: '9 oct',
+    phase: 'Fase 2',
+    icon: '🛡',
+    impact: 'Nuevo',
+    title: 'Equipos en partidas',
+    body: 'Las partidas pueden activar equipos: el staff y los lideres crean los equipos (con limite de miembros opcional) y asignan jugadores; los jugadores registrados pueden apuntarse a un equipo o cambiarse de uno desde la pagina de la partida. Un jugador solo puede estar en un equipo por partida.',
+    bullets: [
+      'Limite por equipo: al crear o editar un equipo se puede poner un maximo de miembros (vacío = sin límite); el sistema lo hace cumplir para todos.',
+      'Si un equipo está lleno, el botón "Unirme" se desactiva y se marca en amarillo.',
+      'Los miembros de un equipo pueden invitar a otros jugadores registrados (confirmados/aprobados) que aún no tengan equipo, con confirmación visual al añadir.',
+      'Se activa por partida con la casilla "Usar equipos" en crear/editar partida; las partidas existentes no cambian.',
+    ],
+    audiences: ['jugadores', 'lideres', 'staff'],
+  },
+  {
     date: '9 oct',
     phase: 'Fase 2',
     icon: '📜',

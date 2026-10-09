@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { publicDb } from '../../lib/api';
+import { publicDb, getSessionToken } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import { usePlayerSession } from '../../lib/playerSession';
 import {
@@ -12,6 +12,8 @@ import { colors, styles } from '../../theme';
 import { formatDate, STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, badgeStyle } from '../../lib/format';
 import { MatchTypeBadge } from '../../lib/matchTypes';
 import Loader from '../../components/Loader';
+import MatchQuestions from '../match/MatchQuestions';
+import { ResponsiblesCard } from '../match/MatchResponsibles';
 import DataTable from '../../components/DataTable';
 import Button from '../../components/Button';
 import Reveal from '../../components/Reveal';
@@ -25,7 +27,10 @@ type Match = {
   game_password: string | null; max_players: number | null; created_at: string;
   csv_imported: boolean; is_official: boolean;
   use_global_rules: boolean; rules_alliance_id: string | null; custom_rules_text: string | null;
+  use_teams: boolean;
 };
+type Team = { id: string; name: string; color: string | null; sort_order: number; max_members: number | null };
+type TeamMember = { team_id: string; player_id: number };
 type Alliance = { id: string; name: string; tag: string };
 
 /**
@@ -43,10 +48,11 @@ export default function GamePage() {
   const [consentScroll, setConsentScroll] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
 
-  const { data, loading, error } = useApi<{
+  const { data, loading, error, reload } = useApi<{
     match: Match; alliances: Record<string, Alliance>; me: {
       regStatus: string | null; player: PlayerSanctionState | null;
     }; ruleBlocks: { heading: string; content: string }[];
+      teams: Team[]; teamMembers: TeamMember[]; teamNames: Record<number, string>; teamRegs: number[];
   } | { private: true }>(async () => {
     const { data: match, error: e } = await publicDb.from('matches').select('*').eq('id', matchId).single();
     if (e || !match) throw new Error('Partida no encontrada');
@@ -98,7 +104,28 @@ export default function GamePage() {
         content: 'Al participar en las partidas de AllianceHub aceptas el reglamento completo disponible en la seccion Reglas. Las infracciones son sancionadas con strikes, penalizaciones de kills efectivas o suspensiones segun su gravedad. El uso de multicuentas, exploits o conducta toxica esta prohibido y puede resultar en ban permanente.',
       });
     }
-    return { match: m, alliances, me, ruleBlocks };
+
+    // Equipos de la partida (si el staff los activo)
+    let teams: Team[] = [];
+    let teamMembers: TeamMember[] = [];
+    let teamNames: Record<number, string> = {};
+    let teamRegs: number[] = [];
+    if (cfg.use_teams) {
+      const [{ data: t }, { data: tm }] = await Promise.all([
+        publicDb.from('match_teams').select('*').eq('match_id', matchId).order('sort_order'),
+        publicDb.from('match_team_members').select('team_id, player_id').eq('match_id', matchId),
+      ]);
+      teams = (t as Team[] | null) ?? [];
+      teamMembers = (tm as TeamMember[] | null) ?? [];
+      const { data: regs } = await publicDb.from('match_registrations').select('player_id').eq('match_id', matchId).in('status', ['confirmed', 'approved']);
+      teamRegs = ((regs as { player_id: number }[] | null) ?? []).map((r) => r.player_id);
+      const ids = [...new Set([...teamMembers.map((x) => x.player_id), ...teamRegs])];
+      if (ids.length) {
+        const { data: ps } = await publicDb.from('players').select('id, current_username').in('id', ids);
+        (ps as { id: number; current_username: string | null }[] | null)?.forEach((p) => { teamNames[p.id] = p.current_username ?? `#${p.id}`; });
+      }
+    }
+    return { match: m, alliances, me, ruleBlocks, teams, teamMembers, teamNames, teamRegs };
   }, [matchId, session?.playerId]);
 
   if (loading) return <Loader />;
@@ -115,7 +142,7 @@ export default function GamePage() {
     );
   }
 
-  const { match: m, alliances, me, ruleBlocks } = data;
+  const { match: m, alliances, me, ruleBlocks, teams, teamMembers, teamNames, teamRegs } = data;
   const pid = session?.playerId ?? null;
   // Huella del documento de reglas: si el staff cambia las reglas de la partida,
   // el consentimiento previo queda invalidado y hay que re-aceptar.
@@ -213,6 +240,23 @@ export default function GamePage() {
       </div>
 
       {m.winners_declared && <Winners matchId={matchId} />}
+      {m.use_teams && (
+        <TeamsBlock
+          matchId={matchId}
+          teams={teams}
+          members={teamMembers}
+          names={teamNames}
+          regs={teamRegs}
+          myPlayerId={pid}
+          canPick={!sanctioned && confirmed}
+          reload={reload}
+        />
+      )}
+      <div style={{ ...styles.card, marginTop: 20 }}>
+        <h3 style={{ color: colors.text, marginTop: 0 }}>❓ Dudas y contactos</h3>
+        <ResponsiblesCard matchId={matchId} />
+        <MatchQuestions matchId={matchId} matchOpen={m.status === 'open'} canModerate={false} />
+      </div>
       <Registrations matchId={matchId} />
       <Results matchId={matchId} csvImported={m.csv_imported} />
 
@@ -415,6 +459,115 @@ function RuleGateModal({
           <Button disabled={!checked || !scrolled} onClick={onConfirm}>Aceptar y continuar</Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---- Bloque de equipos de la partida (lectura publica; auto-gestion del jugador) ----
+function TeamsBlock({ matchId, teams, members, names, regs, myPlayerId, canPick, reload }: {
+  matchId: string;
+  teams: { id: string; name: string; color: string | null; sort_order: number; max_members: number | null }[];
+  members: { team_id: string; player_id: number }[];
+  names: Record<number, string>;
+  regs: number[];
+  myPlayerId: number | null;
+  canPick: boolean;
+  reload: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [inviteTarget, setInviteTarget] = useState('');
+  const [inviteMsg, setInviteMsg] = useState('');
+  const myTeam = myPlayerId ? members.find((x) => x.player_id === myPlayerId)?.team_id ?? null : null;
+
+  async function invite(teamId: string) {
+    const token = getSessionToken();
+    const target = Number(inviteTarget);
+    if (!token || !target) return;
+    setBusy(true);
+    const { error } = await publicDb.rpc('player_invite_to_team', { p_match_id: matchId, p_team_id: teamId, p_target_player_id: target, p_token: token });
+    setBusy(false);
+    if (error) window.alert(error.message);
+    else {
+      setInviteMsg(`✓ ${names[target] ?? `#${target}`} añadido a tu equipo`);
+      setInviteTarget('');
+      setTimeout(() => setInviteMsg(''), 2500);
+    }
+    reload();
+  }
+
+  async function join(teamId: string) {
+    const token = getSessionToken();
+    if (!token) return;
+    setBusy(true);
+    const { error } = await publicDb.rpc('player_join_team', { p_match_id: matchId, p_team_id: teamId, p_token: token });
+    setBusy(false);
+    if (error) window.alert(error.message);
+    reload();
+  }
+  async function leave() {
+    const token = getSessionToken();
+    if (!token) return;
+    setBusy(true);
+    const { error } = await publicDb.rpc('player_leave_team', { p_match_id: matchId, p_token: token });
+    setBusy(false);
+    if (error) window.alert(error.message);
+    reload();
+  }
+
+  return (
+    <div style={{ ...styles.card, marginTop: 20 }}>
+      <h3 style={{ color: colors.text, marginTop: 0 }}>🛡 Equipos</h3>
+      {teams.length === 0 && <p style={{ color: colors.muted, margin: 0 }}>Los equipos de esta partida aún no se han configurado.</p>}
+      {teams.map((t) => {
+        const roster = members.filter((x) => x.team_id === t.id);
+        const full = t.max_members !== null && roster.length >= t.max_members;
+        return (
+          <div key={t.id} style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: colors.bg, border: `1px solid ${full ? colors.warning : colors.border}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <strong style={{ flex: 1, color: colors.text, fontSize: 14 }}>
+                {t.color ? <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: t.color, marginRight: 6 }} /> : null}
+                {t.name}
+                <span style={{ fontWeight: 400, color: full ? colors.warning : colors.muted }}> · {roster.length}{t.max_members !== null ? `/${t.max_members}` : ''}{full ? ' (lleno)' : ''}</span>
+              </strong>
+              {canPick && myTeam !== t.id && (
+                <Button disabled={busy || full} onClick={() => join(t.id)} style={{ padding: '4px 10px', fontSize: 12 }}>
+                  {myTeam ? 'Cambiarme aquí' : 'Unirme'}
+                </Button>
+              )}
+              {canPick && myTeam === t.id && (
+                <Button variant="ghost" disabled={busy} onClick={leave} style={{ padding: '4px 10px', fontSize: 12 }}>Salir del equipo</Button>
+              )}
+            </div>
+            {roster.length === 0 && <p style={{ margin: 0, fontSize: 13, color: colors.muted }}>Sin miembros todavía.</p>}
+            {roster.map((x) => (
+              <p key={x.player_id} style={{ margin: '0 0 3px', fontSize: 13, color: colors.text }}>
+                • {names[x.player_id] ?? `#${x.player_id}`}{myPlayerId === x.player_id ? ' (tú)' : ''}
+              </p>
+            ))}
+            {canPick && myTeam === t.id && (() => {
+              const teamed = new Set(members.map((x) => x.player_id));
+              const candidates = regs.filter((pid) => !teamed.has(pid) && pid !== myPlayerId);
+              return (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${colors.border}` }}>
+                  {inviteMsg && <p style={{ margin: '0 0 6px', fontSize: 12, color: colors.success }}>{inviteMsg}</p>}
+                  {candidates.length === 0 ? (
+                    <p style={{ margin: 0, fontSize: 12, color: colors.muted }}>No quedan jugadores registrados sin equipo para invitar.</p>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <select value={inviteTarget} onChange={(e) => setInviteTarget(e.target.value)} style={{ ...styles.input, flex: 1, minWidth: 140, marginBottom: 0, padding: '6px 8px', fontSize: 12 }}>
+                        <option value="">Invitar a un jugador…</option>
+                        {candidates.map((pid) => <option key={pid} value={String(pid)}>{names[pid] ?? `#${pid}`}</option>)}
+                      </select>
+                      <Button disabled={busy || !inviteTarget || full} onClick={() => invite(t.id)} style={{ padding: '4px 10px', fontSize: 12 }}>Invitar</Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })}
+      {canPick && !myTeam && <p style={{ fontSize: 12, color: colors.muted, margin: '4px 0 0' }}>Elige tu equipo con "Unirme". Puedes cambiarte hasta que la partida empiece.</p>}
     </div>
   );
 }

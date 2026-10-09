@@ -14,10 +14,12 @@ import { Input, Select, TextArea } from '../../components/Field';
 import DataTable from '../../components/DataTable';
 import Loader from '../../components/Loader';
 import Reveal from '../../components/Reveal';
+import MatchQuestions from '../match/MatchQuestions';
+import { ResponsiblesManager } from '../match/MatchResponsibles';
 
 const SORT_KEY = 'ah2_match_results_sort';
 
-type Match = { id: string; name: string; description: string | null; status: string; match_type: string | null; alliance_id: string | null; game_id: string | null; password: string | null; max_players: number | null; created_at: string; csv_imported: boolean; winners_declared: boolean; is_private: boolean; share_token: string | null; requires_approval: boolean; is_official: boolean; use_global_rules: boolean; rules_alliance_id: string | null; custom_rules_text: string | null };
+type Match = { id: string; name: string; description: string | null; status: string; match_type: string | null; alliance_id: string | null; game_id: string | null; password: string | null; max_players: number | null; created_at: string; csv_imported: boolean; winners_declared: boolean; is_private: boolean; share_token: string | null; requires_approval: boolean; is_official: boolean; use_global_rules: boolean; rules_alliance_id: string | null; custom_rules_text: string | null; use_teams: boolean };
 type Reg = { id: string; player_id: number; nation: string | null; status: string; notes: string | null; registered_at: string; username?: string; player?: PlayerSanctionState & { current_username?: string } };
 type Result = { id: string; player_id: number; nation: string | null; kills: number; deaths: number; kd_ratio: number; username?: string };
 
@@ -299,6 +301,7 @@ function MatchDetail() {
       max_players: parseInt(String(fd.get('max_players') || '')) || null,
       description: String(fd.get('description') || '').trim() || null,
       use_global_rules: fd.get('use_global_rules') === 'on',
+      use_teams: fd.get('use_teams') === 'on',
       rules_alliance_id: String(fd.get('rules_alliance_id') || '') || null,
       custom_rules_text: customNew.trim() || null,
       status: 'draft',
@@ -335,6 +338,7 @@ function MatchDetail() {
       use_global_rules: editMatch.use_global_rules,
       rules_alliance_id: editMatch.rules_alliance_id,
       custom_rules_text: editMatch.custom_rules_text,
+      use_teams: editMatch.use_teams,
     }).eq('id', matchId);
     if (error) say('Error: ' + error.message); else { say('Partida actualizada'); setEditMatch(null); loadMatch(); }
   }
@@ -627,6 +631,10 @@ function MatchDetail() {
               🏛 Oficial AllianceHub (arbitrada por staff, cuenta en el ranking oficial)
             </label>
           )}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 12px', fontSize: 13, color: colors.text, cursor: 'pointer' }}>
+            <input type="checkbox" name="use_teams" />
+            🛡 Usar equipos en esta partida (los jugadores podrán elegir equipo)
+          </label>
           <div style={{ display: 'flex', gap: 8 }}>
             <Button type="submit">Crear partida</Button>
             <Link to="/admin/partidas" style={{ ...styles.btnGhost, padding: '10px 18px', textDecoration: 'none' }}>Cancelar</Link>
@@ -679,6 +687,21 @@ function MatchDetail() {
             ))}
           </div>
           {match.description && <p style={{ marginTop: 10, padding: 10, borderRadius: 8, background: colors.bg, color: colors.muted, fontSize: 13 }}>{match.description}</p>}
+          {match.use_teams ? (
+            <TeamsSection matchId={match.id} canManage={canManage} regs={regs ?? []} say={say} />
+          ) : canManage ? (
+            <p style={{ marginTop: 10, fontSize: 12, color: colors.muted }}>🛡 Esta partida no usa equipos. Actívalo en "Editar partida" para crear equipos y asignar jugadores.</p>
+          ) : null}
+          {staff && (
+            <ResponsiblesManager matchId={match.id} onSaved={say} />
+          )}
+          <div style={{ marginTop: 14, borderTop: `1px dashed ${colors.border}`, paddingTop: 12 }}>
+            <p style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 700, color: colors.text }}>
+              ❓ Preguntas de los jugadores
+              {canManage ? <span style={{ fontWeight: 400, fontSize: 12, color: colors.muted }}> — respondes desde aquí; los jugadores ven la respuesta al instante en la ficha de la partida.</span> : null}
+            </p>
+            <MatchQuestions matchId={match.id} matchOpen={match.status === 'open'} canModerate={canManage} />
+          </div>
         </div>
       </Reveal>
 
@@ -823,6 +846,11 @@ function MatchDetail() {
               </label>
             </>
           ) : null}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 4px', fontSize: 13, color: colors.text, cursor: 'pointer' }}>
+            <input type="checkbox" checked={!!editMatch.use_teams}
+              onChange={(e) => setEditMatch({ ...editMatch, use_teams: e.target.checked })} />
+            🛡 Usar equipos en esta partida (los jugadores podrán elegir equipo)
+          </label>
           <label style={{ fontSize: 12, color: colors.muted }}>Max jugadores</label>
           <Input type="number" value={editMatch.max_players || ''} onChange={(e) => setEditMatch({ ...editMatch, max_players: parseInt(e.target.value) || null })} style={styles.input} />
           <label style={{ fontSize: 12, color: colors.muted }}>Alianza</label>
@@ -1051,5 +1079,128 @@ export default function AdminMatchDetailPage() {
     <AdminGate allowManagers>
       <MatchDetail />
     </AdminGate>
+  );
+}
+
+// ---- Sección de equipos de la partida ----
+type Team = { id: string; match_id: string; name: string; color: string | null; sort_order: number; max_members: number | null };
+type TeamMember = { team_id: string; player_id: number; added_by: string };
+
+function TeamsSection({ matchId, canManage, regs, say }: { matchId: string; canManage: boolean; regs: Reg[]; say: (t: string) => void }) {
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [newName, setNewName] = useState('');
+  const [newMax, setNewMax] = useState('');
+  const [editing, setEditing] = useState<Record<string, { name: string; max_members: string }>>({});
+  const [picks, setPicks] = useState<Record<string, string>>({});
+
+  const load = useCallback(async () => {
+    const [{ data: t }, { data: m }] = await Promise.all([
+      publicDb.from('match_teams').select('*').eq('match_id', matchId).order('sort_order'),
+      publicDb.from('match_team_members').select('team_id, player_id, added_by').eq('match_id', matchId),
+    ]);
+    setTeams((t as Team[] | null) ?? []);
+    setMembers((m as TeamMember[] | null) ?? []);
+  }, [matchId]);
+  useEffect(() => { load(); }, [load]);
+
+  const regName = (pid: number) => {
+    const r = regs.find((x) => x.player_id === pid);
+    return r?.player?.current_username ?? r?.username ?? `#${pid}`;
+  };
+  const teamCount = (tid: string) => members.filter((m) => m.team_id === tid).length;
+  const regOptions = regs.filter((r) => ['confirmed', 'approved', 'pending'].includes(r.status));
+
+  async function addTeam() {
+    const name = newName.trim();
+    if (!name) { say('Nombre de equipo obligatorio'); return; }
+    const { error } = await publicDb.from('match_teams').insert({ match_id: matchId, name, max_members: parseInt(newMax) || null, sort_order: teams.length });
+    if (error) { say('Error: ' + error.message); return; }
+    say('Equipo creado'); setNewName(''); setNewMax(''); load();
+  }
+  async function saveTeam(t: Team) {
+    const e = editing[t.id];
+    if (!e) return;
+    const { error } = await publicDb.from('match_teams').update({ name: e.name, max_members: parseInt(e.max_members) || null }).eq('id', t.id);
+    if (error) { say('Error: ' + error.message); return; }
+    say('Equipo actualizado'); setEditing((s) => { const c = { ...s }; delete c[t.id]; return c; }); load();
+  }
+  async function removeTeam(t: Team) {
+    if (!window.confirm(`¿Eliminar el equipo "${t.name}" y sacar a sus miembros?`)) return;
+    const { error } = await publicDb.from('match_teams').delete().eq('id', t.id);
+    if (error) { say('Error: ' + error.message); return; }
+    say('Equipo eliminado'); load();
+  }
+  async function assignPlayer(teamId: string) {
+    const pid = parseInt(picks[teamId] || '', 10);
+    if (!pid) { say('Elige un jugador'); return; }
+    // Si el jugador ya estaba en otro equipo, el trigger/UNIQUE lo bloquea con
+    // mensaje claro; el staff debe quitarlo primero (o usar el auto-movimiento
+    // del propio jugador desde la página de la partida).
+    const { error } = await publicDb.from('match_team_members').insert({ match_id: matchId, team_id: teamId, player_id: pid, added_by: 'admin' });
+    if (error) { say('Error: ' + error.message); return; }
+    say('Jugador asignado'); setPicks((p) => ({ ...p, [teamId]: '' })); load();
+  }
+  async function removeMember(teamId: string, pid: number) {
+    const { error } = await publicDb.from('match_team_members').delete().eq('team_id', teamId).eq('player_id', pid);
+    if (error) { say('Error: ' + error.message); return; }
+    load();
+  }
+
+  return (
+    <div style={{ marginTop: 12, padding: 12, borderRadius: 8, background: colors.bg, border: `1px solid ${colors.border}` }}>
+      <h3 style={{ margin: '0 0 10px', fontSize: 14, color: colors.text }}>🛡 Equipos</h3>
+      {teams.length === 0 && <p style={{ fontSize: 12, color: colors.muted, margin: '0 0 8px' }}>Aún no hay equipos en esta partida.</p>}
+      {teams.map((t) => {
+        const e = editing[t.id];
+        const full = t.max_members !== null && teamCount(t.id) >= t.max_members;
+        return (
+          <div key={t.id} style={{ marginBottom: 10, padding: 8, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${full ? colors.warning : colors.border}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: colors.text }}>
+                {t.color ? <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: t.color, marginRight: 6 }} /> : null}
+                {t.name}
+                <span style={{ fontWeight: 400, color: full ? colors.warning : colors.muted }}> · {teamCount(t.id)}{t.max_members !== null ? `/${t.max_members}` : ''}{full ? ' (lleno)' : ''}</span>
+              </span>
+              {canManage && !e && <Button variant="ghost" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => setEditing({ ...editing, [t.id]: { name: t.name, max_members: t.max_members ? String(t.max_members) : '' } })}>✏️</Button>}
+              {canManage && !e && <Button variant="ghost" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => removeTeam(t)}>🗑</Button>}
+            </div>
+            {canManage && e && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+                <Input value={e.name} onChange={(ev) => setEditing({ ...editing, [t.id]: { ...e, name: ev.target.value } })} style={{ ...styles.input, flex: 2, minWidth: 120 }} />
+                <Input type="number" min={1} placeholder="Límite (vacío = sin límite)" value={e.max_members} onChange={(ev) => setEditing({ ...editing, [t.id]: { ...e, max_members: ev.target.value } })} style={{ ...styles.input, flex: 2, minWidth: 140 }} />
+                <Button style={{ padding: '6px 10px', fontSize: 12 }} onClick={() => saveTeam(t)}>Guardar</Button>
+                <Button variant="ghost" style={{ padding: '6px 10px', fontSize: 12 }} onClick={() => setEditing((s) => { const c = { ...s }; delete c[t.id]; return c; })}>Cancelar</Button>
+              </div>
+            )}
+            {members.filter((m) => m.team_id === t.id).map((m) => (
+              <div key={m.player_id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: colors.text, marginBottom: 3 }}>
+                <span style={{ flex: 1 }}>• {regName(m.player_id)}{m.added_by === 'player' ? <span style={{ color: colors.muted }}> (se apuntó solo)</span> : null}</span>
+                {canManage && <Button variant="ghost" style={{ padding: '0 6px', fontSize: 12 }} onClick={() => removeMember(t.id, m.player_id)}>✕</Button>}
+              </div>
+            ))}
+            {canManage && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <Select value={picks[t.id] || ''} onChange={(ev) => setPicks({ ...picks, [t.id]: ev.target.value })} style={{ ...styles.input, flex: 1, marginBottom: 0 }}>
+                  <option value="">-- Asignar jugador registrado --</option>
+                  {regOptions.map((r) => {
+                    const inTeam = members.find((m) => m.player_id === r.player_id)?.team_id;
+                    return <option key={r.player_id} value={r.player_id}>{regName(r.player_id)}{inTeam ? ` (en ${teams.find((x) => x.id === inTeam)?.name ?? 'otro equipo'})` : ''}</option>;
+                  })}
+                </Select>
+                <Button style={{ padding: '6px 10px', fontSize: 12 }} disabled={full} onClick={() => assignPlayer(t.id)}>➕</Button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {canManage && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+          <Input placeholder="Nombre del nuevo equipo" value={newName} onChange={(e) => setNewName(e.target.value)} style={{ ...styles.input, flex: 2, minWidth: 140 }} />
+          <Input type="number" min={1} placeholder="Límite (vacío = sin límite)" value={newMax} onChange={(e) => setNewMax(e.target.value)} style={{ ...styles.input, flex: 2, minWidth: 140 }} />
+          <Button onClick={addTeam}>Crear equipo</Button>
+        </div>
+      )}
+    </div>
   );
 }
