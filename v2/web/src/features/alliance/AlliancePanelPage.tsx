@@ -241,7 +241,7 @@ export default function AlliancePanelPage() {
                     </div>
                     <strong>{m.name}</strong>
                   </div>
-                  <Link to={'/partida?id=' + m.id} style={{ textDecoration: 'none' }}>
+                  <Link to={'/partidas/' + m.id} style={{ textDecoration: 'none' }}>
                     <Button style={{ fontSize: 12 }}>Ver</Button>
                   </Link>
                 </div>

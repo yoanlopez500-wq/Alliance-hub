@@ -34,6 +34,22 @@ const IMPACT_META: Record<ChangeItem['impact'], { color: string; bg: string }> =
 
 const CHANGES: ChangeItem[] = [
   {
+    date: '9 oct',
+    phase: 'Fase 2',
+    icon: '📜',
+    impact: 'Nuevo',
+    title: 'Reglas por partida: global, de alianza o exclusivas',
+    body: 'Al crear o editar una partida, el staff elige que reglamento se aplica: el general de AllianceHub (opcional), el reglamento privado de una alianza concreta, y/o reglas exclusivas escritas como texto libre. En el panel hay un selector para copiar secciones concretas del reglamento como texto y combinarlas a medida. Al entrar a la partida veras el documento resultante y aceptaras con la misma casilla de siempre.',
+    bullets: [
+      'Selector "Añadir del reglamento": copia secciones sueltas (globales o de la alianza) al texto de reglas exclusivas, editables antes de guardar.',
+      'Nuevo selector visual: lee el reglamento completo, marca o desmarca cláusulas, ordénalas con ↑ ↓ y se pegan de golpe donde quieras en el texto.',
+      'El flujo de aceptacion no cambia: desliza, marca la casilla y listo.',
+      'Si el staff edita las reglas de una partida, tu aceptacion anterior queda invalidada y deberas releer y aceptar de nuevo (así nadie acepta a ciegas reglas nuevas).',
+      'Las partidas ya existentes siguen usando el reglamento general, igual que antes.',
+    ],
+    audiences: ['jugadores', 'lideres', 'staff'],
+  },
+  {
     date: '3 oct',
     phase: 'Fase 2',
     icon: '🧭',

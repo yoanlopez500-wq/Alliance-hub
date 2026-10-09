@@ -17,13 +17,13 @@ import Reveal from '../../components/Reveal';
 
 const SORT_KEY = 'ah2_match_results_sort';
 
-type Match = { id: string; name: string; description: string | null; status: string; match_type: string | null; alliance_id: string | null; game_id: string | null; password: string | null; max_players: number | null; created_at: string; csv_imported: boolean; winners_declared: boolean; is_private: boolean; share_token: string | null; requires_approval: boolean; is_official: boolean };
+type Match = { id: string; name: string; description: string | null; status: string; match_type: string | null; alliance_id: string | null; game_id: string | null; password: string | null; max_players: number | null; created_at: string; csv_imported: boolean; winners_declared: boolean; is_private: boolean; share_token: string | null; requires_approval: boolean; is_official: boolean; use_global_rules: boolean; rules_alliance_id: string | null; custom_rules_text: string | null };
 type Reg = { id: string; player_id: number; nation: string | null; status: string; notes: string | null; registered_at: string; username?: string; player?: PlayerSanctionState & { current_username?: string } };
 type Result = { id: string; player_id: number; nation: string | null; kills: number; deaths: number; kd_ratio: number; username?: string };
 
-function Modal({ onClose, children, width = 480 }: { onClose: () => void; children: React.ReactNode; width?: number }) {
+function Modal({ onClose, children, width = 480, zIndex = 100 }: { onClose: () => void; children: React.ReactNode; width?: number; zIndex?: number }) {
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex, padding: 16 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ ...styles.card, width, maxWidth: '100%', maxHeight: '85vh', overflowY: 'auto' }}>{children}</div>
     </div>
   );
@@ -85,6 +85,28 @@ function MatchDetail() {
   const [apiBusy, setApiBusy] = useState(false);
   const [winnersModal, setWinnersModal] = useState(false);
   const [winnerPicks, setWinnerPicks] = useState<number[]>([]);
+
+  // Catalogo de secciones del reglamento para copiar como texto en las reglas
+  // exclusivas de la partida (global + reglamento de la alianza elegida).
+  const [ruleCatalog, setRuleCatalog] = useState<{ id: string; title: string; content: string; origin: string }[]>([]);
+  const [pickedRule, setPickedRule] = useState('');
+  const [customNew, setCustomNew] = useState('');
+  // Aviso temporal al añadir una seccion del reglamento al texto (evita
+  // dobles clics que duplican la seccion).
+  const [addedMsg, setAddedMsg] = useState<string | null>(null);
+  const flashAdded = (title: string) => {
+    setAddedMsg(`✓ Se añadió: ${title}`);
+    window.setTimeout(() => setAddedMsg((m) => (m && m.includes(title) ? null : m)), 2500);
+  };
+
+  // Selector visual: leer el reglamento completo, marcar/desmarcar clausulas,
+  // ordenarlas y pegarlas de golpe como texto (insertando donde este el cursor).
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<'new' | 'edit'>('new');
+  const [pickerPicks, setPickerPicks] = useState<Record<string, boolean>>({});
+  const [pickerOrder, setPickerOrder] = useState<string[]>([]);
+  const [cursorNew, setCursorNew] = useState<number | null>(null);
+  const [cursorEdit, setCursorEdit] = useState<number | null>(null);
 
   // Jurisdiccion de liderazgo sobre ESTA partida (sin ser staff): el lider
   // (admin_users.alliance_id) o un oficial co-lider (alliance_officers).
@@ -155,6 +177,113 @@ function MatchDetail() {
     }
   }, [action, loadMatch, loadRegistrations, loadResults]);
 
+  // Catalogo de reglas: globales + las de la alianza elegida en las reglas.
+  // Se recarga al abrir el modal de edicion o cambiar la alianza de reglas.
+  const loadRuleCatalog = useCallback(async (aid: string | null) => {
+    const out: { id: string; title: string; content: string; origin: string }[] = [];
+    const { data: g } = await publicDb.from('rule_sections').select('id, title, content').is('alliance_id', null).eq('is_active', true).order('order_index');
+    (g as { id: string; title: string; content: string }[] | null)?.forEach((s) => out.push({ id: s.id, title: s.title, content: s.content, origin: '📜 General' }));
+    if (aid) {
+      const { data: a } = await publicDb.from('rule_sections').select('id, title, content').eq('alliance_id', aid).eq('is_active', true).order('order_index');
+      (a as { id: string; title: string; content: string }[] | null)?.forEach((s) => out.push({ id: `al_${s.id}`, title: s.title, content: s.content, origin: '🛡 Alianza' }));
+    }
+    setRuleCatalog(out);
+  }, []);
+  useEffect(() => { loadRuleCatalog(editMatch?.rules_alliance_id ?? null); }, [editMatch?.rules_alliance_id, loadRuleCatalog]);
+
+  // Pegar una seccion del reglamento como texto en las reglas exclusivas.
+  const appendRulesText = (current: string | null, title: string, content: string) =>
+    `${current ? current.trimEnd() + '\n\n' : ''}## ${title}\n${content}\n`;
+  const appendAllRules = (current: string | null) =>
+    ruleCatalog.reduce((acc, r) => appendRulesText(acc, r.title, r.content), current ?? '');
+  // Insertar donde este el cursor; sin cursor conocido, al principio (no al final).
+  const insertRulesAtCursor = (current: string, text: string, cursor: number | null) => {
+    if (cursor !== null && cursor >= 0 && cursor <= current.length) {
+      return current.slice(0, cursor) + text + current.slice(cursor);
+    }
+    return text + (current ? '\n\n' + current : '');
+  };
+  const resetPicker = (target: 'new' | 'edit') => {
+    setPickerTarget(target);
+    setPickerPicks({});
+    setPickerOrder([]);
+    setPickerOpen(true);
+  };
+  const movePicked = (id: string, dir: -1 | 1) => {
+    setPickerOrder((o) => {
+      const i = o.indexOf(id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= o.length) return o;
+      const c = [...o];
+      [c[i], c[j]] = [c[j], c[i]];
+      return c;
+    });
+  };
+  const confirmPicker = () => {
+    const text = pickerOrder
+      .map((id) => { const r = ruleCatalog.find((x) => x.id === id); return r ? `## ${r.title}\n${r.content}\n` : ''; })
+      .filter(Boolean)
+      .join('\n');
+    if (!text) return;
+    if (pickerTarget === 'edit' && editMatch) {
+      setEditMatch({ ...editMatch, custom_rules_text: insertRulesAtCursor(editMatch.custom_rules_text ?? '', text, cursorEdit) });
+    } else {
+      setCustomNew((c) => insertRulesAtCursor(c, text, cursorNew));
+    }
+    flashAdded(`${pickerOrder.length} sección(es)`);
+    setPickerOpen(false);
+  };
+
+  // Modal selector de secciones: lista completa legible + checkboxes + orden.
+  const rulesPicker = pickerOpen ? (
+    <Modal onClose={() => setPickerOpen(false)} width={640} zIndex={200}>
+      <h3 style={{ margin: '0 0 6px', color: colors.text }}>☑️ Seleccionar secciones del reglamento</h3>
+      <p style={{ fontSize: 12, color: colors.muted, margin: '0 0 10px' }}>
+        Marca las cláusulas que aplican a esta partida. Léelas completas aquí, ordénalas con ↑ ↓ y se insertarán como texto editable donde tuvieras el cursor (o al principio).
+      </p>
+      {pickerOrder.length > 0 && (
+        <div style={{ marginBottom: 10, padding: 8, borderRadius: 8, background: colors.bg, border: `1px solid ${colors.border}` }}>
+          <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: colors.text }}>Orden ({pickerOrder.length}):</p>
+          {pickerOrder.map((id) => {
+            const r = ruleCatalog.find((x) => x.id === id);
+            if (!r) return null;
+            return (
+              <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: colors.text, marginBottom: 4 }}>
+                <span style={{ flex: 1 }}>• {r.title}</span>
+                <Button type="button" variant="ghost" style={{ padding: '2px 8px' }} onClick={() => movePicked(id, -1)}>↑</Button>
+                <Button type="button" variant="ghost" style={{ padding: '2px 8px' }} onClick={() => movePicked(id, 1)}>↓</Button>
+                <Button type="button" variant="ghost" style={{ padding: '2px 8px' }}
+                  onClick={() => { setPickerPicks((p) => ({ ...p, [id]: false })); setPickerOrder((o) => o.filter((x) => x !== id)); }}>✕</Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <div style={{ maxHeight: '45vh', overflowY: 'auto', marginBottom: 10 }}>
+        {ruleCatalog.map((r) => (
+          <div key={r.id} style={{ marginBottom: 10, padding: 8, borderRadius: 8, background: colors.bg, border: `1px solid ${colors.border}` }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: colors.text, cursor: 'pointer', margin: 0 }}>
+              <input type="checkbox" checked={!!pickerPicks[r.id]}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setPickerPicks((p) => ({ ...p, [r.id]: on }));
+                  setPickerOrder((o) => (on ? [...o, r.id] : o.filter((x) => x !== r.id)));
+                }} />
+              <strong>{r.origin} · {r.title}</strong>
+            </label>
+            {r.content && <p style={{ fontSize: 12, color: colors.muted, margin: '6px 0 0', whiteSpace: 'pre-wrap' }}>{r.content}</p>}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <Button variant="ghost" onClick={() => setPickerOpen(false)}>Cancelar</Button>
+        <Button onClick={confirmPicker} disabled={!pickerOrder.length}>
+          Insertar{pickerOrder.length ? ` ${pickerOrder.length} sección(es)` : ''}
+        </Button>
+      </div>
+    </Modal>
+  ) : null;
+
   // ---- Crear partida ----
   async function createMatch(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -169,6 +298,9 @@ function MatchDetail() {
       match_type: String(fd.get('match_type') || 'internal'),
       max_players: parseInt(String(fd.get('max_players') || '')) || null,
       description: String(fd.get('description') || '').trim() || null,
+      use_global_rules: fd.get('use_global_rules') === 'on',
+      rules_alliance_id: String(fd.get('rules_alliance_id') || '') || null,
+      custom_rules_text: customNew.trim() || null,
       status: 'draft',
       created_by: admin?.id,
       // Oficial = arbitraje staff; el trigger rechaza a no-staff de todos modos.
@@ -200,6 +332,9 @@ function MatchDetail() {
       match_type: editMatch.match_type, max_players: editMatch.max_players,
       description: editMatch.description, alliance_id: editMatch.alliance_id,
       is_official: editMatch.is_official,
+      use_global_rules: editMatch.use_global_rules,
+      rules_alliance_id: editMatch.rules_alliance_id,
+      custom_rules_text: editMatch.custom_rules_text,
     }).eq('id', matchId);
     if (error) say('Error: ' + error.message); else { say('Partida actualizada'); setEditMatch(null); loadMatch(); }
   }
@@ -428,6 +563,7 @@ function MatchDetail() {
 
   if (action === 'new') {
     return (
+      <>
       <Reveal>
         <h1 style={{ color: colors.text }}>➕ Nueva partida</h1>
         <form onSubmit={createMatch} style={{ ...styles.card, maxWidth: 520 }}>
@@ -450,6 +586,41 @@ function MatchDetail() {
           <Input name="max_players" type="number" style={styles.input} />
           <label style={{ fontSize: 12, color: colors.muted }}>Descripcion</label>
           <TextArea name="description" rows={2} style={styles.input} />
+          <div style={{ margin: '10px 0 4px', padding: 10, borderRadius: 8, background: colors.bg, border: `1px solid ${colors.border}` }}>
+            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: colors.text }}>📜 Reglas de la partida</p>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px', fontSize: 13, color: colors.text, cursor: 'pointer' }}>
+              <input type="checkbox" name="use_global_rules" defaultChecked />
+              Incluir reglamento general de AllianceHub
+            </label>
+            <label style={{ fontSize: 12, color: colors.muted }}>Reglamento de alianza (opcional)</label>
+            <Select name="rules_alliance_id" defaultValue="" style={{ ...styles.input, marginBottom: 8 }}
+              onChange={(e) => loadRuleCatalog(e.target.value || null)}>
+              <option value="">-- Ninguno --</option>
+              {alliances.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </Select>
+            <label style={{ fontSize: 12, color: colors.muted }}>Añadir del reglamento (se copia como texto, editable después)</label>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+              <Select value={pickedRule} onChange={(e) => setPickedRule(e.target.value)} style={{ ...styles.input, flex: 1, marginBottom: 0 }}>
+                <option value="">-- Elige sección --</option>
+                {ruleCatalog.map((r) => <option key={r.id} value={r.id}>{r.origin} · {r.title}</option>)}
+              </Select>
+              <Button type="button" variant="ghost" disabled={!pickedRule}
+                onClick={() => {
+                  const r = ruleCatalog.find((x) => x.id === pickedRule);
+                  if (r) { setCustomNew((c) => appendRulesText(c, r.title, r.content)); flashAdded(r.title); }
+                }}>➕ Añadir</Button>
+            </div>
+            {addedMsg && <p style={{ fontSize: 12, color: colors.success, margin: '0 0 6px' }}>{addedMsg}</p>}
+            <Button type="button" variant="ghost" style={{ marginBottom: 8 }} disabled={!ruleCatalog.length}
+              onClick={() => { setCustomNew((c) => appendAllRules(c)); flashAdded('todo el reglamento'); }}>📥 Añadir todo el reglamento</Button>
+            <Button type="button" variant="ghost" style={{ marginBottom: 8 }} disabled={!ruleCatalog.length}
+              onClick={() => resetPicker('new')}>☑️ Seleccionar del reglamento…</Button>
+            <label style={{ fontSize: 12, color: colors.muted }}>Reglas exclusivas de esta partida (texto libre, opcional)</label>
+            <TextArea rows={4} value={customNew} onChange={(e) => setCustomNew(e.target.value)}
+              onSelect={(e) => setCursorNew(e.currentTarget.selectionStart)}
+              onClick={(e) => setCursorNew(e.currentTarget.selectionStart)}
+              placeholder={'Ej: prohibido oro desde el dia 10...\nUsa "Seleccionar del reglamento" para marcar clausulas y pegarlas donde quieras.'} style={styles.input} />
+          </div>
           {staff && (
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 12px', fontSize: 13, color: colors.text, cursor: 'pointer' }}>
               <input type="checkbox" name="is_official" />
@@ -462,6 +633,8 @@ function MatchDetail() {
           </div>
         </form>
       </Reveal>
+      {rulesPicker}
+      </>
     );
   }
 
@@ -621,6 +794,8 @@ function MatchDetail() {
         </div>
       </Reveal>
 
+      {rulesPicker}
+
       {/* Modal: editar partida */}
       {editMatch && (
         <Modal onClose={() => setEditMatch(null)}>
@@ -657,6 +832,41 @@ function MatchDetail() {
           </Select>
           <label style={{ fontSize: 12, color: colors.muted }}>Descripcion</label>
           <TextArea rows={2} value={editMatch.description || ''} onChange={(e) => setEditMatch({ ...editMatch, description: e.target.value })} style={styles.input} />
+          <div style={{ margin: '10px 0 4px', padding: 10, borderRadius: 8, background: colors.bg, border: `1px solid ${colors.border}` }}>
+            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: colors.text }}>📜 Reglas de la partida</p>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px', fontSize: 13, color: colors.text, cursor: 'pointer' }}>
+              <input type="checkbox" checked={!!editMatch.use_global_rules}
+                onChange={(e) => setEditMatch({ ...editMatch, use_global_rules: e.target.checked })} />
+              Incluir reglamento general de AllianceHub
+            </label>
+            <label style={{ fontSize: 12, color: colors.muted }}>Reglamento de alianza (opcional)</label>
+            <Select value={editMatch.rules_alliance_id || ''} onChange={(e) => setEditMatch({ ...editMatch, rules_alliance_id: e.target.value || null })} style={{ ...styles.input, marginBottom: 8 }}>
+              <option value="">-- Ninguno --</option>
+              {alliances.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </Select>
+            <label style={{ fontSize: 12, color: colors.muted }}>Añadir del reglamento (se copia como texto, editable después)</label>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+              <Select value={pickedRule} onChange={(e) => setPickedRule(e.target.value)} style={{ ...styles.input, flex: 1, marginBottom: 0 }}>
+                <option value="">-- Elige sección --</option>
+                {ruleCatalog.map((r) => <option key={r.id} value={r.id}>{r.origin} · {r.title}</option>)}
+              </Select>
+              <Button type="button" variant="ghost" disabled={!pickedRule}
+                onClick={() => {
+                  const r = ruleCatalog.find((x) => x.id === pickedRule);
+                  if (r) { setEditMatch({ ...editMatch, custom_rules_text: appendRulesText(editMatch.custom_rules_text, r.title, r.content) }); flashAdded(r.title); }
+                }}>➕ Añadir</Button>
+            </div>
+            {addedMsg && <p style={{ fontSize: 12, color: colors.success, margin: '0 0 6px' }}>{addedMsg}</p>}
+            <Button type="button" variant="ghost" style={{ marginBottom: 8 }} disabled={!ruleCatalog.length}
+              onClick={() => { setEditMatch({ ...editMatch, custom_rules_text: appendAllRules(editMatch.custom_rules_text) }); flashAdded('todo el reglamento'); }}>📥 Añadir todo el reglamento</Button>
+            <Button type="button" variant="ghost" style={{ marginBottom: 8 }} disabled={!ruleCatalog.length}
+              onClick={() => resetPicker('edit')}>☑️ Seleccionar del reglamento…</Button>
+            <label style={{ fontSize: 12, color: colors.muted }}>Reglas exclusivas de esta partida (texto libre, opcional)</label>
+            <TextArea rows={4} value={editMatch.custom_rules_text || ''} onChange={(e) => setEditMatch({ ...editMatch, custom_rules_text: e.target.value || null })}
+              onSelect={(e) => setCursorEdit(e.currentTarget.selectionStart)}
+              onClick={(e) => setCursorEdit(e.currentTarget.selectionStart)}
+              style={styles.input} />
+          </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <Button variant="ghost" onClick={() => setEditMatch(null)}>Cancelar</Button>
             <Button onClick={saveMatchEdit}>Guardar</Button>

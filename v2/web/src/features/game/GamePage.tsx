@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { publicDb } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
@@ -24,6 +24,7 @@ type Match = {
   requires_approval: boolean; game_id: string | null; password: string | null;
   game_password: string | null; max_players: number | null; created_at: string;
   csv_imported: boolean; is_official: boolean;
+  use_global_rules: boolean; rules_alliance_id: string | null; custom_rules_text: string | null;
 };
 type Alliance = { id: string; name: string; tag: string };
 
@@ -45,7 +46,7 @@ export default function GamePage() {
   const { data, loading, error } = useApi<{
     match: Match; alliances: Record<string, Alliance>; me: {
       regStatus: string | null; player: PlayerSanctionState | null;
-    };
+    }; ruleBlocks: { heading: string; content: string }[];
   } | { private: true }>(async () => {
     const { data: match, error: e } = await publicDb.from('matches').select('*').eq('id', matchId).single();
     if (e || !match) throw new Error('Partida no encontrada');
@@ -68,7 +69,36 @@ export default function GamePage() {
       ]);
       me = { regStatus: reg?.status ?? null, player: (player as PlayerSanctionState | null) ?? null };
     }
-    return { match: m, alliances, me };
+
+    // Documento de reglas segun la config de la partida: global + reglamento de
+    // alianza indicada + reglas exclusivas. Si nada aplica, texto generico (mismo
+    // comportamiento que antes para partidas legacy sin configurar).
+    type Sec = { title: string; content: string };
+    const ruleBlocks: { heading: string; content: string }[] = [];
+    const cfg = m as Match;
+    if (cfg.use_global_rules) {
+      const { data: secs } = await publicDb.from('rule_sections').select('title, content').is('alliance_id', null).eq('is_active', true).order('order_index');
+      (secs as Sec[] | null)?.forEach((s) => ruleBlocks.push({ heading: `📜 ${s.title}`, content: s.content }));
+    }
+    if (cfg.rules_alliance_id) {
+      const { data: secs } = await publicDb.from('rule_sections').select('title, content').eq('alliance_id', cfg.rules_alliance_id).eq('is_active', true).order('order_index');
+      const list = (secs as Sec[] | null) ?? [];
+      if (list.length) {
+        const alName = alliances[cfg.rules_alliance_id]?.name;
+        ruleBlocks.push({ heading: `🛡 Reglamento de ${alName ?? 'la alianza'}`, content: '' });
+        list.forEach((s) => ruleBlocks.push({ heading: s.title, content: s.content }));
+      }
+    }
+    if (cfg.custom_rules_text) {
+      ruleBlocks.push({ heading: '⚔️ Reglas exclusivas de esta partida', content: cfg.custom_rules_text });
+    }
+    if (!ruleBlocks.length) {
+      ruleBlocks.push({
+        heading: '📜 Reglamento de AllianceHub',
+        content: 'Al participar en las partidas de AllianceHub aceptas el reglamento completo disponible en la seccion Reglas. Las infracciones son sancionadas con strikes, penalizaciones de kills efectivas o suspensiones segun su gravedad. El uso de multicuentas, exploits o conducta toxica esta prohibido y puede resultar en ban permanente.',
+      });
+    }
+    return { match: m, alliances, me, ruleBlocks };
   }, [matchId, session?.playerId]);
 
   if (loading) return <Loader />;
@@ -85,8 +115,11 @@ export default function GamePage() {
     );
   }
 
-  const { match: m, alliances, me } = data;
+  const { match: m, alliances, me, ruleBlocks } = data;
   const pid = session?.playerId ?? null;
+  // Huella del documento de reglas: si el staff cambia las reglas de la partida,
+  // el consentimiento previo queda invalidado y hay que re-aceptar.
+  const rulesFingerprint = ruleBlocks.map((b) => `${b.heading}\n${b.content}`).join('\n---\n');
   const sanctioned = isPlayerSanctioned(me.player);
   const summary = getSanctionSummary(me.player);
   const confirmed = me.regStatus === 'confirmed' || me.regStatus === 'approved';
@@ -104,7 +137,7 @@ export default function GamePage() {
     m.requires_approval ? confirmed : isRegistered
   );
   const showWaiting = !sanctioned && m.requires_approval && me.regStatus === 'pending';
-  const hasConsent = pid ? hasRuleConsent(pid, matchId) : false;
+  const hasConsent = pid ? hasRuleConsent(pid, matchId, rulesFingerprint) : false;
   const gidClean = String(m.game_id || '').trim();
   const joinUrl = /^\d{5,}$/.test(gidClean) ? `https://www.supremacy1914.es/game.php?bust=1#/game_info/:gameID=${gidClean}` : null;
 
@@ -185,12 +218,13 @@ export default function GamePage() {
 
       {consentOpen && pid && (
         <RuleGateModal
+          blocks={ruleBlocks}
           scrolled={consentScroll}
           onScroll={() => setConsentScroll(true)}
           checked={consentChecked}
           onCheck={setConsentChecked}
           onCancel={() => setConsentOpen(false)}
-          onConfirm={() => { setRuleConsent(pid, matchId); setConsentOpen(false); }}
+          onConfirm={() => { setRuleConsent(pid, matchId, rulesFingerprint); setConsentOpen(false); }}
         />
       )}
     </div>
@@ -326,8 +360,9 @@ function EmptyNotice({ text }: { text: string }) {
 }
 
 function RuleGateModal({
-  scrolled, onScroll, checked, onCheck, onCancel, onConfirm,
+  blocks, scrolled, onScroll, checked, onCheck, onCancel, onConfirm,
 }: {
+  blocks: { heading: string; content: string }[];
   scrolled: boolean;
   onScroll: () => void;
   checked: boolean;
@@ -335,6 +370,13 @@ function RuleGateModal({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  // Cuando cambian los bloques (llegan async), re-evaluar si hay overflow:
+  // sin overflow => scrolled automatico, si no el boton quedaria bloqueado.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && el.scrollHeight <= el.clientHeight + 20) onScroll();
+  }, [blocks, onScroll]);
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100,
@@ -343,16 +385,25 @@ function RuleGateModal({
       <div style={{ ...styles.card, maxWidth: 560, width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ color: colors.text, marginTop: 0 }}>📜 Reglamento de la partida</h3>
         <div
+          ref={(el) => {
+            scrollRef.current = el;
+            // Fix: si el documento cabe sin scroll (reglas cortas), el evento
+            // onScroll jamas dispara y el boton quedaba bloqueado. Al montar,
+            // si no hay overflow se considera "leido hasta el final".
+            if (el && el.scrollHeight <= el.clientHeight + 20) onScroll();
+          }}
           onScroll={(e) => {
             const el = e.currentTarget;
             if (el.scrollTop + el.clientHeight >= el.scrollHeight - 20) onScroll();
           }}
           style={{ overflowY: 'auto', flex: 1, minHeight: 200, color: colors.muted, fontSize: 14, lineHeight: 1.6, paddingRight: 6 }}
         >
-          <p>Al participar en las partidas de AllianceHub aceptas el reglamento completo disponible en la seccion Reglas.</p>
-          <p>Las infracciones son sancionadas con strikes, penalizaciones de kills efectivas o suspensiones segun su gravedad.</p>
-          <p>El uso de multicuentas, exploits o conducta toxica esta prohibido y puede resultar en ban permanente.</p>
-          <p>Los resultados se calculan con las bajas efectivas: los strikes aplican penalizaciones segun su formula.</p>
+          {blocks.map((b, i) => (
+            <div key={i} style={{ marginBottom: 16 }}>
+              <h4 style={{ color: colors.text, margin: '0 0 6px', fontSize: 14 }}>{b.heading}</h4>
+              {b.content && <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{b.content}</p>}
+            </div>
+          ))}
           <p style={{ marginBottom: 0 }}>Desliza hasta el final y marca la casilla para confirmar que leiste y aceptas el reglamento.</p>
         </div>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '12px 0', color: colors.text, fontSize: 14 }}>

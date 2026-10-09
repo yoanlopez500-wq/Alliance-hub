@@ -18,6 +18,9 @@ interface MatchInfo {
   requires_approval: boolean;
   alliance_id: string | null;
   alliance_name?: string;
+  use_global_rules?: boolean;
+  rules_alliance_id?: string | null;
+  custom_rules_text?: string | null;
 }
 
 type RegStatus = 'confirmed' | 'approved' | 'pending' | 'rejected' | null;
@@ -36,6 +39,7 @@ export default function RegisterPage() {
   const [consentOpen, setConsentOpen] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [consentScrolled, setConsentScrolled] = useState(false);
+  const [ruleBlocks, setRuleBlocks] = useState<{ heading: string; content: string }[]>([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -43,6 +47,9 @@ export default function RegisterPage() {
 
   const playerId = session?.playerId ?? null;
   const displayName = getStoredPlayerName() || (playerId ? 'Jugador ' + playerId : '');
+  // Huella del documento de reglas: misma formula que GamePage, asi el
+  // consentimiento dado al inscribirse vale tambien en la pagina de la partida.
+  const rulesFingerprint = ruleBlocks.map((b) => `${b.heading}\n${b.content}`).join('\n---\n');
 
   useEffect(() => {
     if (loading || !playerId || !matchId) return;
@@ -75,10 +82,38 @@ export default function RegisterPage() {
             mi.alliance_name = (alli as { name: string } | null)?.name;
           }
           setMatch(mi);
+
+          // Documento de reglas de la partida (misma composicion que GamePage).
+          type Sec = { title: string; content: string };
+          const blocks: { heading: string; content: string }[] = [];
+          if (mi.use_global_rules) {
+            const { data: secs } = await publicDb.from('rule_sections').select('title, content').is('alliance_id', null).eq('is_active', true).order('order_index');
+            (secs as Sec[] | null)?.forEach((s) => blocks.push({ heading: `📜 ${s.title}`, content: s.content }));
+          }
+          if (mi.rules_alliance_id) {
+            const { data: secs } = await publicDb.from('rule_sections').select('title, content').eq('alliance_id', mi.rules_alliance_id).eq('is_active', true).order('order_index');
+            const list = (secs as Sec[] | null) ?? [];
+            if (list.length) {
+              blocks.push({ heading: `🛡 Reglamento de ${mi.alliance_name ?? 'la alianza'}`, content: '' });
+              list.forEach((s) => blocks.push({ heading: s.title, content: s.content }));
+            }
+          }
+          if (mi.custom_rules_text) {
+            blocks.push({ heading: '⚔️ Reglas exclusivas de esta partida', content: mi.custom_rules_text });
+          }
+          if (!blocks.length) {
+            blocks.push({
+              heading: '📜 Reglamento de AllianceHub',
+              content: 'Al participar en las partidas de AllianceHub aceptas el reglamento completo disponible en la seccion Reglas. Las infracciones son sancionadas con strikes, penalizaciones de kills efectivas o suspensiones segun su gravedad. El uso de multicuentas, exploits o conducta toxica esta prohibido y puede resultar en ban permanente.',
+            });
+          }
+          setRuleBlocks(blocks);
+          const fp = blocks.map((b) => `${b.heading}\n${b.content}`).join('\n---\n');
+
           // Credenciales si ya está aprobado/confirmado
           if (st === 'confirmed' || st === 'approved') {
             if (!mi.requires_approval || st === 'approved' || st === 'confirmed') {
-              if (hasRuleConsent(playerId, matchId)) setShowCredentials(true);
+              if (hasRuleConsent(playerId, matchId, fp)) setShowCredentials(true);
               else setConsentOpen(true);
             }
           }
@@ -106,7 +141,7 @@ export default function RegisterPage() {
         p_token: getSessionToken() || '',
       });
       if (rpcErr) throw rpcErr;
-      setRuleConsent(playerId, matchId);
+      setRuleConsent(playerId, matchId, rulesFingerprint);
       try { localStorage.setItem('ah2_last_registered_match', matchId); } catch { /* noop */ }
 
       if (match?.requires_approval) {
@@ -115,7 +150,7 @@ export default function RegisterPage() {
       } else {
         setSuccess('✓ ¡Registrado! Redirigiendo…');
         setRegStatus('confirmed');
-        setTimeout(() => navigate('/partida?id=' + matchId), 1500);
+        setTimeout(() => navigate('/partidas/' + matchId), 1500);
       }
       void regStatus;
     } catch (e: any) {
@@ -226,16 +261,23 @@ export default function RegisterPage() {
           <div style={{ ...styles.card, maxWidth: 560, width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ color: colors.text, marginTop: 0 }}>📜 Reglamento de la partida</h3>
             <div
+              ref={(el) => {
+                // Fix: documento corto = sin overflow = el evento scroll jamas
+                // dispara y el boton quedaba bloqueado. Sin overflow => leido.
+                if (el && el.scrollHeight <= el.clientHeight + 20) setConsentScrolled(true);
+              }}
               onScroll={(e) => {
                 const el = e.currentTarget;
                 if (el.scrollTop + el.clientHeight >= el.scrollHeight - 20) setConsentScrolled(true);
               }}
               style={{ overflowY: 'auto', flex: 1, minHeight: 200, color: colors.muted, fontSize: 14, lineHeight: 1.6, paddingRight: 6 }}
             >
-              <p>Al participar en las partidas de AllianceHub aceptas el reglamento completo disponible en la sección Reglas.</p>
-              <p>Las infracciones son sancionadas con strikes, penalizaciones de kills efectivas o suspensiones según su gravedad.</p>
-              <p>El uso de multicuentas, exploits o conducta tóxica está prohibido y puede resultar en ban permanente.</p>
-              <p>Los resultados se calculan con las bajas efectivas: los strikes aplican penalizaciones según su fórmula.</p>
+              {ruleBlocks.map((b, i) => (
+                <div key={i} style={{ marginBottom: 16 }}>
+                  <h4 style={{ color: colors.text, margin: '0 0 6px', fontSize: 14 }}>{b.heading}</h4>
+                  {b.content && <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{b.content}</p>}
+                </div>
+              ))}
               <p style={{ marginBottom: 0 }}>Desliza hasta el final y marca la casilla para confirmar que leíste y aceptas el reglamento.</p>
             </div>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '12px 0', color: colors.text, fontSize: 14 }}>
@@ -248,7 +290,7 @@ export default function RegisterPage() {
                 disabled={!consentChecked || !consentScrolled}
                 onClick={() => {
                   setConsentOpen(false);
-                  setRuleConsent(playerId!, matchId!);
+                  setRuleConsent(playerId!, matchId!, rulesFingerprint);
                   if (regStatus === 'confirmed' || regStatus === 'approved') setShowCredentials(true);
                   else doRegister();
                 }}

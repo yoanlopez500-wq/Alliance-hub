@@ -154,8 +154,10 @@ function consentKey(playerId: number | string, matchId: string) {
   return `${STORAGE_KEY_PREFIX}${playerId}_${matchId}`;
 }
 
-function consentHash(playerId: number | string, matchId: string): string {
-  const str = `${CONSENT_SALT}|${playerId}|${matchId}`;
+function consentHash(playerId: number | string, matchId: string, rulesDoc = ''): string {
+  // rulesDoc: contenido del documento de reglas aceptado. Si el staff cambia las
+  // reglas de la partida, el hash cambia y el consentimiento previo queda invalidado.
+  const str = `${CONSENT_SALT}|${playerId}|${matchId}|${rulesDoc}`;
   let hash = 5381;
   for (let i = 0; i < str.length; i++) {
     hash = ((hash << 5) + hash) + str.charCodeAt(i);
@@ -164,15 +166,15 @@ function consentHash(playerId: number | string, matchId: string): string {
   return (hash >>> 0).toString(36);
 }
 
-export function hasRuleConsent(playerId: number | string, matchId: string): boolean {
+export function hasRuleConsent(playerId: number | string, matchId: string, rulesDoc = ''): boolean {
   try {
-    return localStorage.getItem(consentKey(playerId, matchId)) === `accepted:${consentHash(playerId, matchId)}`;
+    return localStorage.getItem(consentKey(playerId, matchId)) === `accepted:${consentHash(playerId, matchId, rulesDoc)}`;
   } catch { return false; }
 }
 
-export function setRuleConsent(playerId: number | string, matchId: string) {
+export function setRuleConsent(playerId: number | string, matchId: string, rulesDoc = '') {
   try {
-    localStorage.setItem(consentKey(playerId, matchId), `accepted:${consentHash(playerId, matchId)}`);
+    localStorage.setItem(consentKey(playerId, matchId), `accepted:${consentHash(playerId, matchId, rulesDoc)}`);
   } catch { /* noop */ }
 }
 
