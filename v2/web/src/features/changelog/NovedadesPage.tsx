@@ -36,6 +36,16 @@ const CHANGES: ChangeItem[] = [
   {
     date: '10 oct',
     phase: 'Fase 2',
+    icon: '🧮',
+    impact: 'Mejora',
+    audiences: ['jugadores', 'lideres'],
+    title: 'Enlace directo a AllianceHub Tactics',
+    body: 'La barra superior incluye ahora un acceso permanente a AllianceHub Tactics (simulador de batallas y academia táctica) en tactics.alliancehub.app, tambien desde la portada y el pie de pagina. Y al reves: desde Tactics puedes volver a la plataforma con un solo clic.',
+    bullets: [],
+  },
+  {
+    date: '10 oct',
+    phase: 'Fase 2',
     icon: '💬',
     impact: 'Nuevo',
     audiences: ['jugadores', 'lideres'],

@@ -11,12 +11,20 @@
   color-scheme: dark;
 }
 
-body {
+html, body {
   margin: 0;
   background: #0a0e27;
   color: #e8eaf6;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   overflow-x: hidden;
+}
+
+/* En movil el layout viewport se inflaba por los brillos decorativos
+   (position:absolute de 500px) y los menus del nav se anclaban fuera de
+   pantalla. 'clip' recorta sin crear contenedor de scroll: el nav sticky
+   y el dropdown en portal siguen funcionando. */
+@supports (overflow: clip) {
+  html, body { overflow-x: clip; }
 }
 
 /* ---------- Scrollbar personalizado ---------- */

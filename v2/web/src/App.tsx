@@ -17,7 +17,6 @@ import AlliancePanelPage from './features/alliance/AlliancePanelPage';
 import MiEspacioPage from './features/alliance/MiEspacioPage';
 import LoginPage from './features/auth/LoginPage';
 import LandingPage from './features/landing/LandingPage';
-import NovedadesPage from './features/changelog/NovedadesPage';
 import FuncionesPage from './features/guide/FuncionesPage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import GamePage from './features/game/GamePage';
@@ -403,6 +402,13 @@ export default function App() {
             border: `1.5px solid ${colors.warning}`,
             color: activeMode === 'admin' ? '#1a1400' : colors.warning,
           }}>🛡 Admin</button>
+          <a href="https://tactics.alliancehub.app" title="Simulador de batallas y asesor táctico" style={{
+            ...pillBase,
+            textDecoration: 'none',
+            background: 'transparent',
+            border: `1.5px solid ${colors.info}`,
+            color: colors.info,
+          }}>🧮 Tactics</a>
           <span style={{ flex: 1 }} />
           {loggedIn ? (
             <button onClick={() => { signOutAll().finally(() => reload()); }} style={{
@@ -435,7 +441,9 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/partidas" element={<DashboardPage />} />
           <Route path="/partidas/:id" element={<GamePage />} />
-          <Route path="/novedades" element={<NovedadesPage />} />
+          {/* /novedades comparte destino canonico con la pestaña del hub de informacion:
+             asi el boton "Novedades" del menu SIEMPRE muestra un cambio visible. */}
+          <Route path="/novedades" element={<Navigate to="/info?tab=novedades" replace />} />
           <Route path="/info" element={<InfoPage />} />
           <Route path="/funciones" element={<FuncionesPage />} />
           <Route path="/reportar" element={<ReportPage />} />
