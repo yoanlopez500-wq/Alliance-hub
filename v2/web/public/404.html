@@ -3,14 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AllianceHub — Redirigiendo…</title>
-    <style>
-      body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
-             background: #0a0e27; color: #e2e8f0; font-family: system-ui, sans-serif; text-align: center; }
-      .box { padding: 32px; }
-      h1 { font-size: 20px; margin: 0 0 8px; }
-      p { color: #94a3b8; font-size: 14px; margin: 0; }
-    </style>
+    <title>AllianceHub — Torneos, rankings y alianzas de Supremacy 1914</title>
+    <meta name="description" content="Plataforma oficial de competición para alianzas de Supremacy 1914: torneos y partidas con resultados verificados, rankings por bajas efectivas, strikes y sanciones con evidencia, reglamento y gestión de alianzas." />
+    <meta name="theme-color" content="#0a0e27" />
+    <meta name="robots" content="noindex, follow" />
+
+    <!--
+      GitHub Pages sirve este archivo para CUALQUIER ruta desconocida (deep links
+      de la SPA: /alianzas/:id, /partidas/:id, /login, etc.). Los rastreadores de
+      redes (WhatsApp/FB/Discord/Telegram) no ejecutan JavaScript: por eso aqui van
+      los mismos metadatos Open Graph / Twitter Card de la portada, con la imagen
+      oficial unica. Los usuarios son redirigidos por el script de abajo.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AllianceHub" />
+    <meta property="og:url" content="https://alliancehub.app/" />
+    <meta property="og:title" content="AllianceHub — Torneos, rankings y alianzas de Supremacy 1914" />
+    <meta property="og:description" content="Compite con tu alianza: partidas y torneos con resultados verificados, rankings por bajas efectivas y disciplina con evidencia." />
+    <meta property="og:image" content="https://alliancehub.app/icons/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="AllianceHub — plataforma de competición para alianzas de Supremacy 1914" />
+    <meta property="og:locale" content="es_ES" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="AllianceHub — Torneos, rankings y alianzas de Supremacy 1914" />
+    <meta name="twitter:description" content="Compite con tu alianza: partidas y torneos con resultados verificados, rankings por bajas efectivas y disciplina con evidencia." />
+    <meta name="twitter:image" content="https://alliancehub.app/icons/og-image.png" />
+
     <script>
       // GitHub Pages sirve este archivo para rutas desconocidas (deep links / refresh en la PWA).
       // Redirigimos al shell de la SPA preservando la ruta original.
@@ -28,11 +47,27 @@
         );
       })();
     </script>
+    <style>
+      body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+             background: #0a0e27; color: #e2e8f0; font-family: system-ui, sans-serif; text-align: center; }
+      .box { padding: 32px; }
+      h1 { font-size: 20px; margin: 0 0 8px; }
+      p { color: #94a3b8; font-size: 14px; margin: 0 0 16px; }
+      a { color: #ff8f00; font-size: 14px; }
+    </style>
   </head>
   <body>
     <div class="box">
-      <h1>AllianceHub</h1>
-      <p>Redirigiendo…</p>
+      <h1>⚔️ AllianceHub</h1>
+      <p>Cargando…</p>
+      <a href="https://alliancehub.app/"> alliancehub.app</a>
     </div>
+    <noscript>
+      <div class="box">
+        <h1>AllianceHub</h1>
+        <p>Torneos, rankings y alianzas de Supremacy 1914.</p>
+        <a href="https://alliancehub.app/">Entrar en AllianceHub</a>
+      </div>
+    </noscript>
   </body>
 </html>
