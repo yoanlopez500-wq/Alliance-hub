@@ -7,6 +7,7 @@
     "dev": "vite",
     "prebuild": "node scripts/generate-sitemap.mjs",
     "build": "tsc -b && vite build",
+    "postbuild": "node scripts/generate-og.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -16,9 +17,12 @@
     "@supabase/supabase-js": "^2.45.0"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.3",
     "@vitejs/plugin-react": "^4.3.1",
+    "satori": "^0.12.0",
+    "sharp": "^0.33.5",
     "typescript": "^5.5.3",
     "vite": "^5.4.0"
   }

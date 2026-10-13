@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
-import { serverApi } from '../../lib/api';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { serverApi, publicDb } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import Loader from '../../components/Loader';
 import Button from '../../components/Button';
@@ -14,6 +15,10 @@ type SpaceData = {
 };
 
 const LINK_TYPES = ['whatsapp', 'discord', 'telegram', 'web'];
+const DISCORD_CLIENT_ID = '1559346682208981024';
+const DISCORD_INVITE = `https://discord.com/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&scope=bot&permissions=536890368`;
+
+type DiscordStatus = { linked: boolean; guild_name?: string; alliance_notices?: boolean };
 
 /**
  * Mi Espacio (v2): panel del lider/oficial. Apariencia + Tablon + Reglamento.
@@ -24,7 +29,11 @@ export default function MiEspacioPage({ allianceId }: { allianceId: string }) {
     () => serverApi.get(`/alliances/${allianceId}/space`),
     [allianceId]
   );
-  const [tab, setTab] = useState<'apariencia' | 'tablon' | 'reglamento'>('apariencia');
+  const [searchParams] = useSearchParams();
+  const initialTab = (['apariencia', 'tablon', 'reglamento', 'discord'] as const).includes(searchParams.get('tab') as any)
+    ? searchParams.get('tab') as 'apariencia' | 'tablon' | 'reglamento' | 'discord'
+    : 'apariencia';
+  const [tab, setTab] = useState<'apariencia' | 'tablon' | 'reglamento' | 'discord'>(initialTab);
   const [msg, setMsg] = useState<string | null>(null);
   const [profile, setProfile] = useState<{ description: string; welcome_text: string; accent_color: string; links: any[] }>({ description: '', welcome_text: '', accent_color: colors.accent, links: [] as any[] });
   const logoRef = useRef<HTMLInputElement>(null);
@@ -32,6 +41,56 @@ export default function MiEspacioPage({ allianceId }: { allianceId: string }) {
   const [ann, setAnn] = useState({ title: '', body: '', days: 30, pinned: false, image: null as File | null });
   const [rule, setRule] = useState({ title: '', content: '' });
   const [busy, setBusy] = useState(false);
+  const [discordStatus, setDiscordStatus] = useState<DiscordStatus | null>(null);
+  const [linkCode, setLinkCode] = useState<{ code: string; expires_at: string } | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
+
+  async function copyLinkCode() {
+    if (!linkCode) return;
+    try {
+      await navigator.clipboard.writeText(linkCode.code);
+      setCodeCopied(true);
+      setMsg('Código copiado al portapapeles. Pégalo en Discord con /vincular.');
+      setTimeout(() => setCodeCopied(false), 1800);
+    } catch {
+      setMsg('No se pudo copiar automáticamente: selecciona el código manualmente.');
+    }
+  }
+
+  useEffect(() => {
+    publicDb.rpc('discord_get_status', { p_alliance_id: allianceId })
+      .then(({ data }: any) => { if (data) setDiscordStatus(data as DiscordStatus); }, () => {});
+  }, [allianceId]);
+
+  async function genCode() {
+    setBusy(true); setMsg(null);
+    try {
+      const { data, error } = await publicDb.rpc('discord_generate_link_code', { p_alliance_id: allianceId });
+      if (error) throw new Error(error.message);
+      const row = Array.isArray(data) ? data[0] : data;
+      setLinkCode(row);
+      setMsg('Código generado. Caduca en 15 minutos.');
+    } catch (e: any) { setMsg(`Error: ${e.message}`); }
+    finally { setBusy(false); }
+  }
+
+  async function toggleDiscordNotices(on: boolean) {
+    try {
+      await publicDb.rpc('discord_set_alliance_notices', { p_alliance_id: allianceId, p_on: on });
+      setDiscordStatus((s) => (s ? { ...s, alliance_notices: on } : s));
+      setMsg(on ? 'Avisos de Discord activados.' : 'Avisos de Discord desactivados.');
+    } catch (e: any) { setMsg(`Error: ${e.message}`); }
+  }
+
+  async function unlinkDiscord() {
+    if (!window.confirm('¿Desvincular el canal de Discord? Dejará de recibir avisos.')) return;
+    try {
+      await publicDb.rpc('discord_unlink', { p_alliance_id: allianceId });
+      setDiscordStatus({ linked: false });
+      setLinkCode(null);
+      setMsg('Canal desvinculado.');
+    } catch (e: any) { setMsg(`Error: ${e.message}`); }
+  }
 
   // Precargar formulario cuando llega el espacio (una sola vez por carga)
   if (data && profile.description === '' && profile.links.length === 0 && !profile.welcome_text && data.alliance.description) {
@@ -93,7 +152,7 @@ export default function MiEspacioPage({ allianceId }: { allianceId: string }) {
       {msg && <p style={{ color: colors.info }}>{msg}</p>}
 
       <div style={{ display: 'flex', gap: 8, margin: '16px 0' }}>
-        {(['apariencia', 'tablon', 'reglamento'] as const).map((t) => (
+        {(['apariencia', 'tablon', 'reglamento', 'discord'] as const).map((t) => (
           <Button
             key={t}
             variant={tab === t ? 'primary' : 'ghost'}
@@ -189,6 +248,67 @@ export default function MiEspacioPage({ allianceId }: { allianceId: string }) {
               <Button variant="danger" onClick={async () => { await serverApi.delete(`/alliances/${allianceId}/rules/${r.id}`); reload(); }}>Borrar</Button>
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === 'discord' && (
+        <div style={styles.card}>
+          <h3 style={{ color: colors.text, marginTop: 0 }}>🎮 Integración con Discord</h3>
+          {discordStatus === null ? <Loader /> : !discordStatus.linked ? (
+            <div>
+              <p style={{ color: colors.muted, fontSize: 14 }}>
+                Conecta tu alianza con un canal de Discord: cada anuncio (con imagen) y cada partida de tu alianza
+                se publicará ahí automáticamente, al mismo instante que la notificación push.
+              </p>
+              <a href={DISCORD_INVITE} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                <Button variant="ghost" style={{ width: '100%' }}>1️⃣ Añadir el bot de AllianceHub a tu servidor</Button>
+              </a>
+              <Button onClick={genCode} disabled={busy} style={{ width: '100%', marginTop: 8 }}>
+                2️⃣ Generar código de vinculación
+              </Button>
+              {linkCode && (
+                <div style={{ marginTop: 12, padding: 12, background: 'rgba(0,0,0,0.25)', borderRadius: 8, textAlign: 'center' }}>
+                  <div style={{ color: colors.muted, fontSize: 12 }}>Tu código (caduca {new Date(linkCode.expires_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}) — toca para copiar</div>
+                  <div
+                    onClick={copyLinkCode}
+                    title="Toca para copiar el código"
+                    style={{ fontSize: 26, letterSpacing: 4, color: codeCopied ? colors.success : colors.accent, fontFamily: 'monospace', margin: '6px 0', cursor: 'pointer', userSelect: 'all' }}
+                  >
+                    {codeCopied ? '✓ ' : ''}{linkCode.code}
+                  </div>
+                  <div style={{ color: colors.muted, fontSize: 13 }}>
+                    En Discord, <strong>dentro del canal</strong> que quieras usar, escribe:<br />
+                    <code style={{ color: colors.text }}>/vincular {linkCode.code}</code>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <p style={{ color: colors.accent, fontSize: 15 }}>
+                ✅ Vinculado al servidor “{discordStatus.guild_name}”
+              </p>
+              <label style={{ color: colors.muted, fontSize: 13, display: 'block', marginBottom: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={!!discordStatus.alliance_notices}
+                  onChange={(e) => toggleDiscordNotices(e.target.checked)}
+                />{' '}
+                Publicar anuncios y partidas de la alianza en Discord
+              </label>
+              <Button variant="danger" onClick={unlinkDiscord} style={{ width: '100%' }}>Desvincular canal</Button>
+            </div>
+          )}
+          <details style={{ marginTop: 14 }}>
+            <summary style={{ color: colors.muted, fontSize: 13, cursor: 'pointer' }}>Comandos disponibles en Discord</summary>
+            <ul style={{ color: colors.muted, fontSize: 13, paddingLeft: 18, marginBottom: 0 }}>
+              <li><code>/vincular CODIGO</code> — vincula el canal a tu alianza</li>
+              <li><code>/avisos alianza on|off</code> — avisos de tu alianza en el canal</li>
+              <li><code>/avisos globales on|off</code> — novedades globales de AllianceHub</li>
+              <li><code>/canal-global #canal</code> — elige el canal de avisos globales del servidor</li>
+              <li><code>/estado</code> — muestra la configuración actual</li>
+            </ul>
+          </details>
         </div>
       )}
     </div>
