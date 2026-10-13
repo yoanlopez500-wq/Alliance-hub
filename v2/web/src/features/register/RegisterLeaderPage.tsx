@@ -11,9 +11,16 @@ interface InviteInfo {
   username: string;
   alliance_name: string;
   supremacy_id: number | null;
+  role: string | null;
 }
 
-/** RegisterLeaderPage — puerto de register-leader.js (signup de líder con código de invitación). */
+function roleLabel(role: string | null | undefined) {
+  if (role === 'event_admin') return 'Event Admin';
+  if (role === 'moderator') return 'Moderador';
+  return 'Líder de alianza';
+}
+
+/** RegisterLeaderPage — puerto de register-leader.js (signup admin SOLO con código de invitación). */
 export default function RegisterLeaderPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -60,7 +67,13 @@ export default function RegisterLeaderPage() {
             supremacyId = (player as { id: number }).id;
           }
         }
-        setInvite({ player_id: playerId, username, alliance_name: inv.alliance_name || '', supremacy_id: supremacyId });
+        setInvite({
+          player_id: playerId,
+          username,
+          alliance_name: inv.alliance_name || '',
+          supremacy_id: supremacyId,
+          role: inv.role || null,
+        });
         setState('form');
       } catch (e: any) {
         console.error('[verifyInvite]', e);
@@ -107,7 +120,8 @@ export default function RegisterLeaderPage() {
         try {
           await publicDb.auth.signInWithPassword({ email, password });
         } catch { /* si falla, el login queda a mano */ }
-        setTimeout(() => navigate('/admin/leader-dashboard'), 1500);
+        const isAllianceLeader = !invite?.role || invite.role === 'alliance_leader';
+        setTimeout(() => navigate(isAllianceLeader ? '/admin/leader-dashboard' : '/admin'), 1500);
       } else {
         setFormError(result.message || 'Error al crear la cuenta.');
       }
@@ -116,10 +130,13 @@ export default function RegisterLeaderPage() {
     }
   }
 
+  const label = roleLabel(invite?.role);
+  const isAllianceLeader = !invite?.role || invite.role === 'alliance_leader';
+
   return (
     <div style={{ maxWidth: 520, margin: '40px auto', padding: '0 16px' }}>
       <div style={{ ...styles.card, padding: 32 }}>
-        <h1 style={{ fontSize: 24, margin: '0 0 8px', textAlign: 'center' }}>Registro de Líder</h1>
+        <h1 style={{ fontSize: 24, margin: '0 0 8px', textAlign: 'center' }}>Registro de {label}</h1>
 
         {state === 'loading' && <Loader label="Verificando invitación…" />}
 
@@ -133,7 +150,11 @@ export default function RegisterLeaderPage() {
         {state === 'form' && invite && (
           <>
             <p style={{ textAlign: 'center', color: colors.muted, fontSize: 14 }}>
-              Has sido invitado a liderar <strong style={{ color: colors.accent }}>{invite.alliance_name}</strong>
+              {isAllianceLeader ? (
+                <>Has sido invitado a liderar <strong style={{ color: colors.accent }}>{invite.alliance_name}</strong></>
+              ) : (
+                <>Has sido invitado como <strong style={{ color: colors.accent }}>{label}</strong> del staff de AllianceHub</>
+              )}
             </p>
             {invite.username && (
               <p style={{ textAlign: 'center', fontSize: 14 }}>Jugador: <strong>{invite.username}</strong>{invite.supremacy_id ? ` (ID: ${invite.supremacy_id})` : ''}</p>
@@ -145,7 +166,7 @@ export default function RegisterLeaderPage() {
               <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: '100%', marginBottom: 16 }} />
               {formError && <div style={{ color: colors.danger, fontSize: 13, marginBottom: 12 }}>{formError}</div>}
               <Button type="submit" disabled={submitting} style={{ width: '100%' }}>
-                {submitting ? 'Creando cuenta…' : 'Crear cuenta de líder'}
+                {submitting ? 'Creando cuenta…' : `Crear cuenta de ${label.toLowerCase()}`}
               </Button>
             </form>
           </>
