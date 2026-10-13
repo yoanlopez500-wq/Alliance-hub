@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { publicDb } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
-import { usePlayerSession } from '../../lib/playerSession';
+import { usePlayerSession, useAnyPlayerId } from '../../lib/playerSession';
 import { colors, styles } from '../../theme';
 import { formatDate, STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, badgeStyle } from '../../lib/format';
 import { MatchTypeBadge } from '../../lib/matchTypes';
@@ -40,6 +40,7 @@ function getFilter(): string {
 export default function DashboardPage() {
   const [filter, setFilter] = useState(getFilter());
   const { session } = usePlayerSession();
+  const anyPlayerId = useAnyPlayerId();
 
   const { data, loading, error, reload } = useApi<{ matches: Match[]; alliances: Alliance[] }>(async () => {
     const [{ data: pub, error: e1 }, { data: als, error: e2 }] = await Promise.all([
@@ -77,7 +78,7 @@ export default function DashboardPage() {
     <div>
       <Reveal>
         <h1 style={{ color: colors.text }}>🎮 Partidas</h1>
-        <div style={{ margin: '12px 0' }}>{session?.playerId && <PushToggle playerId={session.playerId} />}</div>
+        <div style={{ margin: '12px 0' }}>{anyPlayerId && <PushToggle playerId={anyPlayerId} />}</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
           {FILTERS.map((f) => {
             const active = f.value === filter;

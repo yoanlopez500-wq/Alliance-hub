@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { publicDb, getSessionToken } from '../../lib/api';
-import { usePlayerSession, getStoredPlayerName } from '../../lib/playerSession';
+import { usePlayerSession, useAnyPlayerId, getStoredPlayerName } from '../../lib/playerSession';
 import { getSanctionSummary, hasRuleConsent, setRuleConsent, type SanctionSummary } from '../../lib/sanctions';
 import { colors, styles } from '../../theme';
 import Button from '../../components/Button';
@@ -28,6 +28,7 @@ type RegStatus = 'confirmed' | 'approved' | 'pending' | 'rejected' | null;
 /** RegisterPage — puerto de register/index.js (registro de jugador a partida). */
 export default function RegisterPage() {
   const { session, loading } = usePlayerSession();
+  const anyPlayerId = useAnyPlayerId();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const matchId = params.get('match');
@@ -221,7 +222,7 @@ export default function RegisterPage() {
                 <p style={{ fontSize: 14, margin: '4px 0' }}><strong>Contraseña:</strong> <code style={{ color: colors.info }}>{match.password || '---'}</code></p>
               </div>
             )}
-            {session && <div style={{ marginTop: 16 }}><PushToggle playerId={session.playerId} /></div>}
+            {anyPlayerId && <div style={{ marginTop: 16 }}><PushToggle playerId={anyPlayerId} /></div>}
           </div>
         )}
 

@@ -41,6 +41,28 @@ export function getStoredPlayerName(): string | null {
 }
 
 /**
+ * playerId efectivo de CUALQUIER identidad logueada: la sesion de jugador
+ * si existe; si no, la cuenta staff/admin vinculada a un jugador (via /api/me).
+ * Asi el toggle de push (y cualquier cosa ligada al jugador) es visible
+ * tambien entrando como admin, no solo con la sesion de jugador.
+ */
+export function useAnyPlayerId(): number | null {
+  const { session } = usePlayerSession();
+  const [fallback, setFallback] = useState<number | null>(null);
+  useEffect(() => {
+    if (session?.playerId) return;
+    let cancelled = false;
+    serverApi.get('/me')
+      .then((me: { playerId?: number }) => {
+        if (!cancelled && me?.playerId) setFallback(Number(me.playerId));
+      })
+      .catch(() => { /* sin sesion: null */ });
+    return () => { cancelled = true; };
+  }, [session]);
+  return session?.playerId ?? fallback;
+}
+
+/**
  * Rol de visibilidad para reglas (public/player/official/leader/admin/superadmin).
  * Derivado de /api/me: staff por rol, lider/oficial por managedAllianceId.
  */
