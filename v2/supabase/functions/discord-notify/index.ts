@@ -138,25 +138,39 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'bot is not in that guild (invite it first)' }, 400)
     }
 
-    const wh = (await discordApi(`/channels/${channel_id}/webhooks`, 'POST', { name: 'AllianceHub' })) as { url?: string; id?: string }
+    let wh: { url?: string; id?: string }
+    try {
+      wh = (await discordApi(`/channels/${channel_id}/webhooks`, 'POST', { name: 'AllianceHub' })) as { url?: string; id?: string }
+    } catch (err) {
+      // 403/404 tipicos: el bot no tiene Manage Webhooks en ESE canal, o el
+      // canal no admite webhooks. Se reporta el motivo real al usuario.
+      return json({ error: `no pude crear el webhook en ese canal: ${(err as Error).message}` }, 502)
+    }
     if (!wh.url) return json({ error: 'discord did not return a webhook url' }, 500)
 
-    await db('alliance_discord?on_conflict=alliance_id', {
-      method: 'POST',
-      prefer: 'resolution=merge-duplicates',
-      body: {
-        alliance_id,
-        guild_id,
-        channel_id,
-        webhook_url: wh.url,
-        linked_at: new Date().toISOString(),
-      },
-    })
-    await db('discord_installations?on_conflict=guild_id', {
-      method: 'POST',
-      prefer: 'resolution=merge-duplicates',
-      body: { guild_id, guild_name: guildName, global_channel_id: channel_id },
-    })
+    // Si falla cualquier escritura en BD, se compensa borrando el webhook
+    // que ya se creo en Discord, para no dejar vinculaciones parciales.
+    try {
+      await db('alliance_discord?on_conflict=alliance_id', {
+        method: 'POST',
+        prefer: 'resolution=merge-duplicates',
+        body: {
+          alliance_id,
+          guild_id,
+          channel_id,
+          webhook_url: wh.url,
+          linked_at: new Date().toISOString(),
+        },
+      })
+      await db('discord_installations?on_conflict=guild_id', {
+        method: 'POST',
+        prefer: 'resolution=merge-duplicates',
+        body: { guild_id, guild_name: guildName },
+      })
+    } catch (err) {
+      try { await discordApi(`/webhooks/${wh.id}`, 'DELETE') } catch { /* best effort */ }
+      return json({ error: `vinculacion fallo y se revierte: ${(err as Error).message}` }, 502)
+    }
 
     try {
       await postWebhook(wh.url, {
@@ -167,6 +181,21 @@ Deno.serve(async (req: Request) => {
       // no fatal
     }
     return json({ ok: true, alliance: alliance.name, guild: guildName, webhook_id: wh.id })
+  }
+
+  // ---------- DELETE_WEBHOOK (admin; limpieza de webhooks huérfanos) ----------
+  if (event === 'delete_webhook') {
+    const { webhook_url } = body
+    if (!webhook_url) return json({ error: 'webhook_url is required' }, 400)
+    const m = String(webhook_url).match(/webhooks\/(\d+)\/([^/?]+)/)
+    if (!m) return json({ error: 'bad webhook_url' }, 400)
+    try {
+      await discordApi(`/webhooks/${m[1]}/${m[2]}`, 'DELETE')
+      return json({ ok: true, deleted: true })
+    } catch (err) {
+      // 404 = ya no existe; también cuenta como limpio
+      return json({ ok: true, deleted: false, reason: (err as Error).message })
+    }
   }
 
   // ---------- GUILDS (descubrimiento; el sandbox no alcanza discord.com) ----------
