@@ -87,6 +87,8 @@ export default function PushToggle({ playerId, allianceId }: { playerId: number;
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [step, setStep] = useState<Step>('idle');
+  // Diagnóstico siempre visible: qué dice Chrome REALMENTE (sin fiarnos del toggle)
+  const [permNow, setPermNow] = useState<NotificationPermission | 'desconocido'>('desconocido');
 
   // Estado real del permiso visto con la Permissions API: se sincroniza solo
   // aunque el permiso cambie desde ajustes de Android/Chrome con la app abierta.
@@ -100,6 +102,7 @@ export default function PushToggle({ playerId, allianceId }: { playerId: number;
         onChange = () => {
           const granted = status?.state === 'granted';
           setEnabled(granted);
+          setPermNow(Notification.permission);
           if (granted) localStorage.setItem(FLAG_KEY, '1');
           else localStorage.removeItem(FLAG_KEY);
         };
@@ -108,6 +111,7 @@ export default function PushToggle({ playerId, allianceId }: { playerId: number;
       } catch {
         // Permissions API no disponible: sincronización manual de respaldo
         try {
+          setPermNow(Notification.permission);
           if (Notification.permission !== 'granted') {
             setEnabled(false);
             localStorage.removeItem(FLAG_KEY);
@@ -126,6 +130,7 @@ export default function PushToggle({ playerId, allianceId }: { playerId: number;
     if (Notification.permission === 'default') {
       setStep('permiso');
       const perm = await withTimeout(Notification.requestPermission(), 20000, 'permiso');
+      setPermNow(Notification.permission);
       if (perm !== 'granted') {
         setHint(perm === 'denied' ? DENIED_HINT : 'Permiso no concedido. Inténtalo de nuevo cuando quieras.');
         return false;
@@ -258,6 +263,12 @@ export default function PushToggle({ playerId, allianceId }: { playerId: number;
           ⚠️ {hint}
         </span>
       )}
+      <span style={{ fontSize: 11, color: colors.muted }}>
+        Diagnóstico — permiso según Chrome: <b>{permNow}</b>
+        {permNow === 'denied' && ' (bloqueado: revisa el checklist de Chrome/Ajustes)'}
+        {permNow === 'default' && ' (aún sin decidir: al activar debería salir el diálogo del sistema)'}
+        {permNow === 'granted' && ' (Chrome lo permite; si no funciona el fallo está después)'}
+      </span>
     </div>
   );
 }
