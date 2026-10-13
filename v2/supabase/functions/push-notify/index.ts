@@ -28,6 +28,28 @@ interface PushSubscriptionRow {
 // deno-lint-ignore no-explicit-any
 type Supabase = any
 
+// VAPID se carga desde push_config (fuente de verdad unica). Las env vars del
+// despliegue quedaron con una clave publica invalida y rompian TODOS los envios
+// ("Vapid public key should be 65 bytes long"); la BD ya tiene el par correcto
+// con el que los navegadores suscriben. Fallback a env por compatibilidad.
+let vapidCfg: { privateKey?: string; publicKey?: string; subject: string } = {
+  subject: 'mailto:admin@alliancehub.com',
+}
+
+async function loadVapidConfig(supabase: Supabase): Promise<void> {
+  const { data: rows } = await supabase
+    .from('push_config')
+    .select('key, value')
+    .in('key', ['vapid_private_key', 'vapid_public_key', 'vapid_subject'])
+  const map: Record<string, string> = {}
+  for (const r of (rows ?? []) as { key: string; value: string }[]) map[r.key] = r.value
+  vapidCfg = {
+    privateKey: map['vapid_private_key'] ?? Deno.env.get('VAPID_PRIVATE_KEY') ?? undefined,
+    publicKey: map['vapid_public_key'] ?? Deno.env.get('VAPID_PUBLIC_KEY') ?? undefined,
+    subject: map['vapid_subject'] ?? Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@alliancehub.com',
+  }
+}
+
 // Loop de envio + limpieza de endpoints 404/410. Reutilizado por todos los eventos.
 // urgency 'high' = prioridad alta en FCM: se entrega incluso con el telefono en
 // reposo (Doze), como las notificaciones de WhatsApp.
@@ -37,11 +59,11 @@ async function sendToSubs(
   payload: string,
   urgency: 'normal' | 'high' = 'high',
 ): Promise<{ sent: number; failed: number }> {
-  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')
-  const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')
-  const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@alliancehub.app'
-  if (!vapidPrivateKey) throw new Error('missing env VAPID_PRIVATE_KEY')
-  if (!vapidPublicKey) throw new Error('missing env VAPID_PUBLIC_KEY')
+  const vapidPrivateKey = vapidCfg.privateKey
+  const vapidPublicKey = vapidCfg.publicKey
+  const vapidSubject = vapidCfg.subject
+  if (!vapidPrivateKey) throw new Error('missing VAPID_PRIVATE_KEY')
+  if (!vapidPublicKey) throw new Error('missing VAPID_PUBLIC_KEY')
   webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey)
 
   let sent = 0
@@ -84,7 +106,6 @@ Deno.serve(async (req: Request) => {
   if (!supabaseUrl) return json({ error: 'missing env SUPABASE_URL' }, 500)
   if (!serviceRoleKey) return json({ error: 'missing env SUPABASE_SERVICE_ROLE_KEY' }, 500)
 
-  // Auth: comparar contra el secreto vigente en push_config (fuente unica de verdad)
   const authClient = createClient(supabaseUrl, serviceRoleKey)
   const { data: secretRow, error: secretErr } = await authClient
     .from('push_config')
@@ -143,11 +164,9 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'player_id and event are required' }, 400)
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey) // public schema (default)
+  const supabase = createClient(supabaseUrl, serviceRoleKey)
+  await loadVapidConfig(supabase)
 
-  // ---------------------------------------------------------------
-  // strike_received / sanction_applied: avisar al jugador afectado
-  // ---------------------------------------------------------------
   if (PLAYER_EVENTS.includes(event)) {
     let subjectId: string | null = null
     let title = ''
@@ -197,7 +216,6 @@ Deno.serve(async (req: Request) => {
       tag = `sanction-${sanction.id}`
     }
 
-    // Dedupe: un strike/sancion solo notifica una vez
     if (!dry_run) {
       const { data: already, error: logErr } = await supabase
         .from('push_notification_log')
@@ -239,9 +257,6 @@ Deno.serve(async (req: Request) => {
     return json({ sent, failed, recipients: subs.length })
   }
 
-  // ---------------------------------------------------------------
-  // alliance_announcement: un lider/oficial publica en el tablon
-  // ---------------------------------------------------------------
   if (event === 'alliance_announcement') {
     if (!announcement_id) return json({ error: 'announcement_id is required' }, 400)
     const { data: ann, error: annErr } = await supabase
@@ -303,9 +318,6 @@ Deno.serve(async (req: Request) => {
     return json({ sent, failed, recipients: subs.length })
   }
 
-  // ---------------------------------------------------------------
-  // alliance_invitation: avisar a un jugador concreto (mercado)
-  // ---------------------------------------------------------------
   if (event === 'alliance_invitation') {
     if (!player_ids || player_ids.length === 0) return json({ error: 'player_ids is required' }, 400)
     if (!dedupe_key) return json({ error: 'dedupe_key is required' }, 400)
@@ -353,9 +365,6 @@ Deno.serve(async (req: Request) => {
     return json({ sent: sentInv, failed: failedInv, recipients: subsInv.length })
   }
 
-  // ---------------------------------------------------------------
-  // batallon_reminder: recordatorios 2x/dia (slot morning|afternoon)
-  // ---------------------------------------------------------------
   if (event === 'batallon_reminder') {
     if (slot !== 'morning' && slot !== 'afternoon') {
       return json({ error: "slot must be 'morning' or 'afternoon'" }, 400)
@@ -440,9 +449,6 @@ Deno.serve(async (req: Request) => {
     return json({ success: true, event: logEvent, results })
   }
 
-  // ---------------------------------------------------------------
-  // Match events: new_match / status_change / results_published
-  // ---------------------------------------------------------------
   const { data: match, error: matchErr } = await supabase
     .from('matches')
     .select('id, name, match_type, status, alliance_id, category')
@@ -462,7 +468,6 @@ Deno.serve(async (req: Request) => {
     if (already) return json({ skipped: true })
   }
 
-  // Resolve recipients
   let subs: PushSubscriptionRow[] = []
   if (event === 'new_match') {
     let query = supabase
@@ -475,7 +480,6 @@ Deno.serve(async (req: Request) => {
     if (error) return json({ error: `subscriptions query failed: ${error.message}` }, 500)
     subs = (data ?? []) as PushSubscriptionRow[]
   } else {
-    // status_change / results_published: solo inscritos (confirmed/approved)
     const { data: regs, error: regErr } = await supabase
       .from('match_registrations')
       .select('player_id')
@@ -539,7 +543,6 @@ Deno.serve(async (req: Request) => {
     return json({ error: (e as Error).message }, 500)
   }
 
-  // Marcar como enviado SOLO tras el envio (si alguno tuvo exito o no habia destinatarios)
   if (!dry_run && (sent > 0 || subs.length === 0)) {
     await supabase
       .from('push_notification_log')
