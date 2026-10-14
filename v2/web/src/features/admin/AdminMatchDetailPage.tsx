@@ -13,6 +13,7 @@ import Button from '../../components/Button';
 import { Input, Select, TextArea } from '../../components/Field';
 import DataTable from '../../components/DataTable';
 import Loader from '../../components/Loader';
+import ImportWizard from './ImportWizard';
 import Reveal from '../../components/Reveal';
 import MatchQuestions from '../match/MatchQuestions';
 import { ResponsiblesManager } from '../match/MatchResponsibles';
@@ -438,25 +439,6 @@ function MatchDetail() {
     const { error } = await publicDb.from('match_results').delete().eq('id', r.id);
     if (error) say('Error: ' + error.message); else { say('Resultado eliminado'); loadResults(); }
   }
-  function handleCsvFile(f: File) {
-    if (!f.name.endsWith('.csv')) { say('Solo CSV'); return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const lines = String(reader.result).split('\n').filter((l) => l.trim());
-      const rows: { player_id: number; kills: number; deaths: number }[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const c = lines[i].split(',');
-        if (c.length >= 3) {
-          const pid = parseInt(c[0].trim());
-          if (pid) rows.push({ player_id: pid, kills: parseInt(c[1].trim()) || 0, deaths: parseInt(c[2].trim()) || 0 });
-        }
-      }
-      setCsvSource('csv');
-      setCsvRows(rows);
-    };
-    reader.readAsText(f);
-  }
-
   // ---- Importacion por API (kd-excel-proxy, rate limit GLOBAL 15s server-side) ----
   async function runApiImport() {
     const gid = (match?.game_id || '').trim() || window.prompt('ID de partida en Supremacy (game_id):')?.trim() || '';
@@ -731,7 +713,7 @@ function MatchDetail() {
               <Button variant="ghost" onClick={() => setEditMatch({ ...match })}>Editar</Button>
               {canTouchResults && (
                 <>
-                  <Button variant="ghost" onClick={() => setCsvModal(true)}>📥 Importar CSV</Button>
+                  <Button variant="ghost" onClick={() => setCsvModal(true)}>📥 Importar resultados</Button>
                   <Button variant="ghost" disabled={apiBusy} onClick={runApiImport}>{apiBusy ? '⏳ Descargando...' : '📡 Importar por API'}</Button>
                   <Button variant="ghost" onClick={() => { setWinnerPicks([]); setWinnersModal(true); }}>🏆 Declarar ganadores</Button>
                 </>
@@ -991,26 +973,16 @@ function MatchDetail() {
         </Modal>
       )}
 
-      {/* Modal: importar CSV */}
+      {/* Modal: importar resultados (API = exportador externo; asistente = archivo) */}
       {csvModal && (
-        <Modal onClose={() => { setCsvModal(false); setCsvRows(null); apiUnitsRef.current = null; }} width={560}>
-          <h3 style={{ margin: '0 0 12px', color: colors.text }}>{csvSource === 'api' ? '📡 Importar por API (resultados)' : '📥 Importar CSV de resultados'}</h3>
+        <Modal onClose={() => { setCsvModal(false); setCsvRows(null); apiUnitsRef.current = null; }} width={csvSource === 'api' ? 560 : 680}>
           {csvSource === 'api' ? (
+            <>
+          <h3 style={{ margin: '0 0 12px', color: colors.text }}>📡 Importar por API (resultados)</h3>
             <p style={{ fontSize: 12, color: colors.muted }}>
               Datos descargados del exportador externo. Bots (UID {'<='} 0) excluidos automaticamente.
               Rate limit global: 1 descarga cada 15 s como minimo (seguridad).
             </p>
-          ) : (
-            <p style={{ fontSize: 12, color: colors.muted }}>Formato: <code>player_id,kills,deaths</code> (una fila por jugador, con header).</p>
-          )}
-          {csvSource !== 'api' && (
-          <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleCsvFile(f); }}
-            onClick={() => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv'; inp.onchange = () => { const f = inp.files?.[0]; if (f) handleCsvFile(f); }; inp.click(); }}
-            style={{ border: `2px dashed ${colors.border}`, borderRadius: 10, padding: 24, textAlign: 'center', cursor: 'pointer', color: colors.muted, fontSize: 13 }}
-          >Arrastra el CSV aqui o haz clic para seleccionar</div>
-          )}
           {csvRows && (
             <>
               <div style={{ maxHeight: 260, overflowY: 'auto', marginTop: 12, border: `1px solid ${colors.border}`, borderRadius: 8 }}>
@@ -1034,6 +1006,35 @@ function MatchDetail() {
                 <Button variant="ghost" onClick={() => { setCsvModal(false); setCsvRows(null); apiUnitsRef.current = null; }}>Cancelar</Button>
                 <Button onClick={confirmCsvImport}>Importar {csvRows.length} resultados</Button>
               </div>
+            </>
+          )}
+            </>
+          ) : (
+            <>
+              <h3 style={{ margin: '0 0 12px', color: colors.text }}>📥 Importar resultados (asistente)</h3>
+              <p style={{ fontSize: 12, color: colors.muted, marginTop: 0 }}>
+                Acepta <code>.csv</code>, <code>.xlsx</code> y <code>.xls</code>. Detecta la cabecera, propone el mapeo de columnas,
+                valida los UID contra el registro de jugadores y no importa nada con numeros dudosos.
+              </p>
+              <ImportWizard
+                matchId={matchId}
+                onDone={async (rep) => {
+                  try {
+                    await publicDb.from('matches').update({ csv_imported: true }).eq('id', matchId);
+                    const regRes = await ensureRegs(rep.playerIds.map((player_id) => ({ player_id })));
+                    let msg = `Importado: ${rep.imported} jugadores`;
+                    if (rep.omitted > 0) msg += ` · ${rep.omitted} omitidos`;
+                    if (regRes.failed) msg += ' · AVISO: no se pudieron crear los registros automaticos';
+                    else if (regRes.inserted > 0) msg += ` · + ${regRes.inserted} registros creados`;
+                    say(msg);
+                  } catch (e: any) {
+                    say('Importado con avisos: ' + (e?.message ?? e));
+                  }
+                  setCsvModal(false); setCsvRows(null); apiUnitsRef.current = null;
+                  loadResults(); loadRegistrations(); loadMatch();
+                }}
+                onCancel={() => { setCsvModal(false); setCsvRows(null); apiUnitsRef.current = null; }}
+              />
             </>
           )}
         </Modal>

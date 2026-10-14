@@ -1,4 +1,5 @@
 import { SUPABASE_URL } from './api';
+import { slugifyHeader, KD_REGEX } from './importer/text';
 
 /**
  * Importador de estadisticas K/D desde el exportador externo (Excel).
@@ -47,15 +48,6 @@ export class ApiImportRateLimited extends Error {
 
 export interface ApiImportRow { player_id: number; kills: number; deaths: number; nation?: string; units?: ApiImportUnit[] }
 export interface ApiImportUnit { unit_key: string; kills: number; deaths: number }
-
-/** Clave canonica de una columna de unidad: sin acentos/simbolos, snake_case. */
-function slugifyHeader(h: string): string {
-  return h.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().replace(/["'()]/g, '').replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-}
-
-const KD_REGEX = /^(\d+)\s*[/|]\s*(\d+)(?:\s*\(.*\))?$/;
 
 /**
  * Descarga el Excel de la partida via el proxy (con token server-side) y
