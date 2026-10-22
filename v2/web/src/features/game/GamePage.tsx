@@ -10,7 +10,7 @@ import {
 import { compareMatchResults } from '../../lib/ranking';
 import { colors, styles } from '../../theme';
 import { formatDate, STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, badgeStyle } from '../../lib/format';
-import { MatchTypeBadge } from '../../lib/matchTypes';
+import { MatchTypeBadge, useMatchTypes } from '../../lib/matchTypes';
 import Loader from '../../components/Loader';
 import MatchQuestions from '../match/MatchQuestions';
 import { ResponsiblesCard } from '../match/MatchResponsibles';
@@ -47,6 +47,8 @@ export default function GamePage() {
   const [consentOpen, setConsentOpen] = useState(false);
   const [consentScroll, setConsentScroll] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const { types: matchTypesList } = useMatchTypes();
 
   const { data, loading, error, reload } = useApi<{
     match: Match; alliances: Record<string, Alliance>; me: {
@@ -152,6 +154,33 @@ export default function GamePage() {
   const confirmed = me.regStatus === 'confirmed' || me.regStatus === 'approved';
   const isRegistered = !!me.regStatus;
 
+  // Texto listo para copiar y pegar e invitar amigos por Discord/WhatsApp.
+  const typeNames = new Map((matchTypesList ?? []).map((t) => [t.id, t.name]));
+  async function shareMatch(match: Match, typeLabel: string | null | undefined) {
+    const regUrl = `${window.location.origin}/registro?match=${match.id}`;
+    const lines = [
+      `⚔️ ${match.name} — AllianceHub`,
+      typeLabel ? `Tipo: ${typeLabel}` : null,
+      match.max_players ? `Máx. jugadores: ${match.max_players}` : null,
+      match.description ? `\n${match.description}` : null,
+      `\nApúntate aquí: ${regUrl}`,
+    ].filter(Boolean);
+    const text = lines.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback para navegadores sin clipboard API en contexto seguro
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+
   let allianceLabel = '🌐 Global';
   if (m.match_type === 'internal' && m.alliance_id && alliances[m.alliance_id]) {
     const a = alliances[m.alliance_id];
@@ -196,6 +225,11 @@ export default function GamePage() {
           )}
           {confirmed && <span style={badgeStyle('rgba(76,175,80,0.15)', colors.success)}>✓ Registrado</span>}{' '}
           {me.regStatus === 'pending' && <span style={badgeStyle('rgba(255,193,7,0.15)', '#ffd54f')}>⏳ Esperando aprobacion</span>}
+          {session && (
+            <button onClick={() => shareMatch(m, typeNames.get(m.match_type ?? '') ?? m.match_type)} style={{ ...styles.btnGhost, marginLeft: 8 }}>
+              {copied ? '✓ Copiado' : '📋 Copiar invitación'}
+            </button>
+          )}
         </div>
       </Reveal>
 

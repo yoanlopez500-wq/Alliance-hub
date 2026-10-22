@@ -16,6 +16,10 @@ type Match = {
   category: string | null; alliance_id: string | null; max_players: number | null;
   created_at: string; _fromAlliance?: boolean;
 };
+type MatchRequest = {
+  id: string; name: string; description: string | null; match_type: string | null;
+  max_players: number | null; status: string; created_at: string;
+};
 type Alliance = { id: string; name: string; tag: string };
 
 const FILTER_KEY = 'ah_match_filter';
@@ -42,13 +46,15 @@ export default function DashboardPage() {
   const { session } = usePlayerSession();
   const anyPlayerId = useAnyPlayerId();
 
-  const { data, loading, error, reload } = useApi<{ matches: Match[]; alliances: Alliance[] }>(async () => {
-    const [{ data: pub, error: e1 }, { data: als, error: e2 }] = await Promise.all([
+  const { data, loading, error, reload } = useApi<{ matches: Match[]; alliances: Alliance[]; requests: MatchRequest[] }>(async () => {
+    const [{ data: pub, error: e1 }, { data: als, error: e2 }, { data: req, error: e3 }] = await Promise.all([
       publicDb.from('public_matches_view').select('id, name, status, match_type, category, alliance_id, max_players, created_at').order('created_at', { ascending: false }).limit(50),
       publicDb.from('alliances').select('id, name, tag'),
+      publicDb.from('public_match_requests_view').select('*').order('created_at', { ascending: false }).limit(20),
     ]);
     if (e1) throw new Error(e1.message);
     if (e2) throw new Error(e2.message);
+    if (e3) throw new Error(e3.message);
     const matches = [...((pub as Match[] | null) ?? [])];
 
     // Partidas de la alianza del jugador (append, sin duplicar)
@@ -68,7 +74,7 @@ export default function DashboardPage() {
         }
       } catch { /* fallo silencioso: solo publicas, como el v1 */ }
     }
-    return { matches, alliances: (als as Alliance[]) ?? [] };
+    return { matches, alliances: (als as Alliance[]) ?? [], requests: (req as MatchRequest[]) ?? [] };
   }, [session?.playerId]);
 
   const alliances = new Map((data?.alliances ?? []).map((a) => [a.id, a]));
@@ -79,7 +85,12 @@ export default function DashboardPage() {
       <Reveal>
         <h1 style={{ color: colors.text }}>🎮 Partidas</h1>
         <div style={{ margin: '12px 0' }}>{anyPlayerId && <PushToggle playerId={anyPlayerId} />}</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
+          {anyPlayerId && (
+            <Link to="/partidas/nueva" style={{ ...styles.btnPrimary, padding: '6px 12px', textDecoration: 'none', fontSize: 12, order: 99, marginLeft: 'auto' }}>
+              + Proponer partida casual
+            </Link>
+          )}
           {FILTERS.map((f) => {
             const active = f.value === filter;
             return (
@@ -122,6 +133,30 @@ export default function DashboardPage() {
           );
         })}
       </div>
+      {(data?.requests?.length ?? 0) > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <h2 style={{ color: colors.text, fontSize: 18 }}>📨 Partidas propuestas por jugadores</h2>
+          <p style={{ color: colors.muted, fontSize: 13 }}>Estas partidas están pendientes de validación por el staff. Cuando se aprueben aparecerán arriba para inscribirse.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+            {data!.requests.map((r, i) => (
+              <Reveal key={r.id} delay={Math.min(i, 8) * 40}>
+                <div style={{
+                  display: 'block', borderRadius: 12, padding: 16,
+                  background: colors.cardAlt, border: `1px dashed ${colors.border}`,
+                }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                    <span style={badgeStyle('rgba(255,193,7,0.15)', '#ffd54f')}>⏳ Pendiente de validación</span>
+                    <MatchTypeBadge typeId={r.match_type} />
+                  </div>
+                  <h3 style={{ color: colors.text, margin: '0 0 4px' }}>{r.name}</h3>
+                  {r.description && <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 6px' }}>{r.description.length > 140 ? r.description.slice(0, 140) + '…' : r.description}</p>}
+                  <p style={{ color: colors.muted, fontSize: 12, margin: 0 }}>{formatDate(r.created_at)} | Max: {r.max_players ?? '-'}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

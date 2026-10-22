@@ -31,6 +31,7 @@ import AvisoLegalPage from './features/legal/AvisoLegalPage';
 import NotFoundPage from './features/legal/NotFoundPage';
 import ResetPasswordPage from './features/auth/ResetPasswordPage';
 import RegisterPage from './features/register/RegisterPage';
+import CreateMatchRequestPage from './features/match/CreateMatchRequestPage';
 import RegisterLeaderPage from './features/register/RegisterLeaderPage';
 import RegisterOfficerPage from './features/register/RegisterOfficerPage';
 // Admin
@@ -434,6 +435,7 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/partidas" element={<DashboardPage />} />
+          <Route path="/partidas/nueva" element={<CreateMatchRequestPage />} />
           <Route path="/partidas/:id" element={<GamePage />} />
           <Route path="/novedades" element={<NovedadesPage />} />
           <Route path="/info" element={<InfoPage />} />

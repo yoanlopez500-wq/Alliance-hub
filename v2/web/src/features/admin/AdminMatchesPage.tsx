@@ -8,6 +8,7 @@ import { colors, styles } from '../../theme';
 import { MatchTypeBadge } from '../../lib/matchTypes';
 import Loader from '../../components/Loader';
 import Reveal from '../../components/Reveal';
+import AdminMatchRequests from './AdminMatchRequests';
 
 /** AdminMatchesPage — puerto de admin-matches.js (lista con filtro por alianza para lideres). */
 function Matches() {
@@ -48,6 +49,7 @@ function Matches() {
         </select>
         {!isLeader && <Link to="/admin/partida?action=new" style={{ ...styles.btnPrimary, padding: '8px 14px', textDecoration: 'none', fontSize: 13 }}>+ Nueva partida</Link>}
       </div>
+      {!isLeader && <AdminMatchRequests />}
       {!matches ? <Loader /> : filtered.length === 0 ? (
         <p style={{ color: colors.muted, textAlign: 'center', padding: '24px 0' }}>No hay partidas. Crea la primera.</p>
       ) : filtered.map((m) => {
