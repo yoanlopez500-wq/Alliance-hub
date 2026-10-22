@@ -32,6 +32,8 @@ import NotFoundPage from './features/legal/NotFoundPage';
 import ResetPasswordPage from './features/auth/ResetPasswordPage';
 import RegisterPage from './features/register/RegisterPage';
 import CreateMatchRequestPage from './features/match/CreateMatchRequestPage';
+import CreatorsPage from './features/creators/CreatorsPage';
+import AdminCreatorsPage from './features/admin/AdminCreatorsPage';
 import RegisterLeaderPage from './features/register/RegisterLeaderPage';
 import RegisterOfficerPage from './features/register/RegisterOfficerPage';
 // Admin
@@ -275,6 +277,7 @@ export default function App() {
       <NavLink to="/partidas" style={navStyle}>Partidas</NavLink>
       <NavLink to="/rankings" style={navStyle}>Rankings</NavLink>
       <NavLink to="/alianzas" style={navStyle}>Alianzas</NavLink>
+      <NavLink to="/creadores" style={navStyle}>Creadores</NavLink>
       <NavDropdown icon="ℹ️" label="Información" currentPath={location.pathname} items={[
         { to: '/info?tab=novedades', label: '🆕 Novedades' },
         { to: '/info?tab=funciones', label: '🧭 Funciones del proyecto' },
@@ -312,6 +315,7 @@ export default function App() {
         { to: '/partidas', label: '🎯 Partidas' },
         { to: '/rankings', label: '🏆 Rankings' },
         { to: '/alianzas', label: '🛡 Alianzas' },
+        { to: '/creadores', label: '▶️ Creadores' },
         { to: '/info?tab=novedades', label: '🆕 Novedades' },
         { to: '/info?tab=funciones', label: '🧭 Funciones' },
         { to: '/info?tab=reglas', label: '📜 Reglamento' },
@@ -321,6 +325,7 @@ export default function App() {
         ...(isStaff ? [
           { to: '/admin/jugadores', label: 'Jugadores' },
           { to: '/admin/partidas', label: 'Partidas' },
+          { to: '/admin/creadores', label: 'Creadores' },
           { to: '/admin/alianzas', label: 'Alianzas' },
           { to: '/admin/officers', label: 'Oficiales' },
           { to: '/admin/invites', label: 'Invitaciones' },
@@ -453,6 +458,7 @@ export default function App() {
           <Route path="/lider/solicitud" element={<ApplyLeaderPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/registro" element={<RegisterPage />} />
+          <Route path="/creadores" element={<CreatorsPage />} />
           <Route path="/registro/lider" element={<RegisterLeaderPage />} />
           <Route path="/registro/oficial" element={<RegisterOfficerPage />} />
           <Route path="/aviso-legal" element={<AvisoLegalPage />} />
@@ -488,6 +494,7 @@ export default function App() {
           <Route path="/admin/reglas" element={<AdminRulesEditorPage />} />
           <Route path="/admin/ligas" element={<AdminLeaguesPage />} />
           <Route path="/admin/duel-manager" element={<AdminDuelManagerPage />} />
+          <Route path="/admin/creadores" element={<AdminCreatorsPage />} />
           <Route path="/admin/rankings" element={<AdminRankingsPage />} />
           <Route path="/admin/prestigios" element={<AdminPrestigesPage />} />
           <Route path="/admin/import" element={<AdminImportPage />} />

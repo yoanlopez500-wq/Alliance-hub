@@ -270,19 +270,48 @@ Deno.serve(async (req: Request) => {
   if (event === 'staff_dm') {
     if (!botToken) return json({ error: 'missing bot_token' }, 500)
     const { kind, request_id, action } = body
-    if (kind !== 'match_request') return json({ skipped: true, reason: `kind ${kind} not handled` })
+    if (kind !== 'match_request' && kind !== 'creator_request') {
+      return json({ skipped: true, reason: `kind ${kind} not handled` })
+    }
     if (!request_id) return json({ error: 'request_id is required' }, 400)
 
-    // Solicitud + solicitante
-    const reqs = (await db(`match_requests?id=eq.${request_id}&select=id,requester_id,name,description,match_type,max_players,status,created_at`)) as {
-      id: string; requester_id: number; name: string; description: string | null;
-      match_type: string; max_players: number; status: string; created_at: string
-    }[]
-    const req = reqs?.[0]
-    if (!req) return json({ skipped: true, reason: 'request not found' })
+    // ----- Carga segun tipo: partida o creador -----
+    let itemName = ''
+    let requesterName = ''
+    let itemDesc: string | null = null
+    let extraLine = ''
+    let pendings: Record<string, string>[] = []
+    let reviewPath = '/admin/partidas'
 
-    const requesters = (await db(`players?id=eq.${req.requester_id}&select=current_username`)) as { current_username: string }[]
-    const requesterName = requesters?.[0]?.current_username ?? `Jugador ${req.requester_id}`
+    if (kind === 'match_request') {
+      const reqs = (await db(`match_requests?id=eq.${request_id}&select=id,requester_id,name,description,match_type,max_players,status,created_at`)) as {
+        id: string; requester_id: number; name: string; description: string | null;
+        match_type: string; max_players: number; status: string; created_at: string
+      }[]
+      const req = reqs?.[0]
+      if (!req) return json({ skipped: true, reason: 'request not found' })
+      const requesters = (await db(`players?id=eq.${req.requester_id}&select=current_username`)) as { current_username: string }[]
+      itemName = req.name
+      requesterName = requesters?.[0]?.current_username ?? `Jugador ${req.requester_id}`
+      itemDesc = req.description
+      extraLine = `**Tipo:** ${req.match_type} · **Máx:** ${req.max_players} jugadores`
+      pendings = (await db('match_requests?status=eq.pending&select=name&order=created_at.asc')) as Record<string, string>[]
+    } else {
+      const reqs = (await db(`creator_profiles?id=eq.${request_id}&select=id,player_id,channel_name,channel_url,description`)) as {
+        id: string; player_id: number; channel_name: string; channel_url: string; description: string | null
+      }[]
+      const req = reqs?.[0]
+      if (!req) return json({ skipped: true, reason: 'creator request not found' })
+      const requesters = (await db(`players?id=eq.${req.player_id}&select=current_username`)) as { current_username: string }[]
+      itemName = req.channel_name
+      requesterName = requesters?.[0]?.current_username ?? `Jugador ${req.player_id}`
+      itemDesc = req.description
+      extraLine = `**Canal:** ${req.channel_url}`
+      pendings = (await db('creator_profiles?status=eq.pending&select=channel_name&order=created_at.asc')) as { channel_name: string }[]
+      reviewPath = '/admin/creadores'
+    }
+    // Normaliza la lista de pendientes a {name}
+    const pendingNames = pendings.map((p: Record<string, string>) => ({ name: p.name ?? p.channel_name }))
 
     // Quien resolvio (solo en action='resolved')
     let resolverName: string | null = null
@@ -291,29 +320,29 @@ Deno.serve(async (req: Request) => {
       resolverName = admins?.[0]?.display_name ?? 'staff'
     }
 
-    // Estado real del tablon: pendientes actuales (despues de esta resolucion)
-    const pendings = (await db('match_requests?status=eq.pending&select=name&order=created_at.asc')) as { name: string }[]
-
+    const label = kind === 'match_request' ? 'solicitud de partida' : 'solicitud de creador'
     let title = ''
     let desc = ''
     if (action === 'new') {
-      title = `📋 Nueva solicitud de partida: ${req.name}`
-      desc = `**Solicitante:** ${requesterName}\n**Tipo:** ${req.match_type} · **Máx:** ${req.max_players} jugadores`
-      if (req.description) desc += `\n\n${req.description.slice(0, 500)}`
-      desc += pendings.length > 1
-        ? `\n\n⏳ Pendientes ahora: ${pendings.length} — ${pendings.slice(0, 5).map((p) => p.name).join(', ')}${pendings.length > 5 ? '…' : ''}`
+      title = `📋 Nueva ${label}: ${itemName}`
+      desc = `**Solicitante:** ${requesterName}\n${extraLine}`
+      if (itemDesc) desc += `\n\n${itemDesc.slice(0, 500)}`
+      desc += pendingNames.length > 1
+        ? `\n\n⏳ Pendientes ahora: ${pendingNames.length} — ${pendingNames.slice(0, 5).map((p) => p.name).join(', ')}${pendingNames.length > 5 ? '…' : ''}`
         : `\n\n✅ Es la única pendiente.`
     } else {
       const done = body.new_status === 'approved'
-      title = `${done ? '✅' : '❌'} ${resolverName ?? 'Staff'} ${done ? 'aprobó y creó' : 'rechazó'}: ${req.name}`
+      title = `${done ? '✅' : '❌'} ${resolverName ?? 'Staff'} ${done ? 'aprobó' : 'rechazó'}: ${itemName}`
       desc = done
-        ? `La partida ya está abierta en el lobby y ${requesterName} quedó registrado.`
-        : `Solicitud de ${requesterName} rechazada.`
-      desc += pendings.length > 0
-        ? `\n\n⏳ Quedan ${pendings.length} pendiente${pendings.length !== 1 ? 's' : ''}: ${pendings.slice(0, 5).map((p) => p.name).join(', ')}${pendings.length > 5 ? '…' : ''}`
+        ? (kind === 'match_request'
+          ? `La partida ya está abierta en el lobby y ${requesterName} quedó registrado.`
+          : `El perfil de ${itemName} ya es visible en el directorio público de creadores.`)
+        : `${label[0].toUpperCase() + label.slice(1)} de ${requesterName} rechazada.`
+      desc += pendingNames.length > 0
+        ? `\n\n⏳ Quedan ${pendingNames.length} pendiente${pendingNames.length !== 1 ? 's' : ''}: ${pendingNames.slice(0, 5).map((p) => p.name).join(', ')}${pendingNames.length > 5 ? '…' : ''}`
         : `\n\n🎉 Ya no hay solicitudes pendientes.`
     }
-    desc += `\n\n🔗 [Revisar en AllianceHub](${SITE}/admin/partidas)`
+    desc += `\n\n🔗 [Revisar en AllianceHub](${SITE}${reviewPath})`
 
     if (dry_run) return json({ dry_run: true, title, pending: pendings.length })
 

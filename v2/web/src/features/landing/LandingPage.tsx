@@ -195,6 +195,22 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* CREADORES */}
+      <section style={{ padding: '40px 16px 0', textAlign: 'center' }}>
+        <Reveal>
+          <div style={{ ...styles.card, maxWidth: 640, margin: '0 auto', padding: '28px 24px' }}>
+            <div style={{ fontSize: 44, marginBottom: 10 }}>▶️</div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: colors.text, margin: '0 0 6px' }}>Creadores de la comunidad</h2>
+            <p style={{ color: colors.muted, margin: '0 0 16px', fontSize: 14 }}>
+              Guías, estrategia y partidas en vídeo de los jugadores de Supremacy 1914. ¿Tienes canal? Regístralo.
+            </p>
+            <Link to="/creadores" style={{ ...heroBtn, background: colors.accentGradient, color: '#fff', fontSize: 13, padding: '10px 20px' }}>
+              Descubrir creadores →
+            </Link>
+          </div>
+        </Reveal>
+      </section>
+
       {/* REGLAMENTO */}
       <section style={{ padding: '56px 16px', background: colors.card, borderTop: `1px solid ${colors.border}` }}>
         <div style={{ maxWidth: 960, margin: '0 auto' }}>
