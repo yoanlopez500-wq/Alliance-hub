@@ -73,7 +73,6 @@ export default function AdminMatchRequests() {
   }
 
   if (!requests) return <Loader />;
-  if (requests.length === 0) return null;
 
   return (
     <div style={{ ...styles.card, marginBottom: 20 }}>
@@ -88,6 +87,9 @@ export default function AdminMatchRequests() {
         </p>
       )}
       {error && <p style={{ color: colors.danger, margin: '0 0 8px' }}>{error}</p>}
+      {requests.length === 0 && (
+        <p style={{ color: colors.muted, fontSize: 13, margin: 0 }}>🎉 No hay solicitudes pendientes.</p>
+      )}
       {requests.map((r) => (
         <div key={r.id} style={{ borderTop: `1px solid ${colors.border}`, padding: '12px 0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
