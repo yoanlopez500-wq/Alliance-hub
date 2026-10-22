@@ -105,6 +105,12 @@ Deno.serve(async (req: Request) => {
     webhook_url?: string
     image_url?: string
     dry_run?: boolean
+    kind?: string
+    request_id?: string
+    action?: string
+    new_status?: string
+    resolved_by?: string
+    discord_user_id?: string
   }
   let body: Body
   try {
@@ -237,10 +243,6 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // ---------- EVENTOS ----------
-  const HANDLED = ['new_match', 'status_change', 'results_published', 'alliance_announcement']
-  if (!HANDLED.includes(event)) return json({ skipped: true, reason: `event ${event} not handled by discord` })
-
   const alreadySent = async (subjectId: string): Promise<boolean> => {
     const rows = (await db(`discord_notification_log?subject_id=eq.${subjectId}&event=eq.${event}&select=subject_id`)) as unknown[]
     return !!rows?.length
@@ -248,6 +250,99 @@ Deno.serve(async (req: Request) => {
   const markSent = async (subjectId: string): Promise<void> => {
     await db('discord_notification_log', { method: 'POST', body: { subject_id: subjectId, event } })
   }
+
+  // ---------- STAFF DM (auditoria: avisar a admins y reflejar estado real) ----------
+  if (event === 'staff_dm_test') {
+    if (!botToken) return json({ error: 'missing bot_token' }, 500)
+    const discordUserId = String(body.discord_user_id ?? '')
+    if (!/^[0-9]{5,25}$/.test(discordUserId)) return json({ error: 'bad discord_user_id' }, 400)
+    try {
+      const ch = (await discordApi('/users/@me/channels', 'POST', { recipient_id: discordUserId })) as { id: string }
+      await discordApi(`/channels/${ch.id}/messages`, 'POST', {
+        embeds: [embed('🧪 Prueba de avisos', 'Si ves este mensaje, tus avisos privados de AllianceHub funcionan. Te llegará un DM cada vez que haya una solicitud de partida pendiente y cuando alguien del staff la resuelva.')],
+      })
+      return json({ ok: true })
+    } catch (err) {
+      return json({ error: `no pude enviarte el DM: ${(err as Error).message}. Comparte servidor con el bot y ten los DMs abiertos.` }, 502)
+    }
+  }
+
+  if (event === 'staff_dm') {
+    if (!botToken) return json({ error: 'missing bot_token' }, 500)
+    const { kind, request_id, action } = body
+    if (kind !== 'match_request') return json({ skipped: true, reason: `kind ${kind} not handled` })
+    if (!request_id) return json({ error: 'request_id is required' }, 400)
+
+    // Solicitud + solicitante
+    const reqs = (await db(`match_requests?id=eq.${request_id}&select=id,requester_id,name,description,match_type,max_players,status,created_at`)) as {
+      id: string; requester_id: number; name: string; description: string | null;
+      match_type: string; max_players: number; status: string; created_at: string
+    }[]
+    const req = reqs?.[0]
+    if (!req) return json({ skipped: true, reason: 'request not found' })
+
+    const requesters = (await db(`players?id=eq.${req.requester_id}&select=current_username`)) as { current_username: string }[]
+    const requesterName = requesters?.[0]?.current_username ?? `Jugador ${req.requester_id}`
+
+    // Quien resolvio (solo en action='resolved')
+    let resolverName: string | null = null
+    if (action === 'resolved' && body.resolved_by) {
+      const admins = (await db(`admin_users?id=eq.${body.resolved_by}&select=display_name`)) as { display_name: string | null }[]
+      resolverName = admins?.[0]?.display_name ?? 'staff'
+    }
+
+    // Estado real del tablon: pendientes actuales (despues de esta resolucion)
+    const pendings = (await db('match_requests?status=eq.pending&select=name&order=created_at.asc')) as { name: string }[]
+
+    let title = ''
+    let desc = ''
+    if (action === 'new') {
+      title = `📋 Nueva solicitud de partida: ${req.name}`
+      desc = `**Solicitante:** ${requesterName}\n**Tipo:** ${req.match_type} · **Máx:** ${req.max_players} jugadores`
+      if (req.description) desc += `\n\n${req.description.slice(0, 500)}`
+      desc += pendings.length > 1
+        ? `\n\n⏳ Pendientes ahora: ${pendings.length} — ${pendings.slice(0, 5).map((p) => p.name).join(', ')}${pendings.length > 5 ? '…' : ''}`
+        : `\n\n✅ Es la única pendiente.`
+    } else {
+      const done = body.new_status === 'approved'
+      title = `${done ? '✅' : '❌'} ${resolverName ?? 'Staff'} ${done ? 'aprobó y creó' : 'rechazó'}: ${req.name}`
+      desc = done
+        ? `La partida ya está abierta en el lobby y ${requesterName} quedó registrado.`
+        : `Solicitud de ${requesterName} rechazada.`
+      desc += pendings.length > 0
+        ? `\n\n⏳ Quedan ${pendings.length} pendiente${pendings.length !== 1 ? 's' : ''}: ${pendings.slice(0, 5).map((p) => p.name).join(', ')}${pendings.length > 5 ? '…' : ''}`
+        : `\n\n🎉 Ya no hay solicitudes pendientes.`
+    }
+    desc += `\n\n🔗 [Revisar en AllianceHub](${SITE}/admin/partidas)`
+
+    if (dry_run) return json({ dry_run: true, title, pending: pendings.length })
+
+    // Fan-out a todos los staff vinculados y con avisos activos
+    const links = (await db('staff_discord_links?enabled=eq.true&select=admin_user_id,discord_user_id')) as { admin_user_id: string; discord_user_id: string }[]
+    if (!links?.length) return json({ skipped: true, reason: 'no staff discord links' })
+
+    const e = embed(title, desc, { timestamp: new Date().toISOString() })
+    let sent = 0
+    for (const link of links) {
+      const subject = `staffdm-${kind}-${request_id}-${action}-${link.admin_user_id}`
+      if (await alreadySent(subject)) continue
+      try {
+        const ch = (await discordApi('/users/@me/channels', 'POST', { recipient_id: link.discord_user_id })) as { id: string }
+        await discordApi(`/channels/${ch.id}/messages`, 'POST', { embeds: [e] })
+        await markSent(subject)
+        sent++
+      } catch (err) {
+        // 403 tipico: sin servidor en comun o DMs cerrados. No rompe al resto.
+        console.error('staff dm failed', link.admin_user_id, (err as Error).message)
+        await markSent(subject)
+      }
+    }
+    return json({ ok: true, sent, total: links.length })
+  }
+
+  // ---------- EVENTOS ----------
+  const HANDLED = ['new_match', 'status_change', 'results_published', 'alliance_announcement']
+  if (!HANDLED.includes(event)) return json({ skipped: true, reason: `event ${event} not handled by discord` })
 
   // ----- Anuncio de alianza -----
   if (event === 'alliance_announcement') {
