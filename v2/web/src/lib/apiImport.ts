@@ -180,7 +180,7 @@ export async function fetchGameRoster(gameId: string): Promise<ApiRosterEntry[]>
   const out: ApiRosterEntry[] = [];
   for (const e of list) {
     if (!e || typeof e !== 'object') continue;
-    const uid = parseInt(String(e.uid ?? e.id ?? e.player_id ?? ''), 10);
+    const uid = parseInt(String(e.uid ?? e.userID ?? e.userId ?? e.user_id ?? e.id ?? e.player_id ?? ''), 10);
     if (!Number.isFinite(uid) || uid <= 0) continue;
     const name = String(e.name ?? e.username ?? e.nation ?? '').trim();
     out.push({ uid, name });
@@ -196,6 +196,13 @@ export async function fetchGameStartDate(gameId: string): Promise<string | null>
   const payload = await apiFetchJson(`gameId=${encodeURIComponent(gameId)}&resource=start-date`);
   const raw: unknown = payload?.data?.startDate ?? payload?.startDate ?? payload?.data ?? null;
   if (raw == null || raw === '') return null;
+  // La API devuelve epoch en SEGUNDOS (p.ej. 1792338478); tambien aceptar
+  // strings numericos de 9-11 digitos o fechas ISO normales.
+  if (typeof raw === 'number' || /^\d{9,11}$/.test(String(raw).trim())) {
+    const ms = parseInt(String(raw).trim(), 10) * 1000;
+    const d = new Date(ms);
+    return Number.isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : null;
+  }
   const t = Date.parse(String(raw));
   return Number.isFinite(t) ? new Date(t).toISOString().slice(0, 10) : String(raw);
 }
