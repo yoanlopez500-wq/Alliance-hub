@@ -141,3 +141,61 @@ export async function fetchKdRows(gameId: string): Promise<ApiImportRow[]> {
   if (!rows.length) throw new Error('El Excel no contiene jugadores (UID > 0)');
   return rows;
 }
+
+// ---------------------------------------------------------------------------
+// Nuevos resources del proxy (nekokoneko /api/v1): roster oficial y fecha de
+// inicio. Mismo rate limit global de 15s (cada llamada consume 1 permiso), asi
+// que apiFetchJson reintenta automaticamente tras el Retry-After del 429.
+// ---------------------------------------------------------------------------
+
+async function apiFetchJson(path: string, attempts = 4): Promise<any> {
+  for (let i = 0; i < attempts; i++) {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/kd-excel-proxy?${path}`);
+    if (res.status === 429) {
+      const retryAfter = parseInt(res.headers.get('Retry-After') || String(API_IMPORT_MIN_SECONDS), 10) || API_IMPORT_MIN_SECONDS;
+      if (i === attempts - 1) throw new ApiImportRateLimited(retryAfter);
+      await new Promise((r) => setTimeout(r, retryAfter * 1000 + 500));
+      continue;
+    }
+    if (!res.ok) {
+      let detail = '';
+      try { detail = (await res.json())?.error ?? ''; } catch { /* noop */ }
+      throw new Error(`Error del proxy (${res.status})${detail ? ': ' + detail : ''}`);
+    }
+    return res.json();
+  }
+  throw new Error('Proxy: agotados los reintentos');
+}
+
+export interface ApiRosterEntry { uid: number; name: string }
+
+/**
+ * Roster oficial de la partida (players). Normaliza el shape: la API devuelve
+ * {ok, data:[...]} y cada entrada puede traer uid/id/player_id y
+ * name/username/nation segun version.
+ */
+export async function fetchGameRoster(gameId: string): Promise<ApiRosterEntry[]> {
+  const payload = await apiFetchJson(`gameId=${encodeURIComponent(gameId)}&resource=players`);
+  const list: any[] = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+  const out: ApiRosterEntry[] = [];
+  for (const e of list) {
+    if (!e || typeof e !== 'object') continue;
+    const uid = parseInt(String(e.uid ?? e.id ?? e.player_id ?? ''), 10);
+    if (!Number.isFinite(uid) || uid <= 0) continue;
+    const name = String(e.name ?? e.username ?? e.nation ?? '').trim();
+    out.push({ uid, name });
+  }
+  return out;
+}
+
+/**
+ * Fecha de inicio real de la partida segun el exportador (start-date). Devuelve
+ * null si la API no la tiene (partida muy antigua o aun no iniciada).
+ */
+export async function fetchGameStartDate(gameId: string): Promise<string | null> {
+  const payload = await apiFetchJson(`gameId=${encodeURIComponent(gameId)}&resource=start-date`);
+  const raw: unknown = payload?.data?.startDate ?? payload?.startDate ?? payload?.data ?? null;
+  if (raw == null || raw === '') return null;
+  const t = Date.parse(String(raw));
+  return Number.isFinite(t) ? new Date(t).toISOString().slice(0, 10) : String(raw);
+}

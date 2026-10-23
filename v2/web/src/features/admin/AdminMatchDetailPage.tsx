@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { publicDb } from '../../lib/api';
-import { fetchKdRows, ApiImportRateLimited, apiImportRemaining, markApiImport } from '../../lib/apiImport';
+import { fetchKdRows, fetchGameRoster, fetchGameStartDate, ApiImportRateLimited, apiImportRemaining, markApiImport } from '../../lib/apiImport';
 import AdminGate from '../../components/AdminGate';
 import { useAdmin, loadAlliances, allianceById, badge, isSuperadminRole, isStaffRole, type Alliance } from '../../lib/admin';
 import { getSanctionSummary, isPlayerSanctioned, type PlayerSanctionState } from '../../lib/sanctions';
@@ -453,7 +453,23 @@ function MatchDetail() {
       apiUnitsRef.current = new Map(rows.map((r) => [r.player_id, r.units ?? []]));
       setCsvRows(rows.map((r) => ({ player_id: r.player_id, kills: r.kills, deaths: r.deaths })));
       setCsvModal(true);
-      say(`API: ${rows.length} jugadores (bots excluidos)`);
+      // Validaciones extra contra la API oficial (roster + start-date). Cada
+      // llamada consume otro permiso del rate limit global (15s); si fallan
+      // no rompen la importacion, solo se omite el aviso.
+      let extra = '';
+      try {
+        say('API: validando roster oficial…');
+        const roster = await fetchGameRoster(gid);
+        if (roster.length) {
+          const uids = new Set(roster.map((r) => r.uid));
+          const unknown = rows.filter((r) => !uids.has(r.player_id)).map((r) => r.player_id);
+          if (unknown.length) extra += ` · ⚠️ ${unknown.length} UID(s) fuera del roster oficial: ${unknown.slice(0, 8).join(', ')}${unknown.length > 8 ? '…' : ''}`;
+          else extra += ' · roster ✓';
+        }
+        const start = await fetchGameStartDate(gid);
+        if (start) extra += ` · inicio: ${start}`;
+      } catch { /* la importacion ya se hizo; los extras son opcionales */ }
+      say(`API: ${rows.length} jugadores (bots excluidos)${extra}`);
     } catch (e: any) {
       if (e instanceof ApiImportRateLimited) say(e.message);
       else say('API: ' + (e?.message ?? e));
