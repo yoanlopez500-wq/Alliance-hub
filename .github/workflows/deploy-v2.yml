@@ -24,12 +24,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: v2/web/package.json
       - name: Install
         working-directory: v2/web
-        run: npm install
+        run: npm ci
       - name: Build
         working-directory: v2/web
         env:
