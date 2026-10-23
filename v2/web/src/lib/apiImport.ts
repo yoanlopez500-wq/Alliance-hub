@@ -114,7 +114,7 @@ export async function fetchKdRows(gameId: string): Promise<ApiImportRow[]> {
   for (let r = headerIdx + 1; r < raw.length; r++) {
     const row = raw[r] || [];
     const uid = parseInt(String(row[uidCol] ?? ''), 10);
-    if (!Number.isFinite(uid) || uid <= 0) continue; // bots / filas vacias
+    if (!Number.isFinite(uid) || uid <= 1) continue; // bots (-1, 0) y sistema (1) / filas vacias
     let kills = 0;
     let deaths = 0;
     for (let c = 0; c < row.length; c++) {
