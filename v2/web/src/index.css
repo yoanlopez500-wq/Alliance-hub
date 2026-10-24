@@ -293,16 +293,3 @@ body {
   }
   .ah-member-action { text-align: center; padding: 8px 6px; white-space: normal; }
 }
-
-/* ---------- Centro de Inteligencia (/intel) ---------- */
-.ah-intel-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 12px;
-}
-@media (max-width: 720px) {
-  .ah-intel-grid { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 460px) {
-  .ah-intel-grid { grid-template-columns: 1fr; }
-}
