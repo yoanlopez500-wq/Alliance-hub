@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { colors, styles } from '../../theme';
+import { badgeStyle } from '../../lib/format';
 import Reveal from '../../components/Reveal';
 import {
   RULES_VERSION, RULES_NOTES, UPKEEP_PER_PROVINCE, confidenceScore,
@@ -78,10 +79,14 @@ export default function IntelPage() {
   return (
     <div className="ah-intel">
       <Reveal>
-        <h1 style={{ color: colors.text, margin: '0 0 4px' }}>🧠 Centro de Inteligencia</h1>
+        <h1 style={{ color: colors.text, margin: '0 0 4px' }}>
+          🧠 Centro de Inteligencia{' '}
+          <span style={{ ...badgeStyle('rgba(255,213,79,0.15)', '#ffd54f'), fontSize: 12, verticalAlign: 'middle' }}>🧪 Experimental</span>
+        </h1>
         <p style={{ color: colors.muted, margin: '0 0 16px' }}>
           Calculadora estrategica de Supremacy 1914. 100% en tu navegador: tus datos no salen de aqui.
-          Reglas v{RULES_VERSION}.
+          Reglas v{RULES_VERSION}. Funcion en fase experimental: las formulas y los indices se estan
+          afinando y pueden cambiar entre versiones.
         </p>
         <ConfidenceBar value={confidence} />
       </Reveal>
