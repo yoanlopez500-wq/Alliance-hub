@@ -21,6 +21,7 @@ import NovedadesPage from './features/changelog/NovedadesPage';
 import FuncionesPage from './features/guide/FuncionesPage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import GamePage from './features/game/GamePage';
+import IntelPage from './features/intel/IntelPage';
 import ReportPage from './features/report/ReportPage';
 import RankingsPage from './features/rankings/RankingsPage';
 import RulesPage from './features/rules/RulesPage';
@@ -312,6 +313,7 @@ export default function App() {
       {/* Acceso compacto a las paginas publicas desde el modo admin:
           ocultarlas del todo dejaba esas paginas inaccesibles sin cambiar de modo. */}
       <NavDropdown icon="🌐" label="Sitio" currentPath={location.pathname} items={[
+        { to: '/intel', label: '🧠 Inteligencia' },
         { to: '/partidas', label: '🎯 Partidas' },
         { to: '/rankings', label: '🏆 Rankings' },
         { to: '/alianzas', label: '🛡 Alianzas' },
@@ -439,6 +441,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/intel" element={<IntelPage />} />
           <Route path="/partidas" element={<DashboardPage />} />
           <Route path="/partidas/nueva" element={<CreateMatchRequestPage />} />
           <Route path="/partidas/:id" element={<GamePage />} />
