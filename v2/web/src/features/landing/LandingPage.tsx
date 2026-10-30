@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { publicDb } from '../../lib/api';
-import { useVisibilityRole, canSeeRuleSection } from '../../lib/playerSession';
+import { useVisibilityRole, canSeeRuleSection, usePlayerSession } from '../../lib/playerSession';
 import { compareSectionNumber } from '../../lib/format';
 import { colors, styles } from '../../theme';
 import Reveal from '../../components/Reveal';
@@ -35,6 +35,7 @@ interface Stat { matches: number; players: number; alliances: number; kills: num
 /** LandingPage — puerto completo de index.html + landing.js. */
 export default function LandingPage() {
   const role = useVisibilityRole();
+  const { session: playerSession } = usePlayerSession();
   const [stats, setStats] = useState<Stat | null>(null);
   const [rules, setRules] = useState<any[] | null>(null);
   const [allSections, setAllSections] = useState<Record<number, any>>({});
@@ -116,7 +117,9 @@ export default function LandingPage() {
             Alliance Hub organiza <strong style={{ color: colors.text }}>torneos, rankings y ligas</strong> para comunidades de Supremacy 1914. Registra tu alianza, compite en partidas organizadas y escala el ranking global.
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
-            <Link to="/login" style={{ ...heroBtn, background: colors.accentGradient, color: '#fff' }}>🎮 Comenzar como Jugador</Link>
+            {playerSession
+              ? <Link to="/perfil" style={{ ...heroBtn, background: colors.accentGradient, color: '#fff' }}>🎮 Mi perfil</Link>
+              : <Link to="/login" style={{ ...heroBtn, background: colors.accentGradient, color: '#fff' }}>🎮 Comenzar como Jugador</Link>}
             <Link to="/novedades" style={{ ...heroBtn, border: '1px solid rgba(129,199,132,0.45)', background: 'rgba(129,199,132,0.10)', color: colors.success }}>🆕 Novedades Big Update</Link>
             <Link to="/lider/solicitud" style={{ ...heroBtn, border: `1px solid ${colors.border}`, background: 'rgba(255,255,255,0.04)', color: colors.text }}>🏅 Registrar mi Alianza</Link>
             <a href={GUIA_URL} target="_blank" rel="noopener noreferrer" style={{ ...heroBtn, border: '1px solid rgba(255,213,79,0.5)', background: 'rgba(255,213,79,0.1)', color: colors.warning }}>📕 Guia para Lideres (PDF)</a>
@@ -290,7 +293,7 @@ export default function LandingPage() {
               <Link to="/reglas" style={{ color: colors.muted, textDecoration: 'none' }}>Reglamento</Link>
               <Link to="/lider/solicitud" style={{ color: colors.muted, textDecoration: 'none' }}>Liderazgo</Link>
               <Link to="/login" style={{ color: colors.muted, textDecoration: 'none' }}>Admin</Link>
-              <Link to="/login" style={{ color: colors.muted, textDecoration: 'none' }}>Jugador</Link>
+              <Link to={playerSession ? '/perfil' : '/login'} style={{ color: colors.muted, textDecoration: 'none' }}>Jugador</Link>
             </div>
           </div>
           <div style={{ fontSize: 11, color: colors.muted, maxWidth: 480, lineHeight: 1.6 }}>

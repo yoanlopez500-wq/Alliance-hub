@@ -26,6 +26,7 @@ import ReportPage from './features/report/ReportPage';
 import RankingsPage from './features/rankings/RankingsPage';
 import RulesPage from './features/rules/RulesPage';
 import PlayerPage from './features/player/PlayerPage';
+import MyProfilePage from './features/player/MyProfilePage';
 import ApplyLeaderPage from './features/apply-leader/ApplyLeaderPage';
 import ChatPage from './features/chat/ChatPage';
 import AvisoLegalPage from './features/legal/AvisoLegalPage';
@@ -163,7 +164,7 @@ const BASE_TITLE = 'AllianceHub — Torneos, rankings y alianzas de Supremacy 19
 const DEFAULT_DESC = 'Plataforma oficial de competición para alianzas de Supremacy 1914: torneos y partidas con resultados verificados, rankings por bajas efectivas, strikes y sanciones con evidencia, reglamento y gestión de alianzas.';
 
 // Rutas privadas: se sirven (SPA) pero se piden NO indexar.
-const NOINDEX_PREFIXES = ['/admin', '/login', '/registro', '/mi-espacio', '/oficial', '/alianza', '/reset-password', '/chat', '/reportar'];
+const NOINDEX_PREFIXES = ['/admin', '/login', '/registro', '/mi-espacio', '/oficial', '/alianza', '/reset-password', '/chat', '/reportar', '/perfil', '/cuenta'];
 
 const PUBLIC_TITLES: [RegExp, string][] = [
   [/^\/partidas\/.+/, 'Partida · AllianceHub'],
@@ -298,6 +299,7 @@ export default function App() {
         ] : []),
         ...(isLeader ? [{ to: '/admin/leader-dashboard', label: 'Panel de líder' }] : []),
       ]} />
+      <NavLink to="/perfil" style={navStyle}>🎮 Mi perfil</NavLink>
       <NavLink to="/reportar" style={navStyle}>Reportar</NavLink>
     </>
   ) : null;
@@ -398,7 +400,15 @@ export default function App() {
           <NavLink to="/" style={{ ...navStyle({ isActive: false }), fontWeight: 800, color: colors.accent, fontSize: 16, padding: '6px 0' }}>
             ⚔️ AllianceHub
           </NavLink>
-          <button onClick={() => switchMode('player')} style={{
+          <button onClick={() => {
+            // Jugador puro (sin workspace admin/oficial) ya en modo jugador:
+            // el boton es un atajo a su hub /perfil en vez de un no-op.
+            if (activeMode === 'player' && !hasWorkspace && getSessionToken()) {
+              navigate('/perfil');
+            } else {
+              switchMode('player');
+            }
+          }} style={{
             ...pillBase,
             background: activeMode === 'player' ? colors.success : 'transparent',
             border: `1.5px solid ${colors.success}`,
@@ -453,6 +463,7 @@ export default function App() {
           <Route path="/rankings" element={<RankingsPage />} />
           <Route path="/reglas" element={<RulesPage />} />
           <Route path="/jugador/:id" element={<PlayerPage />} />
+          <Route path="/perfil" element={<MyProfilePage />} />
           <Route path="/jugadores" element={<Navigate to="/rankings?tab=market" replace />} />
           {/* ^ sin params que preservar; los de abajo usan RedirectKeepQuery */}
           <Route path="/alianzas" element={<AlianzasPage />} />
