@@ -137,9 +137,21 @@ export default function LoginPage() {
         {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
         {mode === 'player' ? (
           <form onSubmit={loginPlayer}>
-            <Input placeholder="Tu ID de jugador" value={playerId} onChange={(e) => setPlayerId(e.target.value)} required />
+            <Input
+              placeholder="Tu ID de jugador (solo números)"
+              inputMode="numeric"
+              autoComplete="off"
+              value={playerId}
+              onChange={(e) => setPlayerId(e.target.value.replace(/[^0-9]/g, ''))}
+              required
+            />
+            <p style={{ color: colors.muted, fontSize: 12, margin: '4px 0 10px' }}>
+              Es el ID numérico de tu perfil de Supremacy 1914. Sin contraseña:
+              quien entra con un ID queda identificado como ese jugador, así que
+              usa el tuyo.
+            </p>
             <Input placeholder="Nombre visible" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
-            <Button type="submit" disabled={busy} style={{ width: '100%' }}>Entrar como jugador</Button>
+            <Button type="submit" disabled={busy} style={{ width: '100%' }}>{busy ? 'Entrando…' : 'Entrar como jugador'}</Button>
           </form>
         ) : adminPanel === 'reset' ? (
           <form onSubmit={requestPasswordReset}>

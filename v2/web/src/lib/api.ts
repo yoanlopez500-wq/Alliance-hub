@@ -172,7 +172,10 @@ async function request(method: string, path: string, body?: unknown): Promise<an
     const { data: token, error } = await db.rpc('player_login', {
       p_player_id: playerId, p_display_name: displayName,
     });
-    if (error || !token) throw new ApiError(401, 'login rechazado');
+    // Propagar el motivo real (ID invalido, nombre incorrecto, etc.) en vez
+    // de un "login rechazado" generico que no orienta a nadie.
+    if (error) throw new ApiError(401, error.message || 'login rechazado');
+    if (!token) throw new ApiError(401, 'login rechazado');
     return { token, playerId };
   }
   if (path === '/me' && method === 'GET') return fetchMe();
