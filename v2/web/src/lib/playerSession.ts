@@ -13,7 +13,7 @@ export function usePlayerSession(): { session: PlayerSession; loading: boolean }
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    async function resolve() {
       const playerId = localStorage.getItem('ah2_player_id');
       if (!getSessionToken() || !playerId) {
         if (!cancelled) { setSession(null); setLoading(false); }
@@ -29,8 +29,21 @@ export function usePlayerSession(): { session: PlayerSession; loading: boolean }
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
-    return () => { cancelled = true; };
+    }
+    resolve();
+    // Re-validar si el token cambia en OTRA pestana (logout/login ahi) o al
+    // volver de bfcache: evita el render viejo con la identidad anterior.
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'ah2_token' || e.key === 'ah2_player_id' || e.key === null) resolve();
+    };
+    const onPageshow = () => resolve();
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('pageshow', onPageshow);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('pageshow', onPageshow);
+    };
   }, []);
 
   return { session, loading };

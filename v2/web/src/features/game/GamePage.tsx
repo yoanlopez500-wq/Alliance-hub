@@ -207,8 +207,8 @@ export default function GamePage() {
           })()}
           <MatchTypeBadge typeId={m.match_type} />
           {m.is_official && <span style={badgeStyle('rgba(255,213,79,0.15)', '#ffd54f')} title="Arbitrada por el staff de AllianceHub: cuenta en el ranking oficial">🏛 Oficial</span>}
-          {(m.password || m.game_password) && <span style={badgeStyle('rgba(255,193,7,0.15)', '#ffd54f')}>🔒</span>}
-          {m.requires_approval && <span style={badgeStyle('rgba(255,193,7,0.15)', '#ffd54f')}>👁 Con Aprobacion</span>}
+          {(m.password || m.game_password) && <span style={badgeStyle('rgba(255,193,7,0.15)', '#ffd54f')} title="Esta partida tiene contraseña: la verás al registrarte (o en la ficha si ya estás dentro)">🔒 con contraseña</span>}
+          {m.requires_approval && <span style={badgeStyle('rgba(255,193,7,0.15)', '#ffd54f')} title="Tu registro debe ser aprobado por el staff antes de darte acceso">👁 con aprobación</span>}
           {m.winners_declared && <span style={badgeStyle('rgba(255,235,59,0.15)', '#ffee58')}>🏆 Ganadores</span>}
         </div>
         <h1 style={{ color: colors.text, margin: '0 0 4px' }}>{m.name}</h1>

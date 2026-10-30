@@ -119,7 +119,9 @@ export default function AlliancePanelPage() {
     }
   }, [membership, loadMatches, loadMembers]);
 
-  if (loading) return <Loader />;
+  // Loader tambien mientras se resuelve la membresia: sin esto la pagina
+  // quedaba en pantalla oscura varios segundos tras el login (feedback UX).
+  if (loading || !membershipChecked) return <Loader />;
   if (!session) return <Navigate to="/login" replace />;
 
   async function requestJoin(allianceId: string) {

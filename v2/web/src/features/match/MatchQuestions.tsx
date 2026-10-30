@@ -144,6 +144,11 @@ export default function MatchQuestions({ matchId, matchOpen, canModerate }: {
           <Button disabled={busy || !text.trim()} onClick={ask} style={{ padding: '6px 14px', fontSize: 13 }}>
             Enviar pregunta
           </Button>
+          {!text.trim() && (
+            <p style={{ margin: '6px 0 0', fontSize: 12, color: colors.muted }}>
+              Escribe tu pregunta arriba para activar el envío.
+            </p>
+          )}
         </div>
       ) : (
         <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.muted }}>La partida ya no está abierta: el hilo es de solo lectura.</p>
