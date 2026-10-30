@@ -5,6 +5,7 @@ import DataTable from '../../components/DataTable';
 import Badge from '../../components/Badge';
 import Button from '../../components/Button';
 import { Input, TextArea, Select } from '../../components/Field';
+import AdminGate from '../../components/AdminGate';
 import { styles, colors } from '../../theme';
 
 type MatchType = {
@@ -23,6 +24,14 @@ const SCOPE_LABEL: Record<MatchType['scope'], { label: string; tone: string }> =
  * Panel superadmin de tipos de partida (reemplaza los hardcodeos del v1).
  */
 export default function MatchTypesPage() {
+  return (
+    <AdminGate>
+      <MatchTypes />
+    </AdminGate>
+  );
+}
+
+function MatchTypes() {
   const [nuevo, setNuevo] = useState({ id: '', name: '', description: '', scope: 'global' as MatchType['scope'] });
   const [feedback, setFeedback] = useState<string | null>(null);
 

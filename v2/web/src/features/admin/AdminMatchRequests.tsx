@@ -4,6 +4,7 @@ import { publicDb } from '../../lib/api';
 import { colors, styles } from '../../theme';
 import { formatDate, badgeStyle } from '../../lib/format';
 import { MatchTypeBadge } from '../../lib/matchTypes';
+import AdminGate from '../../components/AdminGate';
 import Button from '../../components/Button';
 import Loader from '../../components/Loader';
 
@@ -19,6 +20,14 @@ type Request = {
  * (crea la partida real y auto-registra al solicitante) o rechaza con motivo.
  */
 export default function AdminMatchRequests() {
+  return (
+    <AdminGate staffOnly>
+      <MatchRequests />
+    </AdminGate>
+  );
+}
+
+function MatchRequests() {
   const [requests, setRequests] = useState<Request[] | null>(null);
   const [usernames, setUsernames] = useState<Map<number, string>>(new Map());
   const [busy, setBusy] = useState<string | null>(null);

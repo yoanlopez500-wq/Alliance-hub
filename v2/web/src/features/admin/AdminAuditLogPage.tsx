@@ -1,5 +1,6 @@
 import { publicDb } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
+import AdminGate from '../../components/AdminGate';
 import Badge from '../../components/Badge';
 import Section from '../../components/Section';
 import { colors } from '../../theme';
@@ -20,6 +21,14 @@ type AuditRow = {
  * Auditoria — log de acciones administrativas (admin_audit_log).
  */
 export default function AdminAuditLogPage() {
+  return (
+    <AdminGate staffOnly>
+      <AuditLog />
+    </AdminGate>
+  );
+}
+
+function AuditLog() {
   const { data, loading, error } = useApi<AuditRow[]>(async () => {
     const { data, error: e } = await publicDb
       .from('admin_audit_log')
