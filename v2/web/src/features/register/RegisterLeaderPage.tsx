@@ -29,8 +29,12 @@ export default function RegisterLeaderPage() {
   const [state, setState] = useState<'loading' | 'error' | 'form'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const [invite, setInvite] = useState<InviteInfo | null>(null);
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [discordUserId, setDiscordUserId] = useState('');
+  const [supremacyId, setSupremacyId] = useState('');
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -74,6 +78,9 @@ export default function RegisterLeaderPage() {
           supremacy_id: supremacyId,
           role: inv.role || null,
         });
+        // Nombre visible: precargado con el username del invite (si existe).
+        // Quien se registra lo confirma o lo ajusta; nunca se cae al email.
+        setDisplayName(username);
         setState('form');
       } catch (e: any) {
         console.error('[verifyInvite]', e);
@@ -83,12 +90,24 @@ export default function RegisterLeaderPage() {
     })();
   }, [inviteCode]);
 
-  async function signupViaEdgeFunction(email: string, password: string, code: string, displayName: string | null) {
+  async function signupViaEdgeFunction(payload: {
+    email: string; password: string; code: string; displayName: string;
+    discordUserId: string; supremacyId: string;
+  }) {
     try {
       const resp = await fetch((import.meta.env.VITE_SUPABASE_URL ?? '') + '/functions/v1/complete-leader-signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, inviteCode: code, displayName }),
+        body: JSON.stringify({
+          email: payload.email,
+          password: payload.password,
+          inviteCode: payload.code,
+          displayName: payload.displayName,
+          discordUserId: payload.discordUserId || undefined,
+          // Solo se envía cuando el invite no trae jugador vinculado;
+          // la edge function ignora cualquier valor en caso contrario.
+          supremacyId: invite?.player_id == null && payload.supremacyId ? payload.supremacyId : undefined,
+        }),
       });
       let data: any = {};
       try { data = await resp.json(); } catch { data = {}; }
@@ -107,13 +126,41 @@ export default function RegisterLeaderPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError('');
+    const name = displayName.trim();
+    if (!name) {
+      setFormError('El nombre visible es obligatorio.');
+      return;
+    }
     if (!email || !password || password.length < 6) {
       setFormError('Email válido y contraseña de mínimo 6 caracteres son requeridos.');
       return;
     }
+    if (password !== password2) {
+      setFormError('Las contraseñas no coinciden.');
+      return;
+    }
+    const discord = discordUserId.trim();
+    if (discord && !/^[0-9]{5,25}$/.test(discord)) {
+      setFormError('ID de Discord inválido: solo números (5-25 dígitos).');
+      return;
+    }
+    if (invite?.player_id == null && supremacyId.trim()) {
+      const parsed = Number(supremacyId.trim());
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        setFormError('ID de jugador inválido. Debe ser un número positivo.');
+        return;
+      }
+    }
     setSubmitting(true);
     try {
-      const result = await signupViaEdgeFunction(email, password, inviteCode!, invite?.username || null);
+      const result = await signupViaEdgeFunction({
+        email: email.trim(),
+        password,
+        code: inviteCode!,
+        displayName: name,
+        discordUserId: discord,
+        supremacyId: supremacyId.trim(),
+      });
       if (result.success) {
         // La cuenta ya existe; entrar directo para que el panel funcione
         // en cuanto aterriza (createUser por admin API no abre sesion).
@@ -156,14 +203,47 @@ export default function RegisterLeaderPage() {
                 <>Has sido invitado como <strong style={{ color: colors.accent }}>{label}</strong> del staff de AllianceHub</>
               )}
             </p>
-            {invite.username && (
-              <p style={{ textAlign: 'center', fontSize: 14 }}>Jugador: <strong>{invite.username}</strong>{invite.supremacy_id ? ` (ID: ${invite.supremacy_id})` : ''}</p>
-            )}
-            <form onSubmit={onSubmit} style={{ marginTop: 20 }}>
+            {/* Datos precargados por la invitación (solo lectura, como en la v1) */}
+            <div style={{ marginTop: 16 }}>
+              <label style={{ display: 'block', fontSize: 13, color: colors.muted, marginBottom: 4 }}>ID de Jugador</label>
+              <Input
+                type="text"
+                readOnly
+                value={invite.player_id != null ? String(invite.supremacy_id ?? invite.player_id) : '— (sin jugador vinculado)'}
+                style={{ width: '100%', marginBottom: 12, opacity: 0.7 }}
+              />
+              <label style={{ display: 'block', fontSize: 13, color: colors.muted, marginBottom: 4 }}>Alianza</label>
+              <Input
+                type="text"
+                readOnly
+                value={invite.alliance_name || '—'}
+                style={{ width: '100%', marginBottom: 12, opacity: 0.7 }}
+              />
+            </div>
+            <form onSubmit={onSubmit} style={{ marginTop: 8 }}>
+              <label style={{ display: 'block', fontSize: 13, color: colors.muted, marginBottom: 4 }}>Nombre visible * (cómo te verán en el panel)</label>
+              <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={50} style={{ width: '100%', marginBottom: 12 }} placeholder="Ej: Matadoremio" />
               <label style={{ display: 'block', fontSize: 13, color: colors.muted, marginBottom: 4 }}>Email *</label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%', marginBottom: 12 }} />
               <label style={{ display: 'block', fontSize: 13, color: colors.muted, marginBottom: 4 }}>Contraseña * (mín. 6 caracteres)</label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: '100%', marginBottom: 16 }} />
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: '100%', marginBottom: 12 }} />
+              <label style={{ display: 'block', fontSize: 13, color: colors.muted, marginBottom: 4 }}>Repetir contraseña *</label>
+              <Input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} style={{ width: '100%', marginBottom: 12 }} />
+              {invite.player_id == null && (
+                <>
+                  <label style={{ display: 'block', fontSize: 13, color: colors.muted, marginBottom: 4 }}>Tu ID de Supremacy (opcional)</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={supremacyId}
+                    onChange={(e) => setSupremacyId(e.target.value)}
+                    style={{ width: '100%', marginBottom: 12 }}
+                    placeholder="Solo si quieres vincular tu jugador"
+                  />
+                </>
+              )}
+              <label style={{ display: 'block', fontSize: 13, color: colors.muted, marginBottom: 4 }}>Discord (opcional — ID numérico para DMs del bot)</label>
+              <Input value={discordUserId} onChange={(e) => setDiscordUserId(e.target.value)} style={{ width: '100%', marginBottom: 16 }} placeholder="Ej: 123456789012345678" />
               {formError && <div style={{ color: colors.danger, fontSize: 13, marginBottom: 12 }}>{formError}</div>}
               <Button type="submit" disabled={submitting} style={{ width: '100%' }}>
                 {submitting ? 'Creando cuenta…' : `Crear cuenta de ${label.toLowerCase()}`}

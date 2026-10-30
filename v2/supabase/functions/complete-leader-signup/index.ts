@@ -29,7 +29,14 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Método no permitido" }, 400);
   }
 
-  let body: { email?: string; password?: string; inviteCode?: string; displayName?: string };
+  let body: {
+    email?: string;
+    password?: string;
+    inviteCode?: string;
+    displayName?: string;
+    supremacyId?: number | string | null;
+    discordUserId?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -41,12 +48,20 @@ Deno.serve(async (req: Request) => {
   const password = body.password ?? "";
   const displayName = (body.displayName ?? "").trim();
   const inviteCode = (body.inviteCode ?? "").trim().toUpperCase();
+  const discordUserId = (body.discordUserId ?? "").trim();
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return jsonResponse({ error: "Email inválido" }, 400);
   }
   if (password.length < 6) {
     return jsonResponse({ error: "La contraseña debe tener al menos 6 caracteres" }, 400);
+  }
+  // Nombre visible: OBLIGATORIO. Nunca se cae al email como username visible.
+  if (!displayName || displayName.length > 50) {
+    return jsonResponse({ error: "El nombre visible es obligatorio (máx. 50 caracteres)" }, 400);
+  }
+  if (discordUserId && !/^[0-9]{5,25}$/.test(discordUserId)) {
+    return jsonResponse({ error: "ID de Discord inválido: solo números (5-25 dígitos)" }, 400);
   }
   // Acepta codigos AH+10 (actuales) y AH+6 (legacy pre-hardening)
   if (!/^AH[A-Z0-9]{6,10}$/i.test(body.inviteCode ?? "")) {
@@ -83,12 +98,51 @@ Deno.serve(async (req: Request) => {
   }
   console.log(`invite ${invite.code} valid (role=${invite.role})`);
 
-  // 4. Ensure player row exists if invite references one
-  if (invite.player_id != null) {
+  // 4. Ensure player row exists if invite references one.
+  // El registrado SOLO puede aportar supremacyId cuando el invite NO trae
+  // jugador vinculado (staff). Si el invite trae player_id, ese manda y el
+  // valor enviado se ignora (nadie puede contradecir la invitacion).
+  let linkedPlayerId: number | null = invite.player_id ?? null;
+  if (invite.player_id == null && body.supremacyId != null && body.supremacyId !== "") {
+    const parsed = Number(body.supremacyId);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return jsonResponse({ error: "ID de jugador inválido. Debe ser un número positivo" }, 400);
+    }
+    // Anti-suplantacion: el ID no puede estar ya vinculado a otra cuenta admin
+    const { data: taken, error: takenError } = await supabaseAdmin
+      .from("admin_users")
+      .select("id")
+      .eq("supremacy_player_id", parsed)
+      .limit(1);
+    if (takenError) {
+      console.error("supremacy link lookup error:", takenError);
+      return jsonResponse({ error: "Error verificando ID de jugador" }, 500);
+    }
+    if (taken && taken.length > 0) {
+      return jsonResponse({ error: "Ese ID de jugador ya está vinculado a otra cuenta admin" }, 409);
+    }
+    const { data: existingById } = await supabaseAdmin
+      .from("players")
+      .select("id")
+      .eq("id", parsed)
+      .maybeSingle();
+    if (!existingById) {
+      const { error: playerInsertError } = await supabaseAdmin
+        .from("players")
+        .insert({ id: parsed, current_username: displayName, status: "active" });
+      if (playerInsertError) {
+        console.error("player insert error:", playerInsertError);
+        return jsonResponse({ error: "Error creando jugador" }, 500);
+      }
+      console.log(`player ${parsed} created (staff self-link)`);
+    }
+    linkedPlayerId = parsed;
+  }
+  if (linkedPlayerId != null) {
     const { data: existingPlayer, error: playerLookupError } = await supabaseAdmin
       .from("players")
       .select("id")
-      .eq("id", invite.player_id)
+      .eq("id", linkedPlayerId)
       .maybeSingle();
     if (playerLookupError) {
       console.error("player lookup error:", playerLookupError);
@@ -98,15 +152,15 @@ Deno.serve(async (req: Request) => {
       const { error: playerInsertError } = await supabaseAdmin
         .from("players")
         .insert({
-          id: invite.player_id,
-          current_username: displayName || `Jugador ${invite.player_id}`,
+          id: linkedPlayerId,
+          current_username: displayName,
           status: "active",
         });
       if (playerInsertError) {
         console.error("player insert error:", playerInsertError);
         return jsonResponse({ error: "Error creando jugador" }, 500);
       }
-      console.log(`player ${invite.player_id} created`);
+      console.log(`player ${linkedPlayerId} created`);
     }
   }
 
@@ -141,6 +195,7 @@ Deno.serve(async (req: Request) => {
     email,
     password,
     email_confirm: true,
+    user_metadata: { display_name: displayName },
   });
   if (createError || !created?.user) {
     console.error("createUser error:", createError);
@@ -169,8 +224,8 @@ Deno.serve(async (req: Request) => {
   const { error: adminInsertError } = await supabaseAdmin.from("admin_users").insert({
     id: userId,
     role: invite.role,
-    display_name: displayName || email,
-    supremacy_player_id: invite.player_id ?? null,
+    display_name: displayName,
+    supremacy_player_id: linkedPlayerId,
     alliance_id: invite.alliance_id ?? null,
     approved_by: invite.created_by ?? null,
     approved_at: new Date().toISOString(),
@@ -180,6 +235,20 @@ Deno.serve(async (req: Request) => {
     return await compensate("admin_users insert", adminInsertError);
   }
   console.log(`admin_users row created for ${userId}`);
+
+  // 7a. Discord opcional (DMs del bot). Mismo contrato numérico que /admin/admins.
+  if (discordUserId) {
+    const { error: discordError } = await supabaseAdmin.from("staff_discord_links").upsert({
+      admin_user_id: userId,
+      discord_user_id: discordUserId,
+      enabled: true,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "admin_user_id" });
+    if (discordError) {
+      return await compensate("staff_discord_links upsert", discordError);
+    }
+    console.log(`discord link created for ${userId}`);
+  }
 
   // 7b. Líder: asegurar membresía y vínculo (idempotente). Cubre códigos
   // regenerados y cuentas heredadas sin membresía (el caso EL MICTLAN).
