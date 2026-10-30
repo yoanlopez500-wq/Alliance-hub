@@ -4,7 +4,7 @@ import { colors } from '../theme';
 
 /** lib/admin.ts — base compartida del panel admin (puerto de admin-base.js + auth guards). */
 
-export interface AdminUser { id: string; role: string; display_name: string | null; alliance_id: string | null; status: string }
+export interface AdminUser { id: string; role: string; display_name: string | null; alliance_id: string | null; status: string; supremacy_player_id?: number | null }
 export interface Alliance { id: string; name: string; tag: string | null }
 
 /** Sesion admin: Supabase Auth + fila admin_users activa. null = no admin. */

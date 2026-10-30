@@ -16,6 +16,7 @@ import AlianzasPage from './features/alliance/AlianzasPage';
 import AlliancePanelPage from './features/alliance/AlliancePanelPage';
 import MiEspacioPage from './features/alliance/MiEspacioPage';
 import LoginPage from './features/auth/LoginPage';
+import AccountPage from './features/account/AccountPage';
 import LandingPage from './features/landing/LandingPage';
 import NovedadesPage from './features/changelog/NovedadesPage';
 import FuncionesPage from './features/guide/FuncionesPage';
@@ -411,10 +412,13 @@ export default function App() {
           }}>🛡 Admin</button>
           <span style={{ flex: 1 }} />
           {loggedIn ? (
-            <button onClick={() => { signOutAll().finally(() => reload()); }} style={{
-              background: 'transparent', color: colors.muted, border: `1px solid ${colors.border}`,
-              padding: '6px 14px', borderRadius: 20, cursor: 'pointer', fontSize: 13, flexShrink: 0,
-            }}>Salir</button>
+            <>
+              <NavLink to="/cuenta" style={{ ...navStyle({ isActive: false }), border: `1px solid ${colors.border}`, borderRadius: 20, padding: '6px 14px', flexShrink: 0 }}>👤 Mi cuenta</NavLink>
+              <button onClick={() => { signOutAll().finally(() => reload()); }} style={{
+                background: 'transparent', color: colors.muted, border: `1px solid ${colors.border}`,
+                padding: '6px 14px', borderRadius: 20, cursor: 'pointer', fontSize: 13, flexShrink: 0,
+              }}>Salir</button>
+            </>
           ) : (
             <NavLink to="/login" style={{ ...navStyle({ isActive: false }), border: `1px solid ${colors.border}`, borderRadius: 20, padding: '6px 14px' }}>Entrar</NavLink>
           )}
@@ -463,6 +467,7 @@ export default function App() {
           <Route path="/registro/oficial" element={<RegisterOfficerPage />} />
           <Route path="/aviso-legal" element={<AvisoLegalPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/cuenta" element={<AccountPage />} />
           <Route path="/alianza/sanciones" element={
             myAllianceId ? <SancionesPage allianceId={myAllianceId} /> :
             <p style={{ color: colors.muted }}>Inicia sesión como líder u oficial para ver las sanciones de tu alianza.</p>
