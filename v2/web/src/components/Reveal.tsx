@@ -22,7 +22,11 @@ export default function Reveal({
           io.disconnect();
         }
       },
-      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
+      // threshold 0: basta con que 1px del elemento entre en el viewport.
+      // Con 0.1 una pagina mas alta que el viewport (p. ej. /novedades,
+      // ~11.000px) nunca llega al 10% visible y queda en opacity: 0
+      // para siempre. La animacion (CSS .ah-reveal) no cambia.
+      { threshold: 0, rootMargin: '0px 0px -40px 0px' },
     );
     io.observe(el);
     return () => io.disconnect();
