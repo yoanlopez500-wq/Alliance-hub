@@ -399,8 +399,9 @@ export default function App() {
             En movil la fila mide ~427px (logo + 2 pills + Entrar, todos
             flexShrink:0) y sin arreglo ensanchaba el documento entero a 427px
             en TODAS las paginas. El encaje real esta en index.css (<=640px:
-            la fila se encoge y puede envolverse, "Entrar" siempre visible);
-            aqui solo overflow-x:hidden para que nada de la fila se salga. */}
+            la fila se envuelve a 2 lineas con los tamanos originales, 16/13/
+            14px, "Entrar" siempre visible); aqui solo overflow-x:hidden
+            para que nada de la fila se salga. */}
         <div className="ah-nav-top" style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 16px', overflowX: 'hidden' }}>
           <NavLink to="/" className="ah-nav-logo" style={{ ...navStyle({ isActive: false }), fontWeight: 800, color: colors.accent, fontSize: 16, padding: '6px 0' }}>
             ⚔️ AllianceHub

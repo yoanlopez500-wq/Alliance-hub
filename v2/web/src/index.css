@@ -209,28 +209,24 @@ body {
    estilos inline y todos los hijos en flexShrink:0. En pantallas de 360-390px
    eso ensanchaba el documento entero a 427px en TODAS las paginas: la pagina
    se podia mover de lado con el dedo. Esto es una PWA: tiene que adaptarse a
-   CUALQUIER telefono, no solo a 360/390. Por eso en <=640px la fila no solo
-   se encoge, tambien puede encogerse de verdad (logo con ellipsis, pills con
-   flex-shrink) y envolverse a 2 lineas si hace falta, en vez de esconder
-   "Entrar" detras de un scroll interno: el boton siempre queda visible y la
-   pagina nunca tiene scroll horizontal, en 320, 360, 390, 430 o 480px.
-   Solo afecta a <=640px (y <=380px un poco mas); en escritorio no cambia
-   nada. Los !important son necesarios porque padding/font-size/flex vienen
-   de estilos inline. */
+   CUALQUIER telefono, no solo a 360/390.
+   El arreglo anterior lo resolvio encogiendo la fuente en <=640px (logo
+   16->14px, pills 13->12px, Entrar 14->12px; en <=380px aun mas), y Yoan
+   noto el cambio porque llevaba meses igual: 11-12px con menos padding si
+   puede ser incomodo en telefonos chicos. Asi que NO se encoge la fuente:
+   logo queda en 16px, pills en 13px, Entrar en 14px, con sus paddings
+   originales, en todos los anchos. La fila puede envolverse a 2 lineas en
+   movil (flex-wrap: wrap) y el nav pasa a ~90px de alto; eso esta bien y
+   "Entrar" siempre queda visible. Solo afecta a <=640px; en escritorio no
+   cambia nada. Los !important son necesarios porque padding/flex vienen de
+   estilos inline (la fuente, en cambio, ya no se toca aqui: manda el
+   inline original). */
 @media (max-width: 640px) {
   .ah-nav-top { padding: 10px 12px !important; gap: 6px !important; flex-wrap: wrap !important; overflow-x: visible !important; }
   .ah-nav-top > span { flex: 0 1 0 !important; min-width: 0 !important; }
-  .ah-nav-logo { font-size: 14px !important; flex-shrink: 1 !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
-  .ah-nav-pill { padding: 6px 9px !important; font-size: 12px !important; flex-shrink: 1 !important; min-width: 0 !important; }
-  .ah-nav-account { padding: 6px 10px !important; font-size: 12px !important; flex-shrink: 0 !important; }
-}
-/* Telefonos muy chicos (320px y similares): encoger un poco mas para que
-   todo quepa en una sola linea cuando sea posible. */
-@media (max-width: 380px) {
-  .ah-nav-top { padding: 8px !important; gap: 4px !important; }
-  .ah-nav-logo { font-size: 13px !important; }
-  .ah-nav-pill { padding: 6px 7px !important; font-size: 11px !important; }
-  .ah-nav-account { padding: 6px 8px !important; font-size: 11px !important; }
+  .ah-nav-logo { flex-shrink: 1 !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+  .ah-nav-pill { flex-shrink: 1 !important; min-width: 0 !important; }
+  .ah-nav-account { flex-shrink: 0 !important; }
 }
 /* Red de seguridad PWA: ningun elemento puede ensanchar el documento en
    ningun ancho. El arreglo real es el nav de arriba; esto solo evita que
