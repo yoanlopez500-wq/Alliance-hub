@@ -395,9 +395,14 @@ export default function App() {
         borderBottom: `1px solid ${colors.border}`, position: 'sticky', top: 0, zIndex: 10,
         backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(13,19,48,0.85)',
       }}>
-        {/* Fila 1: identidad + botones de modo permanentes + entrar/salir */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 16px' }}>
-          <NavLink to="/" style={{ ...navStyle({ isActive: false }), fontWeight: 800, color: colors.accent, fontSize: 16, padding: '6px 0' }}>
+        {/* Fila 1: identidad + botones de modo permanentes + entrar/salir.
+            En movil la fila mide ~427px (logo + 2 pills + Entrar, todos
+            flexShrink:0) y sin arreglo ensanchaba el documento entero a 427px
+            en TODAS las paginas. El encaje real esta en index.css (<=640px:
+            la fila se encoge y puede envolverse, "Entrar" siempre visible);
+            aqui solo overflow-x:hidden para que nada de la fila se salga. */}
+        <div className="ah-nav-top" style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 16px', overflowX: 'hidden' }}>
+          <NavLink to="/" className="ah-nav-logo" style={{ ...navStyle({ isActive: false }), fontWeight: 800, color: colors.accent, fontSize: 16, padding: '6px 0' }}>
             ⚔️ AllianceHub
           </NavLink>
           <button onClick={() => {
@@ -408,13 +413,13 @@ export default function App() {
             } else {
               switchMode('player');
             }
-          }} style={{
+          }} className="ah-nav-pill" style={{
             ...pillBase,
             background: activeMode === 'player' ? colors.success : 'transparent',
             border: `1.5px solid ${colors.success}`,
             color: activeMode === 'player' ? '#08130a' : colors.success,
           }}>🎮 Jugador</button>
-          <button onClick={() => switchMode('admin')} style={{
+          <button onClick={() => switchMode('admin')} className="ah-nav-pill" style={{
             ...pillBase,
             background: activeMode === 'admin' ? colors.warning : 'transparent',
             border: `1.5px solid ${colors.warning}`,
@@ -423,14 +428,14 @@ export default function App() {
           <span style={{ flex: 1 }} />
           {loggedIn ? (
             <>
-              <NavLink to="/cuenta" style={{ ...navStyle({ isActive: false }), border: `1px solid ${colors.border}`, borderRadius: 20, padding: '6px 14px', flexShrink: 0 }}>👤 Mi cuenta</NavLink>
-              <button onClick={() => { signOutAll().finally(() => reload()); }} style={{
+              <NavLink to="/cuenta" className="ah-nav-account" style={{ ...navStyle({ isActive: false }), border: `1px solid ${colors.border}`, borderRadius: 20, padding: '6px 14px', flexShrink: 0 }}>👤 Mi cuenta</NavLink>
+              <button onClick={() => { signOutAll().finally(() => reload()); }} className="ah-nav-account" style={{
                 background: 'transparent', color: colors.muted, border: `1px solid ${colors.border}`,
                 padding: '6px 14px', borderRadius: 20, cursor: 'pointer', fontSize: 13, flexShrink: 0,
               }}>Salir</button>
             </>
           ) : (
-            <NavLink to="/login" style={{ ...navStyle({ isActive: false }), border: `1px solid ${colors.border}`, borderRadius: 20, padding: '6px 14px' }}>Entrar</NavLink>
+            <NavLink to="/login" className="ah-nav-account" style={{ ...navStyle({ isActive: false }), border: `1px solid ${colors.border}`, borderRadius: 20, padding: '6px 14px' }}>Entrar</NavLink>
           )}
         </div>
         {/* Fila 2: nav horizontal deslizable con los enlaces del modo activo */}
